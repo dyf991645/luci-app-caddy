@@ -17,9 +17,18 @@ return function(options) {
 			die('Unable to persist configuration');
 		if (system(['/bin/sync'], 10000) != 0) die('Unable to sync configuration');
 	}
+	function migrate(config) {
+		if (config?.version != 1 || type(config.sites) != 'array') return config;
+		return {...config,version:2,sites:map(config.sites,function(site) {
+			let next={...site,upstreams:[site.backend],balance:'round_robin',path:'',strip:false};
+			delete next.backend;
+			return next;
+		})};
+	}
 	function state(private) {
 		let draft = read('draft.json', { revision: 0, config: null });
 		let active = read('active-state.json', { revision: 0, config: null });
+		draft.config = migrate(draft.config);
 		let public_config = draft.config == null ? null : json(sprintf('%J', draft.config));
 		if (!private && public_config) {
 			delete public_config.manual_caddyfile;
@@ -35,6 +44,11 @@ return function(options) {
 			return 'Imports, escapes, backticks and environment expansion are unsupported in managed Caddyfile content';
 		return null;
 	}
+	function known_keys(value, allowed) {
+		if (type(value) != 'object') return false;
+		for (let key in value) if (index(allowed,key) < 0) return false;
+		return true;
+	}
 	function check(config) {
 		if (config?.mode != null && index(['form', 'manual'], config.mode) < 0) return 'Select form or manual configuration source';
 		if (config?.manual_caddyfile != null) {
@@ -48,28 +62,33 @@ return function(options) {
 			}
 		}
 		let g = config?.settings;
-		let s = config?.sites?.[0];
-		if (type(config) != 'object' || config.version != 1 || type(g) != 'object' || type(config.sites) != 'array' || length(config.sites) != 1 || type(s) != 'object')
-			return 'Configure exactly one site';
-		for (let key in keys(config))
-			if (index(['version', 'settings', 'sites', 'mode', 'manual_caddyfile'], key) < 0) return 'Unsupported configuration field';
-		for (let key in keys(g))
-			if (index(['http_port', 'https_port', 'email', 'storage'], key) < 0) return 'Unsupported configuration field';
-		for (let key in keys(s))
-			if (index(['domain', 'backend', 'challenge', 'advanced_snippet'], key) < 0) return 'Unsupported configuration field';
-		if (config?.mode == 'manual') {
-			if (!length(trim(config.manual_caddyfile || ''))) return 'Enter a complete Caddyfile';
-			return null;
+		if (!known_keys(config,['version','settings','sites','mode','manual_caddyfile']) || !known_keys(g,['http_port','https_port','email','storage'])) return 'Unsupported configuration field';
+		if (config.version != 2 || type(config.sites) != 'array' || length(config.sites) < 1)
+			return 'Configure at least one site using the supported schema';
+		let domains={};
+		for (let s in config.sites) {
+			if (!known_keys(s,['domain','upstreams','balance','path','strip','challenge','advanced_snippet'])) return 'Unsupported configuration field';
+			if (config.mode == 'manual') continue;
+			if (type(s.domain) != 'string' || length(s.domain) > 253 || !match(s.domain, /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/)) return 'Enter a valid non-wildcard domain';
+			for (let label in split(s.domain, '.')) if (length(label) > 63) return 'Domain labels must not exceed 63 characters';
+			if (domains[s.domain]) return 'Each domain must have exactly one site';
+			domains[s.domain]=true;
+			if (type(s.upstreams) != 'array' || !length(s.upstreams)) return 'Configure at least one backend';
+			let scheme=null;
+			for (let backend in s.upstreams) {
+				let parts=type(backend)=='string' ? match(backend, /^(https?):\/\/([a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?|\[[a-fA-F0-9:]+\]):([0-9]{1,5})$/) : null;
+				if (!parts) return 'Backend must be an HTTP or HTTPS host and explicit port without credentials or paths';
+				let port=+split(backend, ':')[-1];
+				if (port < 1 || port > 65535) return 'Invalid backend port';
+				if (scheme && scheme != parts[1]) return 'All backends in a group must use the same protocol';
+				scheme=parts[1];
+			}
+			if (index(['round_robin','least_conn','random'],s.balance) < 0) return 'Unsupported load balancing strategy';
+			if (type(s.path) != 'string' || (s.path != '' && !match(s.path,/^\/([a-zA-Z0-9_~.-]+\/)*([a-zA-Z0-9_~.-]+|\*)?$/)) || index(split(s.path,'/'),'..') >= 0 || index(split(s.path,'/'),'.') >= 0) return 'Path must be exact or end in /*, without query, encoding or parent segments';
+			if (type(s.strip) != 'bool' || (s.strip && (s.path == '' || substr(s.path,-2) != '/*'))) return 'Prefix removal requires a path ending in /*';
+			if (index(['http-01', 'tls-alpn-01'], s.challenge) < 0) return 'Unsupported verification method';
 		}
-		if (type(s.domain) != 'string' || length(s.domain) > 253 || !match(s.domain, /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/))
-			return 'Enter a valid non-wildcard domain';
-		for (let label in split(s.domain, '.'))
-			if (length(label) > 63) return 'Domain labels must not exceed 63 characters';
-		if (type(s.backend) != 'string' || !match(s.backend, /^http:\/\/([a-zA-Z0-9.-]+|\[[a-fA-F0-9:]+\]):[0-9]{1,5}$/))
-			return 'Backend must be an HTTP host and explicit port without credentials or paths';
-		let port = +split(s.backend, ':')[-1];
-		if (port < 1 || port > 65535) return 'Invalid backend port';
-		if (index(['http-01', 'tls-alpn-01'], s.challenge) < 0) return 'Unsupported verification method';
+		if (config.mode == 'manual') return length(trim(config.manual_caddyfile || '')) ? null : 'Enter a complete Caddyfile';
 		for (let name in ['http_port', 'https_port'])
 			if (type(g[name]) != 'int' || g[name] < 1 || g[name] > 65535 || g[name] == +split(admin, ':')[1]) return 'Invalid or reserved listening port';
 		if (g.http_port == g.https_port) return 'HTTP and HTTPS ports must differ';
@@ -78,24 +97,25 @@ return function(options) {
 		return null;
 	}
 	function generate(config) {
-		let g = config.settings, s = config.sites[0];
-		let issuer = { module: 'acme', email: g.email, challenges: { http: { disabled: s.challenge != 'http-01' }, 'tls-alpn': { disabled: s.challenge != 'tls-alpn-01' } } };
-		if (options?.internal_tls) issuer = {module:'internal'};
-		let generated = {
-			admin: { listen: admin, config: { persist: false } },
-			storage: { module: 'file_system', root: g.storage },
-			apps: {
-				http: { http_port: g.http_port, https_port: g.https_port, servers: {
-					redirect: { listen: [(options?.bind || '') + ':' + g.http_port], routes:[{match:[{host:[s.domain]}],handle:[{handler:'static_response',status_code:308,headers:{Location:['https://' + s.domain + (g.https_port == 443 ? '' : ':' + g.https_port) + '{http.request.uri}']}}]}] },
-					proxy: { automatic_https:{disable_redirects:true}, listen: [(options?.bind || '') + ':' + g.https_port], routes: [
-						{ match: [{host:[s.domain]}], handle: [{handler:'reverse_proxy', upstreams:[{dial:substr(s.backend,7)}]}], terminal:true },
-						{handle:[{handler:'static_response',status_code:404}]}
-					], tls_connection_policies:[{}] }
-				} },
-				tls: { automation: { policies: [{subjects:[s.domain],issuers:[issuer]}] } }
-			}
-		};
-		if (options?.internal_tls) generated.apps.pki = {certificate_authorities:{local:{install_trust:false}}};
+		let g=config.settings, routes=[], redirects=[], policies=[];
+		for (let s in config.sites) {
+			let issuer={module:'acme',email:g.email,challenges:{http:{disabled:s.challenge!='http-01'},'tls-alpn':{disabled:s.challenge!='tls-alpn-01'}}};
+			if (options?.internal_tls) issuer={module:'internal'};
+			push(policies,{subjects:[s.domain],issuers:[issuer]});
+			push(redirects,{match:[{host:[s.domain]}],handle:[{handler:'static_response',status_code:308,headers:{Location:['https://'+s.domain+(g.https_port==443?'':':'+g.https_port)+'{http.request.uri}']}}]});
+			let proxy={handler:'reverse_proxy',upstreams:map(s.upstreams,function(url) {return {dial:replace(url,/^https?:\/\//,'')};}),load_balancing:{selection_policy:{policy:s.balance}}};
+			if (substr(s.upstreams[0],0,8)=='https://') proxy.transport={protocol:'http',tls:{}};
+			let handles=[];
+			if (s.strip) push(handles,{handler:'rewrite',strip_path_prefix:substr(s.path,0,length(s.path)-2)});
+			push(handles,proxy);
+			// Authentication belongs inside this matching handler, before rewrite/proxy.
+			let pathRoute={handle:handles,terminal:true};
+			if (s.path != '') pathRoute.match=[{path:[s.path]}];
+			push(routes,{match:[{host:[s.domain]}],handle:[{handler:'subroute',routes:[pathRoute,{handle:[{handler:'static_response',status_code:404}]}]}],terminal:true});
+		}
+		push(routes,{handle:[{handler:'static_response',status_code:404}]});
+		let generated={admin:{listen:admin,config:{persist:false}},storage:{module:'file_system',root:g.storage},apps:{http:{http_port:g.http_port,https_port:g.https_port,servers:{redirect:{listen:[(options?.bind||'')+':'+g.http_port],routes:redirects},proxy:{automatic_https:{disable_redirects:true},listen:[(options?.bind||'')+':'+g.https_port],routes,tls_connection_policies:[{}]}}},tls:{automation:{policies}}}};
+		if (options?.internal_tls) generated.apps.pki={certificate_authorities:{local:{install_trust:false}}};
 		return generated;
 	}
 
@@ -140,8 +160,9 @@ return function(options) {
 			for (let name, server in generated.apps.http.servers) {
 				for (let route in server.routes) {
 					if (route.match?.[0]?.host?.[0] != site.domain || name == 'redirect') continue;
-					let proxy = route.handle;
-					route.handle = [{handler:'subroute',routes:[...routes,{handle:proxy}]}];
+					let scoped = route.handle[0].routes[0];
+					let proxy = scoped.handle;
+					scoped.handle = [{handler:'subroute',routes:[...routes,{handle:proxy}]}];
 				}
 			}
 		}
@@ -219,7 +240,7 @@ return function(options) {
 		},
 		preview: function(request) {
 			return locked(function() {
-				let config = request.config || state(true).draft;
+				let config = migrate(request.config || state(true).draft);
 				let error = check(config);
 				if (error) return {ok:false,error};
 				if (config.mode == 'manual' || length(filter(config.sites, s => length(s.advanced_snippet || '') > 0))) {
@@ -236,9 +257,10 @@ return function(options) {
 			return locked(function() {
 				let previous = state();
 				if (request.expected_revision != previous.draft_revision) return { ok: false, error: 'Draft changed; reload before saving' };
-				let error = check(request.config);
+				let config = migrate(request.config);
+				let error = check(config);
 				if (error) return { ok: false, error };
-				write('draft.json', { revision: previous.draft_revision + 1, config: request.config });
+				write('draft.json', { revision: previous.draft_revision + 1, config });
 				return state();
 			});
 		}
