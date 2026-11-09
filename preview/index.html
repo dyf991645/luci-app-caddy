@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#163b58">
+  <meta name="color-scheme" content="light dark">
+  <title>Caddy · OpenWrt LuCI</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/bootstrap-preview.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <a href="#main" class="skip">跳到主要内容</a>
+  <header class="topbar">
+    <div class="bootstrap-container header-inner">
+      <a class="openwrt" href="#sites">OpenWrt</a>
+      <button id="mobile-menu" class="icon-button mobile-only" aria-label="展开主导航" aria-controls="top-navigation" aria-expanded="false">☰</button>
+      <nav id="top-navigation" class="top-navigation" aria-label="LuCI 主导航">
+        <span class="shell-item" aria-disabled="true">状态</span>
+        <span class="shell-item" aria-disabled="true">系统</span>
+        <details id="services-menu" class="shell-dropdown"><summary>服务</summary><div class="shell-dropdown-items"><a href="#sites" aria-current="true">Caddy</a></div></details>
+        <span class="shell-item" aria-disabled="true">网络</span>
+        <span class="shell-item" aria-disabled="true">退出</span>
+      </nav>
+      <div class="top-right"><span class="preview-badge">交互预览</span><span class="router-host">主机名：OpenWrt</span></div>
+    </div>
+  </header>
+  <div class="workspace">
+    <nav class="page-tabs" aria-label="Caddy 功能导航">
+      <a href="#overview" data-page="overview">概览</a>
+      <a href="#sites" data-page="sites">反向代理<span id="nav-count" class="nav-count"></span></a>
+      <a href="#tls" data-page="tls">TLS 证书</a>
+      <a href="#settings" data-page="settings">全局设置</a>
+      <a href="#config" data-page="config">配置文件</a>
+      <a href="#logs" data-page="logs">运行日志</a>
+    </nav>
+    <main id="main" tabindex="-1"></main>
+    <footer class="page-footer"><span>luci-app-caddy<span class="footer-separator">/</span>界面预览 v0.1</span><span>演示数据，仅保存在当前浏览器</span></footer>
+  </div>
+  <div id="apply-bar" class="apply-bar" hidden><div><span class="change-dot"></span><strong>有未应用的配置</strong><span>保存后可预览生成的 Caddyfile</span></div><button class="button primary" id="apply">模拟校验并应用</button></div>
+  <dialog id="editor" class="editor" aria-labelledby="editor-title"></dialog>
+  <dialog id="confirm" class="confirm" aria-labelledby="confirm-title"></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

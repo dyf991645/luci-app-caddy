@@ -1,0 +1,80 @@
+/* The standalone preview follows the OS. Native LuCI pages will inherit the
+   installed LuCI theme instead of replacing its global colors or navigation. */
+:root { color-scheme: light; }
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --navy: #b7d6ef;
+    --brand: #79d4b9;
+    --brand-hover: #286f5b;
+    --brand-soft: #1c3832;
+    --blue: #a2c8ec;
+    --ink: #e1e8ef;
+    --muted: #a6b4c3;
+    --line: #34434f;
+    --surface: #1c2832;
+    --canvas: #131d25;
+    --danger: #ffa6a6;
+    --subtle: #22313d;
+    --control-border: #617585;
+    --control-hover: #2b3e4c;
+  }
+  .skip, .topbar, .sidebar, .status-strip, .panel, .editor,
+  .confirm, .apply-bar, input, select, textarea, .button {
+    background: var(--surface);
+    color: var(--ink);
+  }
+  input, select, textarea, .button, .choice, .segmented {
+    border-color: var(--control-border);
+  }
+  input:hover, select:hover, textarea:hover, .button:hover {
+    border-color: #93a8b8;
+  }
+  input::placeholder, textarea::placeholder { color: #9daebd; }
+  input[type=checkbox], .choice input { accent-color: #4fb795; }
+  .button:hover, .button.ghost:hover, .icon-button:hover,
+  .sidebar nav a:hover { background: var(--control-hover); }
+  .button.ghost, .icon-button { background: transparent; }
+  .button.primary, .caddy-mark { background: #216750; border-color: #3c9a7c; color: #fff; }
+  .button.primary:hover { background: #286f5b; }
+  .button.danger { color: var(--danger); border-color: #ac7378; }
+  .table-edit { color: var(--brand); }
+  .context-item, .sidebar nav a, .nav-caption, th, .backend,
+  .method, .tag-neutral, .page-footer, .log-line time,
+  .search svg, .editor-section h3 svg { color: var(--muted); }
+  .service-label, .breadcrumb span:last-child { color: var(--ink); }
+  .app-link, .avatar, .version, th, .table-bottom,
+  .form-actions, .editor-footer, .readonly-note,
+  .challenge-help, .segmented, .method, .tag-neutral {
+    background: var(--subtle);
+  }
+  .version { border-color: var(--line); color: var(--muted); }
+  .luci-label { border-color: var(--line); }
+  .sidebar nav a.active { background: var(--brand-soft); color: var(--brand); }
+  .nav-count, .overview-note { background: var(--brand-soft); }
+  .nav-dot, .device-dot { background: var(--brand); }
+  .overview-note { color: var(--ink); }
+  .pill.gray { color: #bdcad6; background: #33434f; }
+  .pill.amber, .preview-badge { color: #f1d49a; background: #3c3221; }
+  .preview-badge { border-color: #806d48; }
+  td, .detail-row, .log-line { border-bottom-color: var(--line); }
+  tbody tr:hover { background: #202f3a; }
+  .site-icon { color: #b8d3e8; background: #2c4354; }
+  .site-icon.green { color: #a3d6bc; background: #29483d; }
+  .site-icon.purple { color: #d0c0ed; background: #3b3352; }
+  .site-icon.orange { color: #e9c495; background: #493c2d; }
+  .switch-track { background: #718391; }
+  .switch[aria-checked=true] .switch-track { background: #368a70; }
+  .info-note { color: #c3d9eb; background: #203646; border-color: #49677d; }
+  .challenge-help { color: #b4c8d9; }
+  .choice:has(input:checked) { border-color: var(--brand); }
+  .segmented button.selected { background: #3c5261; color: var(--ink); }
+  .code-panel, .code-input { background: #101a22; color: #dce8ef; }
+  .apply-bar { border-color: #538977; box-shadow: 0 5px 28px #0005; }
+  .change-dot { background: #edbd6e; }
+  .log-level.warn, .inline-warning { color: #efcc90; }
+  .editor::backdrop, .confirm::backdrop { background: #040a10aa; }
+  .toast { background: #214d3f; border: 1px solid #4d9179; }
+  .toast.error { background: #753535; border-color: #be7c7c; }
+  .footer-separator, .divider-arrow { color: #a4b7c7; }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "luci-app-caddy-preview",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "bun preview/server.js", "check": "bun build preview/app.js --target browser --outfile /tmp/luci-caddy-preview-check.js" }
+}
