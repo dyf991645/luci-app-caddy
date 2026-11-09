@@ -30,6 +30,9 @@ let state;
 try { const saved = JSON.parse(localStorage.getItem('caddy-preview-v1')); state = saved?.sites && saved?.settings && saved?.tls ? saved : structuredClone(initial); }
 catch { state = structuredClone(initial); }
 state.auth = {...initial.auth, ...state.auth};
+let unsaved = false;
+state.draftRevision ??= state.dirty ? 1 : 0;
+state.activeRevision ??= 0;
 let page, query = '', filter = 'all', toastTimer, editingId, editorOpener;
 const demoLogs = [
   ['10:42:08','INFO','演示：配置已加载，5 个站点已启用。'],
@@ -39,8 +42,8 @@ const demoLogs = [
   ['10:42:09','INFO','演示：自动续期维护任务已启动。'],
 ];
 const titles = {overview:['概览','查看服务状态、监听端口与配置概况。'],sites:['反向代理','将域名连接到你的家庭服务，HTTPS 由 Caddy 自动管理。'],tls:['TLS 证书','设置默认验证方式，站点也可以单独覆盖。'],settings:['全局设置','管理服务监听、持久化存储和启动行为。'],config:['配置文件','查看表单生成的 Caddyfile，或切换到手动管理。'],logs:['运行日志','查看配置应用、服务启动和证书签发记录。']};
-function persist(){try{localStorage.setItem('caddy-preview-v1',JSON.stringify(state));}catch{toast('浏览器存储不可用，本次更改仅保留在当前页面。',true);} $('#nav-count').textContent=state.sites.length; $('#apply-bar').hidden=!state.dirty; document.body.classList.toggle('has-changes',state.dirty);}
-function change(){state.dirty=true;persist();}
+function persist(){try{localStorage.setItem('caddy-preview-v1',JSON.stringify(state));}catch{toast('浏览器存储不可用，本次更改仅保留在当前页面。',true);} $('#nav-count').textContent=state.sites.length; $('#apply-bar').hidden=false; $('#save-draft').disabled=!unsaved; $('#apply').disabled=!unsaved&&!state.dirty; $('#draft-status').textContent=`草稿 v${state.draftRevision} · 生效 v${state.activeRevision}${state.dirty?' · 待应用':''}${unsaved?' · 尚未保存':''}`; document.body.classList.add('has-changes');}
+function change(){unsaved=false;state.draftRevision++;state.dirty=true;persist();}
 function toast(message,error=false){clearTimeout(toastTimer);const t=$('#toast');t.textContent=message;t.classList.toggle('error',error);t.hidden=false;toastTimer=setTimeout(()=>t.hidden=true,4200);}
 function badge(text,type=''){return `<span class="pill ${type}">${esc(text)}</span>`;}
 function heading(){return `<div class="breadcrumb">服务<span>/</span>Caddy<span>/</span><span>${titles[page][0]}</span></div><div class="heading"><div><div class="heading-title"><h1>${titles[page][0]}</h1>${page==='sites'?'<span class="version">Caddy 2.x</span>':''}</div><p>${titles[page][1]}</p></div><div class="heading-actions">${page==='sites'?`<a class="button secondary-action" href="#config">${icon('code')}配置预览</a><button class="button primary" data-action="add">${icon('plus')}添加站点</button>`:page==='logs'?`<button class="button" data-action="download-logs">${icon('download')}导出日志</button>`:''}</div></div>`;}
@@ -152,10 +155,9 @@ document.addEventListener('click',async e=>{
   if(action==='service'){state.running=!state.running;persist();demoLogs.push([new Date().toLocaleTimeString('zh-CN'),'INFO',`演示：服务已${state.running?'启动':'停止'}。`]);render();toast(`服务已${state.running?'启动':'停止'}（模拟）。`);}
   if(action==='reload'){
     if(!state.running)return toast('服务已停止，请先启动。',true);
-    if(state.dirty)return toast('有未应用的配置，请使用底部“模拟校验并应用”。',true);
     const button=e.target.closest('[data-action]');button.disabled=true;button.textContent='正在模拟重载…';
     await new Promise(resolve=>setTimeout(resolve,500));
-    demoLogs.push([new Date().toLocaleTimeString('zh-CN'),'INFO','演示：配置重载完成，未重启进程；未执行真实 caddy reload。']);
+    demoLogs.push([new Date().toLocaleTimeString('zh-CN'),'INFO','演示：最近生效配置重载完成，待应用草稿保留，未重启进程；未执行真实 caddy reload。']);
     render();toast('配置已重载（模拟），进程未重启。');
   }
   if(action==='restart'){state.running=true;persist();demoLogs.push([new Date().toLocaleTimeString('zh-CN'),'INFO','演示：服务重启完成。']);render();toast('服务已重启（模拟），未操作真实路由器。');}
@@ -164,11 +166,15 @@ document.addEventListener('click',async e=>{
   if(action==='download-config')download('Caddyfile',currentConfig());
   if(action==='download-logs')download('caddy-preview.log',demoLogs.map(x=>x.join(' ')).join('\n'));
 });
-$('#apply').addEventListener('click',async()=>{if(state.mode==='manual'&&$('#manual-config')){if($('#manual-config').value!==state.custom)state.custom=$('#manual-config').value;}if(state.mode==='manual'&&!state.custom.trim())return toast('完整 Caddyfile 不能为空。',true);const b=$('#apply');b.disabled=true;b.textContent='正在模拟应用…';await new Promise(resolve=>setTimeout(resolve,650));state.dirty=false;persist();demoLogs.push([new Date().toLocaleTimeString('zh-CN'),'INFO','演示：配置应用流程完成。未执行真实 Caddy 校验或重载。']);b.disabled=false;b.textContent='模拟校验并应用';toast('模拟应用完成；未执行真实 Caddy 校验或重载。');if(page==='overview'||page==='logs')render();});
+function saveVisibleDraft(){if(!unsaved)return true; const form=$('#main form');if(form){if(!form.reportValidity())return false;form.requestSubmit();return !unsaved;}if($('#manual-config')){saveManual();return true;}return false;}
+$('#save-draft').addEventListener('click',saveVisibleDraft);
+$('#main').addEventListener('input',()=>{unsaved=true;persist();});
+window.addEventListener('beforeunload',e=>{if(unsaved){e.preventDefault();e.returnValue='';}});
+$('#apply').addEventListener('click',async()=>{if(!saveVisibleDraft())return;if(state.mode==='manual'&&$('#manual-config')){if($('#manual-config').value!==state.custom)state.custom=$('#manual-config').value;}if(state.mode==='manual'&&!state.custom.trim())return toast('完整 Caddyfile 不能为空。',true);const b=$('#apply');b.disabled=true;b.textContent='正在模拟应用…';await new Promise(resolve=>setTimeout(resolve,650));state.activeRevision=state.draftRevision;state.dirty=false;persist();demoLogs.push([new Date().toLocaleTimeString('zh-CN'),'INFO','演示：配置应用流程完成。未执行真实 Caddy 校验或重载。']);b.textContent='保存并模拟应用';persist();toast('模拟应用完成；未执行真实 Caddy 校验或重载。');if(page==='overview'||page==='logs')render();});
 $('#mobile-menu').addEventListener('click',()=>{const expanded=$('#top-navigation').classList.toggle('expanded');$('#mobile-menu').setAttribute('aria-expanded',expanded);});
 function closeNavigation(){ $('#top-navigation').classList.remove('expanded'); $('#mobile-menu').setAttribute('aria-expanded','false'); $('#services-menu').open=false; }
 $('#services-menu a').addEventListener('click',closeNavigation);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeNavigation();});
-window.addEventListener('hashchange',()=>{closeNavigation();render();});
+window.addEventListener('hashchange',()=>{if(unsaved&&!confirm('有未保存的编辑。放弃后离开？')){history.replaceState(null,'','#'+page);return;}unsaved=false;closeNavigation();render();});
 $('#editor').addEventListener('cancel',()=>{setTimeout(()=>editorOpener?.focus(),0);});
 render();

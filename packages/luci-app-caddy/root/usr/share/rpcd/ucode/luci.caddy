@@ -11,8 +11,14 @@ function output(command) {
 	return pipe.close() == 0 ? text : null;
 }
 
+function manager() { return loadfile('/usr/share/caddy-manager/config.uc')()(); }
+
 return {
 	'luci.caddy': {
+		draft_get: {call: function() {return manager().draft_get();}},
+		draft_save: {args:{config:{},expected_revision:0},call:function(request) {return manager().draft_save(request.args);}},
+		config_preview: {args:{config:{}},call:function(request) {return manager().preview(request.args);}},
+		config_apply: {args:{expected_revision:0},call:function(request) {return manager().apply(request.args);}},
 		status: {
 			call: function() {
 				let installed = access('/usr/bin/caddy');

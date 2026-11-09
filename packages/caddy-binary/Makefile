@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=caddy-binary
 PKG_VERSION:=2.11.8
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 PKG_LICENSE:=Apache-2.0
 PKG_SOURCE:=caddy-2.11.8-cloudflare-0.2.4-linux-arm64
 PKG_SOURCE_URL:=https://caddyserver.com/api

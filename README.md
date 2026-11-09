@@ -9,7 +9,9 @@ OpenWrt 的 Caddy 反向代理管理界面。目标为官方 OpenWrt、APK、`aa
 - `caddy-binary`：上游 Linux ARM64 内核、Cloudflare 模块、procd 服务及初始生效配置。
 - `luci-app-caddy`：默认主题的“服务 → Caddy”入口，真实版本、模块、进程状态，启停、重启、重载和开机启动。
 
-当前原生实现仅覆盖服务入口。站点、证书、认证及配置编辑仍是后续任务；Web 预览明确使用模拟状态，不连接设备。
+原生实现包含服务入口、单站点 HTTP 后端、HTTP-01/TLS-ALPN-01 选择、全局端口/邮箱/存储、草稿保存、生成 JSON 预览及校验后热加载。保存与生效修订独立，启动、重启、重载只使用最近生效配置。多站点、认证和证书清单仍是后续任务；Web 预览使用模拟状态，不连接设备。
+
+先启动 Caddy，再应用保存的草稿；应用不会自动启动已停止的服务。管理器协议与恢复契约见 [SCHEMA.md](packages/luci-app-caddy/root/usr/share/caddy-manager/SCHEMA.md)。公网 HTTP-01 需要外部80转发到配置的 HTTP 端口，TLS-ALPN-01 需要外部443转发到配置的 HTTPS 端口。插件不配置这些转发。应用成功表示配置加载成功，不代表异步证书签发已成功。
 
 目标为官方 OpenWrt **25.12.4 / mediatek/filogic / aarch64_cortex-a53 / APK**。
 SDK、上游 URL、实际内核/模块版本与 SHA256 见 [artifact-lock.json](artifact-lock.json)。
