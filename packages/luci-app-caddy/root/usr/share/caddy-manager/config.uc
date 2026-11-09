@@ -17,12 +17,40 @@ return function(options) {
 			die('Unable to persist configuration');
 		if (system(['/bin/sync'], 10000) != 0) die('Unable to sync configuration');
 	}
-	function state() {
+	function state(private) {
 		let draft = read('draft.json', { revision: 0, config: null });
 		let active = read('active-state.json', { revision: 0, config: null });
-		return { ok: true, draft: draft.config, draft_revision: draft.revision, active_revision: active.revision, pending: draft.revision != active.revision, recovery_required: read('transaction.json', null) != null };
+		let public_config = draft.config == null ? null : json(sprintf('%J', draft.config));
+		if (!private && public_config) {
+			delete public_config.manual_caddyfile;
+			for (let site in public_config.sites) delete site.advanced_snippet;
+		}
+		return { ok: true, draft: private ? draft.config : public_config, draft_revision: draft.revision, active_revision: active.revision, pending: draft.revision != active.revision, recovery_required: read('transaction.json', null) != null };
+	}
+	function source_check(text) {
+		if (type(text) != 'string' || length(text) > 65536) return 'Caddyfile content must be text up to 64 KiB';
+		// Deliberately conservative lexical boundary, not a sandbox. No escaped
+		// tokens, imports or process-environment expansion, including in strings.
+		if (index(text, '\\') >= 0 || index(text, '`') >= 0 || index(text, '{$') >= 0 || index(lc(text), '{env.') >= 0 || match(text, /(^|[^a-zA-Z0-9_])import([^a-zA-Z0-9_]|$)/))
+			return 'Imports, escapes, backticks and environment expansion are unsupported in managed Caddyfile content';
+		return null;
 	}
 	function check(config) {
+		if (config?.mode != null && index(['form', 'manual'], config.mode) < 0) return 'Select form or manual configuration source';
+		if (config?.manual_caddyfile != null) {
+			let error = source_check(config.manual_caddyfile);
+			if (error) return error;
+		}
+		for (let site in config?.sites) {
+			if (site.advanced_snippet != null) {
+				let error = source_check(site.advanced_snippet);
+				if (error) return error;
+			}
+		}
+		if (config?.mode == 'manual') {
+			if (!length(trim(config.manual_caddyfile || ''))) return 'Enter a complete Caddyfile';
+			return null;
+		}
 		let g = config?.settings;
 		let s = config?.sites?.[0];
 		if (config?.version != 1 || !g || length(config.sites) != 1 || !s)
@@ -65,6 +93,52 @@ return function(options) {
 		return generated;
 	}
 
+
+	function command(action, name) {
+		return system([options?.command || '/usr/share/caddy-manager/caddy-command', action, root + '/' + name, admin], 30000) == 0;
+	}
+	function adapt(text) {
+		let path = root + '/source.caddyfile';
+		if (writefile(path, text) == null || !chmod(path, 0600)) die('Unable to persist private source');
+		if (!command('adapt', 'source.caddyfile')) die('Caddy rejected Caddyfile');
+		return read('source.caddyfile.json', null);
+	}
+	function compile(config) {
+		if (config.mode == 'manual') {
+			let candidate = adapt(config.manual_caddyfile);
+			if (type(candidate) != 'object') die('Caddy rejected Caddyfile');
+			let a = candidate.admin;
+			if (a && (a.disabled || (a.listen != null && a.listen != admin) || a.remote != null || a.config?.load != null || a.config?.persist == true))
+				die('Unsafe admin configuration');
+			candidate.admin = {listen:admin,config:{persist:false}};
+			if (candidate.storage && (candidate.storage.module != 'file_system' || candidate.storage.root != root + '/data')) die('Unsupported certificate storage');
+			candidate.storage = {module:'file_system',root:root + '/data'};
+			candidate.apps ||= {};
+			candidate.apps.pki ||= {};
+			candidate.apps.pki.certificate_authorities ||= {};
+			candidate.apps.pki.certificate_authorities.local ||= {};
+			for (let name, ca in candidate.apps.pki.certificate_authorities) ca.install_trust = false;
+			return candidate;
+		}
+		let generated = generate(config);
+		for (let site in config.sites) {
+			if (!length(trim(site.advanced_snippet || ''))) continue;
+			let snippet = adapt('http://snippet.invalid {\n' + site.advanced_snippet + '\n}\n');
+			if (length(keys(snippet.apps || {})) != 1 || !snippet.apps.http || length(keys(snippet.apps.http.servers || {})) != 1 || snippet.apps.http.servers.srv0.tls_connection_policies != null || snippet.apps.http.servers.srv0.automatic_https != null)
+				die('Advanced snippets support HTTP routing directives only');
+			let routes = snippet.apps.http.servers.srv0.routes?.[0]?.handle?.[0]?.routes;
+			if (type(routes) != 'array') die('Unsupported advanced snippet');
+			for (let name, server in generated.apps.http.servers) {
+				for (let route in server.routes) {
+					if (route.match?.[0]?.host?.[0] != site.domain || name == 'redirect') continue;
+					let proxy = route.handle;
+					route.handle = [{handler:'subroute',routes:[...routes,{handle:proxy}]}];
+				}
+			}
+		}
+		return generated;
+	}
+
 	function locked(fn) {
 		let lock = open(root + '/manager.lock', 'a', 0600);
 		if (!lock || !lock.lock('xn')) { if (lock) lock.close(); return { ok: false, error: 'Another configuration operation is running' }; }
@@ -74,9 +148,7 @@ return function(options) {
 		lock.close();
 		return result;
 	}
-	function command(action, name) {
-		return system([options?.command || '/usr/share/caddy-manager/caddy-command', action, root + '/' + name, admin], 30000) == 0;
-	}
+
 	function recover(load) {
 		let journal = read('transaction.json', null);
 		if (!journal) return {ok:true};
@@ -90,7 +162,8 @@ return function(options) {
 	}
 
 	return {
-		draft_get: state,
+		draft_get: function() { return state(false); },
+		draft_edit: function() { return state(true); },
 		recover: function(request) { return locked(function() { return recover(request?.load != false); }); },
 		active_reload: function() {
 			return locked(function() {
@@ -103,11 +176,13 @@ return function(options) {
 			return locked(function() {
 				let recovered = recover(true);
 				if (!recovered.ok) return recovered;
-				let current = state();
+				let current = state(true);
 				if (request.expected_revision != current.draft_revision) return {ok:false,error:'Draft changed; reload before applying'};
 				let error = check(current.draft);
 				if (error) return {ok:false,error};
-				let candidate = generate(current.draft);
+				let candidate;
+				try { candidate = compile(current.draft); }
+				catch(e) { return {ok:false,error:'Caddyfile adaptation or managed admin/storage policy rejected configuration; active configuration is unchanged'}; }
 				write('candidate.json', candidate);
 				if (!command('validate','candidate.json')) return {ok:false,error:'Caddy rejected the generated configuration; active configuration is unchanged'};
 				let next = {revision:current.draft_revision,config:current.draft};
@@ -134,9 +209,19 @@ return function(options) {
 			});
 		},
 		preview: function(request) {
-			let config = request.config || state().draft;
-			let error = check(config);
-			return error ? { ok:false, error } : { ok:true, config:generate(config) };
+			return locked(function() {
+				let config = request.config || state(true).draft;
+				let error = check(config);
+				if (error) return {ok:false,error};
+				if (config.mode == 'manual' || length(filter(config.sites, s => length(s.advanced_snippet || '') > 0))) {
+					try {
+						write('preview.json', compile(config));
+						if (!command('validate','preview.json')) die('Validation failed');
+					} catch(e) { return {ok:false,error:'Caddy rejected configuration or managed admin/storage policy'}; }
+					return {ok:true,config:{source:config.mode || 'form',validated:true,redacted:true,admin:admin,storage:'managed filesystem'}};
+				}
+				return {ok:true,config:generate(config)};
+			});
 		},
 		draft_save: function(request) {
 			return locked(function() {
