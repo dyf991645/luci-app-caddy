@@ -1,0 +1,8 @@
+{
+  "admin": {
+    "listen": "127.0.0.1:2019",
+    "config": { "persist": false }
+  },
+  "storage": { "module": "file_system", "root": "/etc/caddy/data" },
+  "apps": {}
+}
