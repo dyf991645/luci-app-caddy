@@ -1,7 +1,23 @@
 {
   "luci-app-caddy": {
     "description": "View and control the Caddy service",
-    "read": { "ubus": { "luci.caddy": ["status"] } },
-    "write": { "ubus": { "luci.caddy": ["action"] } }
+    "read": {
+      "ubus": {
+        "luci.caddy": [
+          "status",
+          "draft_get",
+          "config_preview"
+        ]
+      }
+    },
+    "write": {
+      "ubus": {
+        "luci.caddy": [
+          "action",
+          "draft_save",
+          "config_apply"
+        ]
+      }
+    }
   }
 }

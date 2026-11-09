@@ -60,7 +60,7 @@ return view.extend({
 		poll.add(function() { return busy ? Promise.resolve() : status().then(update); }, 5);
 		return E('div', { 'class': 'cbi-map' }, [
 			E('h2', {}, 'Caddy'),
-			E('ul', { 'class': 'cbi-tabmenu' }, [E('li', { 'class': 'cbi-tab' }, E('a', { 'href': L.url('admin/services/caddy') }, _('Overview')))]),
+			E('ul', { 'class': 'cbi-tabmenu' }, [E('li', { 'class': 'cbi-tab' }, E('a', { 'href': L.url('admin/services/caddy') }, _('Overview'))), E('li', {}, E('a', { 'href': L.url('admin/services/caddy/configuration') }, _('Configuration')))]),
 			E('div', { 'class': 'cbi-section' }, [
 				E('h3', {}, _('Service status')), state, info,
 				E('p', {}, E('label', {}, [boot, ' ', _('Start on boot')])),

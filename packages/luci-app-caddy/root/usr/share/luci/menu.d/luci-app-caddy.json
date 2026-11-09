@@ -2,7 +2,27 @@
   "admin/services/caddy": {
     "title": "Caddy",
     "order": 60,
-    "action": { "type": "view", "path": "caddy/overview" },
-    "depends": { "acl": ["luci-app-caddy"] }
+    "action": {
+      "type": "view",
+      "path": "caddy/overview"
+    },
+    "depends": {
+      "acl": [
+        "luci-app-caddy"
+      ]
+    }
+  },
+  "admin/services/caddy/configuration": {
+    "title": "Configuration",
+    "order": 20,
+    "action": {
+      "type": "view",
+      "path": "caddy/configuration"
+    },
+    "depends": {
+      "acl": [
+        "luci-app-caddy"
+      ]
+    }
   }
 }

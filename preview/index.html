@@ -39,7 +39,7 @@
     <main id="main" tabindex="-1"></main>
     <footer class="page-footer"><span>luci-app-caddy<span class="footer-separator">/</span>界面预览 v0.1</span><span>演示数据，仅保存在当前浏览器</span></footer>
   </div>
-  <div id="apply-bar" class="apply-bar" hidden><div><span class="change-dot"></span><strong>有未应用的配置</strong><span>保存后可预览生成的 Caddyfile</span></div><button class="button primary" id="apply">模拟校验并应用</button></div>
+  <div id="apply-bar" class="apply-bar"><div><span class="change-dot"></span><strong id="draft-status">草稿与生效配置</strong><span>浏览器演示 · 不连接路由器</span></div><div class="actions"><button class="button" id="save-draft" disabled>保存草稿</button><button class="button primary" id="apply" disabled>保存并模拟应用</button></div></div>
   <dialog id="editor" class="editor" aria-labelledby="editor-title"></dialog>
   <dialog id="confirm" class="confirm" aria-labelledby="confirm-title"></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>

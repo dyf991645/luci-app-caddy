@@ -1,0 +1,48 @@
+import {writefile} from 'fs';
+// Public manager seam: saving a draft never changes the active revision.
+let create = loadfile(ARGV[0])();
+let manager = create({ root: ARGV[1], admin: '127.0.0.1:22019', bind: '127.0.0.1' });
+let config = { version: 1, settings: { http_port: 22080, https_port: 22443, email: '', storage: ARGV[1] + '/data' }, sites: [{ domain: 'proxy.example.test', backend: 'http://127.0.0.1:22081', challenge: 'http-01' }] };
+let saved = manager.draft_save({ config, expected_revision: 0 });
+assert(saved.ok, 'valid draft saves');
+let state = manager.draft_get();
+assert(state.draft_revision == 1 && state.active_revision == 0 && state.pending, 'save is draft only');
+assert(state.draft.sites[0].domain == 'proxy.example.test', 'saved draft is readable');
+print('PASS draft save/read without applying\n');
+assert(!manager.draft_save({config, expected_revision:0}).ok, 'stale browser cannot overwrite draft');
+let invalid = { ...config, sites: [{domain:'evil.test\nadmin :80',backend:'http://127.0.0.1:22081',challenge:'http-01'}] };
+assert(!manager.draft_save({config:invalid,expected_revision:1}).ok, 'injected domain is rejected');
+let preview = manager.preview({});
+assert(preview.ok && preview.config.admin.listen == '127.0.0.1:22019', 'preview protects local admin');
+assert(preview.config.apps.tls.automation.policies[0].issuers[0].challenges['tls-alpn'].disabled, 'HTTP-01 disables alternate verification');
+writefile(ARGV[1]+'/preview-http.json',sprintf('%J',preview.config));
+assert(system([ARGV[2],'validate',ARGV[1]+'/preview-http.json','127.0.0.1:22019'],30000)==0,'real Caddy validates HTTP-01 configuration without issuance');
+let alternate={...config,sites:[{...config.sites[0],challenge:'tls-alpn-01'}]};
+let alpn=manager.preview({config:alternate});
+assert(alpn.config.apps.tls.automation.policies[0].issuers[0].challenges.http.disabled,'TLS-ALPN-01 disables HTTP verification');
+writefile(ARGV[1]+'/preview-alpn.json',sprintf('%J',alpn.config));
+assert(system([ARGV[2],'validate',ARGV[1]+'/preview-alpn.json','127.0.0.1:22019'],30000)==0,'real Caddy validates TLS-ALPN-01 configuration without issuance');
+print('PASS optimistic concurrency, validation and both ACME configuration previews\n');
+manager = create({ root:ARGV[1], admin:'127.0.0.1:22019', bind:'127.0.0.1', internal_tls:true, command:ARGV[2] });
+let applied = manager.apply({expected_revision:1});
+assert(applied.ok && applied.active_revision == 1 && !applied.pending, 'validated draft becomes active after real Caddy load');
+assert(manager.active_reload().ok, 'active configuration reloads');
+print('PASS validated apply and last-active reload\n');
+// Public fixture uses the real Caddy admin boundary; no mocked load success.
+let second = {...config, sites:[{domain:'second.example.test',backend:'http://127.0.0.1:22081',challenge:'tls-alpn-01'}]};
+assert(manager.draft_save({config:second,expected_revision:1}).ok, 'new draft saves');
+let unavailable = create({root:ARGV[1],admin:'127.0.0.1:22020',bind:'127.0.0.1',internal_tls:true,command:ARGV[2]});
+let failed = unavailable.apply({expected_revision:2});
+assert(!failed.ok && failed.recovery_required, 'unreachable admin fails honestly and signals unknown outcome');
+let retained = manager.draft_get();
+assert(retained.active_revision == 1 && retained.draft_revision == 2 && retained.pending, 'load failure preserves active and saved draft');
+assert(manager.recover().ok && manager.active_reload().ok, 'interrupted load can reconcile authoritative active');
+print('PASS failed load preserves last-active and recovers\n');
+
+let invalidStorage = {...second,settings:{...second.settings,storage:ARGV[1]+'/blocked'}};
+writefile(ARGV[1]+'/blocked','not a directory');
+assert(manager.draft_save({config:invalidStorage,expected_revision:2}).ok,'draft can be saved independently of runtime validation');
+let rejected = manager.apply({expected_revision:3});
+assert(!rejected.ok && index(rejected.error,'Caddy rejected') == 0,'real Caddy validation failure is reported safely');
+assert(manager.draft_get().active_revision == 1,'validation failure retains last active');
+print('PASS real Caddy validation failure retains active\n');
