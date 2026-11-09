@@ -3,7 +3,6 @@ import base64
 import hashlib
 import http.server
 import ssl
-import struct
 import sys
 import threading
 

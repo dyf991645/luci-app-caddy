@@ -78,6 +78,22 @@ return function(options) {
 			for (let backend in s.upstreams) {
 				let parts=type(backend)=='string' ? match(backend, /^(https?):\/\/([a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?|\[[a-fA-F0-9:]+\]):([0-9]{1,5})$/) : null;
 				if (!parts) return 'Backend must be an HTTP or HTTPS host and explicit port without credentials or paths';
+				let host=parts[2];
+				if (substr(host,0,1)=='[') {
+					let address=substr(host,1,length(host)-2), chunks=split(address,':'), compressed=split(address,'::');
+					if (length(compressed)>2 || index(address,':::')>=0 || (length(compressed)==1 && length(chunks)!=8)) return 'Invalid IPv6 backend host';
+					let count=0;
+					for (let chunk in chunks) {if (chunk!='') {if (!match(chunk,/^[a-fA-F0-9]{1,4}$/)) return 'Invalid IPv6 backend host'; count++;}}
+					if (length(compressed)==2 && count>7) return 'Invalid IPv6 backend host';
+				} else {
+					if (length(host)>253) return 'Invalid backend host';
+					for (let label in split(host,'.')) if (length(label)>63 || !match(label,/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$/)) return 'Invalid backend host';
+					if (match(host,/^[0-9.]+$/)) {
+						let octets=split(host,'.');
+						if (length(octets)!=4) return 'Invalid IPv4 backend host';
+						for (let octet in octets) if (+octet>255 || (length(octet)>1 && substr(octet,0,1)=='0')) return 'Invalid IPv4 backend host';
+					}
+				}
 				let port=+split(backend, ':')[-1];
 				if (port < 1 || port > 65535) return 'Invalid backend port';
 				if (scheme && scheme != parts[1]) return 'All backends in a group must use the same protocol';

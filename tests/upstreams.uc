@@ -9,7 +9,7 @@ assert(manager.draft_save({config,expected_revision:0}).ok,'multiple sites and a
 assert(manager.apply({expected_revision:1}).ok,'real Caddy validates and loads grouped path configuration');
 print('PASS multiple sites, backend group, validated apply\n');
 for (let changes in [
- {upstreams:[]}, {upstreams:['http://127.0.0.1:23081','https://127.0.0.1:23082']},
+ {upstreams:[]}, {upstreams:['http://a..b:80']}, {upstreams:['http://[::::]:80']}, {upstreams:['http://999.999.999.999:80']}, {upstreams:['http://127.0.0.1:23081','https://127.0.0.1:23082']},
  {upstreams:['http://user:password@localhost:80']}, {upstreams:['http://localhost:0']},
  {upstreams:['https://localhost:443/path']}, {upstreams:['http://localhost']},
  {balance:'injected'}, {path:'/media*'}, {path:'/media/*/x'}, {path:'/a/../b'},
