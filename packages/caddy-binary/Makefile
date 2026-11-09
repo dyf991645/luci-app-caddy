@@ -19,7 +19,9 @@ define Package/caddy-binary
   CATEGORY:=Network
   TITLE:=Upstream Caddy with the Cloudflare DNS provider
   URL:=https://caddyserver.com/
-  DEPENDS:=@aarch64 !caddy
+  DEPENDS:=@aarch64
+  # APK conflicts are negative dependencies; keep them out of Kconfig DEPENDS.
+  EXTRA_DEPENDS:=!caddy (>=0)
   CONFLICTS:=caddy
   PKGARCH:=aarch64_cortex-a53
 endef
