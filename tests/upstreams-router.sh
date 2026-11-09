@@ -1,5 +1,6 @@
 set -eu
 base=/tmp/luci-caddy-ticket03
+if [ "${1:-}" = extended ]; then rm -f "$base/ready" "$base/client-done"; fi
 root="$base/run-$(date +%s)-$$"
 mkdir -p "$root"
 export SSL_CERT_FILE="$base/ca.pem"
