@@ -1,0 +1,63 @@
+name: Build OpenWrt APKs
+on:
+  workflow_dispatch:
+    inputs:
+      reviewed_caddy_url:
+        description: 'Optional reviewed artifact mirror; SHA256 lock still required'
+        type: string
+        required: false
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install official SDK prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang flex bison g++ gawk gcc-multilib gettext git libncurses-dev libssl-dev python3 python3-setuptools rsync unzip zlib1g-dev file wget curl ca-certificates zstd qemu-user
+      - name: Restore reviewed downloads
+        uses: actions/cache@v4
+        with:
+          path: .cache/build
+          key: caddy-openwrt-downloads-${{ hashFiles('artifact-lock.json') }}
+      - name: Check build rejection behavior
+        run: python3 tests/build_test.py
+      - name: Build and verify APK contents
+        env:
+          REVIEWED_CADDY_URL: ${{ inputs.reviewed_caddy_url }}
+        run: python3 scripts/build.py --caddy-url "$REVIEWED_CADDY_URL"
+      - name: Upload APKs and provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: caddy-openwrt-25.12.4-aarch64_cortex-a53-${{ github.sha }}
+          path: dist-apk/
+          if-no-files-found: error
+          retention-days: 30
+  release:
+    # Push a release tag only after release acceptance and publication authorization.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: caddy-openwrt-25.12.4-aarch64_cortex-a53-${{ github.sha }}
+          path: dist-apk
+      - name: Verify attachments
+        working-directory: dist-apk
+        run: sha256sum --check SHA256SUMS
+      - name: Publish approved tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" --verify-tag --title "$RELEASE_TAG" --notes-file dist-apk/RELEASE-NOTES.md dist-apk/*

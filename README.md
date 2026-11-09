@@ -37,3 +37,5 @@ apk add --allow-untrusted /tmp/caddy-binary-*.apk /tmp/luci-app-caddy-*.apk
 服务启动、重启及重载均不读取草稿。日志交给系统 logd 的有限缓冲区。
 
 测试边界和原生验证脚本见 [tests/README.md](tests/README.md)。构建通过不能代替目标 APK 安装、LuCI 浏览器和服务生命周期验收。
+
+APK 自动构建、产物校验、浮动下载缓存恢复及标签发布流程见 [构建说明](scripts/README.md)。
