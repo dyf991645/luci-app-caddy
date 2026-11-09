@@ -49,6 +49,9 @@ termination immediately after real load followed by public boot/reload recovery.
 HTTP-01/TLS-ALPN-01 production configurations are only validated/provisioned:
 **no public ACME issuance succeeds or is attempted by this fixture**.
 
+`config-schema.uc` checks strict unknown-key rejection through public save/read
+for top-level, settings and site properties, using a fresh temporary root.
+
 `config-rpc.uc` additionally exercises the public plugin save/read/preview/apply
 adapter using a temporary plugin copy whose manager loader is redirected to the
 same `/tmp` module and a fresh `/tmp` state root. It never registers/replaces the
