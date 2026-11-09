@@ -25,7 +25,11 @@ isolated real-router test seam, with CA trust installation explicitly disabled.
 
 Ticket02 accepts one non-wildcard DNS domain, one HTTP backend with explicit port,
 and `http-01` or `tls-alpn-01`. Backend URLs do not contain credentials, path,
-query or fragment. Global port fields are JSON integers. Future ticket03 extends
+query or fragment. Global port fields are JSON integers. Unknown top-level, settings and site keys
+are rejected before saving or previewing; arbitrary request properties cannot
+enter the readable draft. Schema extensions must deliberately update these
+allowlists and their public save/read tests along with validation/generation.
+Future ticket03 extends
 `sites[]` and replaces `backend` with a backend group (including HTTPS transport),
 with a deliberate version/migration change. Future auth/manual/credential fields
 must be explicitly added to validation and generation; they must not be silently
