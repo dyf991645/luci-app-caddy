@@ -47,20 +47,20 @@ return function(options) {
 				if (error) return error;
 			}
 		}
-		if (config?.mode == 'manual') {
-			if (!length(trim(config.manual_caddyfile || ''))) return 'Enter a complete Caddyfile';
-			return null;
-		}
 		let g = config?.settings;
 		let s = config?.sites?.[0];
 		if (type(config) != 'object' || config.version != 1 || type(g) != 'object' || type(config.sites) != 'array' || length(config.sites) != 1 || type(s) != 'object')
 			return 'Configure exactly one site';
 		for (let key in keys(config))
-			if (index(['version', 'settings', 'sites'], key) < 0) return 'Unsupported configuration field';
+			if (index(['version', 'settings', 'sites', 'mode', 'manual_caddyfile'], key) < 0) return 'Unsupported configuration field';
 		for (let key in keys(g))
 			if (index(['http_port', 'https_port', 'email', 'storage'], key) < 0) return 'Unsupported configuration field';
 		for (let key in keys(s))
-			if (index(['domain', 'backend', 'challenge'], key) < 0) return 'Unsupported configuration field';
+			if (index(['domain', 'backend', 'challenge', 'advanced_snippet'], key) < 0) return 'Unsupported configuration field';
+		if (config?.mode == 'manual') {
+			if (!length(trim(config.manual_caddyfile || ''))) return 'Enter a complete Caddyfile';
+			return null;
+		}
 		if (type(s.domain) != 'string' || length(s.domain) > 253 || !match(s.domain, /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/))
 			return 'Enter a valid non-wildcard domain';
 		for (let label in split(s.domain, '.'))
@@ -132,7 +132,10 @@ return function(options) {
 			let snippet = adapt('http://snippet.invalid {\n' + site.advanced_snippet + '\n}\n');
 			if (length(keys(snippet.apps || {})) != 1 || !snippet.apps.http || length(keys(snippet.apps.http.servers || {})) != 1 || snippet.apps.http.servers.srv0.tls_connection_policies != null || snippet.apps.http.servers.srv0.automatic_https != null)
 				die('Advanced snippets support HTTP routing directives only');
-			let routes = snippet.apps.http.servers.srv0.routes?.[0]?.handle?.[0]?.routes;
+			let server = snippet.apps.http.servers.srv0;
+			if (length(server.routes) != 1 || server.routes[0].match?.[0]?.host?.[0] != 'snippet.invalid') die('Unsupported snippet scope');
+			for (let key in keys(server)) if (index(['listen','routes'],key) < 0) die('Unsupported snippet server option');
+			let routes = server.routes[0].handle?.[0]?.routes;
 			if (type(routes) != 'array') die('Unsupported advanced snippet');
 			for (let name, server in generated.apps.http.servers) {
 				for (let route in server.routes) {

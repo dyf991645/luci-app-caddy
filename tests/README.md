@@ -69,3 +69,14 @@ The build itself checks real APK architecture/integrity, extracts the packaged
 Caddy, compares its locked checksum, and executes version/modules/build-info via
 qemu-aarch64. See [build instructions](../scripts/README.md) for prerequisites,
 provenance and the separate router-install/remote-Actions acceptance boundary.
+
+Ticket04 manual source fixture: copy `tests/manual.uc`, `tests/manual-router.sh`,
+manager `config.uc` and `caddy-command` to `/tmp/luci-caddy-ticket04/`, make the
+command helper executable and run `sh /tmp/luci-caddy-ticket04/manual-router.sh`.
+It uses real ucode/Caddy, only loopback24019/24080/24443, mode0700 private runtime
+roots and HOME/XDG directories under `/tmp`, with CA trust installation disabled.
+It exercises independent source persistence, write-editor/read-state redaction,
+actual manual HTTP responses, real snippet header responses, invalid/unsafe
+admin/storage rejection, and import/environment rejection. No public ACME or
+installed service/config mutation is performed. LuCI and preview browser
+interaction acceptance remains separate from these runtime tests.
