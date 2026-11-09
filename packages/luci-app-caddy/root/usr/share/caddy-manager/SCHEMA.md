@@ -102,3 +102,56 @@ identical HTTP/HTTPS ports are rejected. Future diagnostics can report conflicts
 Power-cut tests kill a manager after successful real `/load` and before active
 promotion, then exercise the public boot/reload recovery interface. This tests
 the interrupted-process contract, not physical storage hardware durability.
+
+## Independent Caddyfile source (ticket 04)
+
+Public state additionally exposes `active_source` (`form`, `manual`, or null
+when no managed revision is committed), independently of the selected draft mode.
+
+`mode` is `form` (default for existing drafts) or `manual`.
+`manual_caddyfile` is the separate complete Caddyfile string. Each form site may
+contain `advanced_snippet`, a string of HTTP routing directives. Both sources
+remain in the private draft, regardless of selected mode; neither is converted
+into the other. A source change is only a draft change until successful Apply.
+Service start/restart/reload still uses durable last-active JSON, including
+when that JSON originated from a Caddyfile. Service/autostart remain independent
+of the read-only content forms in manual mode.
+
+`draft_edit()` is a **write ACL** RPC exposing editable private source to trusted
+administrators. `draft_get()` and all save/apply responses omit Caddyfile and
+snippet strings, including inactive source. `config_preview` now requires write
+ACL because validation of administrator-supplied server configuration is a
+privileged operation. Manual/snippet previews return a fixed redacted validation
+summary, never adapted JSON or active/candidate files. Ordinary form previews
+continue to be generated from the public model. CLI and provider diagnostics
+are discarded; safe fixed errors cannot echo supplied tokens or file content.
+
+Manual Caddyfiles are root-equivalent server configuration, **not a sandbox**.
+A trusted writer can deliberately expose files using `file_server`, templates,
+proxy configuration and other server modules. Granting write access therefore
+requires the same trust as editing the service configuration on the router.
+Read ACL grants no such access. As a conservative managed-source limitation,
+imports (including quoted tokens), backslashes, backticks and environment
+expansion (`{$...}` and `{env....}`) are rejected before running the adapter.
+This deliberately also rejects such text inside comments/strings; it is not an
+attempt to sanitize arbitrary Caddy syntax or safely delegate root configuration
+to untrusted users. No import can read `/etc` into adapted output, and private
+adapter output is never an export API.
+
+Real `caddy adapt` writes mode0600 private JSON; the manager then enforces its
+ownership boundary **before** real `caddy validate` or `/load`: admin is exactly
+`127.0.0.1:2019`, autosave is disabled, explicit disabled/nonlocal/remote admin,
+external config loaders and persistent autosave overrides are rejected. Manual
+storage must be the managed filesystem root (`/etc/caddy/data`); unspecified
+storage is filled in. Other storage modules/roots are unsupported, pending the
+certificate inventory contract in ticket06. All internal CA trust installation
+is disabled, including implicit local CAs. No trust-store changes are requested.
+
+Advanced snippets are adapted inside a synthetic HTTP site; only its HTTP
+routing directives are accepted (not global/server/TLS/storage settings or
+additional site blocks). Their routes execute before the generated proxy,
+within the generated site's host and path boundary, and therefore do not relax
+the 404 fallback. Snippets may set headers or terminate requests explicitly;
+there is no automatic reconciliation if an administrator deliberately adds a
+second proxy. Import/environment restrictions and private preview rules apply
+to snippets too. Each source is limited to 64KiB.

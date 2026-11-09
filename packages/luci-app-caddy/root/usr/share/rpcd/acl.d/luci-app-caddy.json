@@ -5,8 +5,7 @@
       "ubus": {
         "luci.caddy": [
           "status",
-          "draft_get",
-          "config_preview"
+          "draft_get"
         ]
       }
     },
@@ -14,8 +13,10 @@
       "ubus": {
         "luci.caddy": [
           "action",
+          "draft_edit",
           "draft_save",
-          "config_apply"
+          "config_apply",
+          "config_preview"
         ]
       }
     }
