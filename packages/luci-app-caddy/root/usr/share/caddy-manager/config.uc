@@ -117,6 +117,7 @@ return function(options) {
 				let current = state();
 				if (request.expected_revision != current.draft_revision) return {ok:false,error:'Draft changed; reload before saving credentials'};
 				if (!current.draft) return {ok:false,error:'Save a draft before adding credentials'};
+				if (current.draft.mode == 'manual') return {ok:false,error:'Cloudflare form credentials are read-only in complete Caddyfile mode'};
 				if (type(request.token) != 'string' || length(request.token) < 1 || length(request.token) > 4096 || match(request.token, /[[:space:][:cntrl:]]/)) return {ok:false,error:'Enter a Cloudflare API Token without whitespace'};
 				// Immutable versions preserve the last active secret across failed applies.
 				let revision = read('credentials/sequence.json',{revision:0}).revision + 1;

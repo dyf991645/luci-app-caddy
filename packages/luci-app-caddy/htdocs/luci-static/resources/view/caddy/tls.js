@@ -12,7 +12,7 @@ var apply=rpc.declare({object:'luci.caddy',method:'config_apply',params:['expect
 return view.extend({
 	load:function(){return Promise.all([getDraft(),getCredentials()]);},
 	render:function(initial){
-		var current=initial[0], credentials=initial[1], busy=false, dirty=false, readonly=!L.hasViewPermission();
+		var current=initial[0], credentials=initial[1], busy=false, dirty=false, readonly=!L.hasViewPermission() || initial[0].draft && initial[0].draft.mode=='manual';
 		var method=E('select',{'class':'cbi-input-select','disabled':readonly},['http-01','dns-01','tls-alpn-01'].map(function(value){return E('option',{'value':value},value.toUpperCase());}));
 		method.value=current.draft && current.draft.settings.default_challenge || 'http-01';
 		var token=E('input',{'type':'password','autocomplete':'new-password','class':'cbi-input-text','disabled':readonly,'placeholder':_('Enter a new token to replace the saved credential')});
@@ -24,6 +24,8 @@ return view.extend({
 			credentialStatus.textContent=_('Saved credential revision')+': '+(credentials.draft_revision || _('Not configured'))+' · '+_('Active credential revision')+': '+(credentials.active_revision || _('None'));
 			save.disabled=readonly || busy || !dirty || !current.draft;
 			activate.disabled=readonly || busy || (!dirty && !current.pending) || !current.draft;
+			method.disabled=readonly || busy;
+			token.disabled=readonly || busy;
 		}
 		function checked(response){if(!response.ok)throw new Error(response.error || _('Operation failed'));return response;}
 		function perform(wantApply){
@@ -44,6 +46,7 @@ return view.extend({
 			E('h2',{},_('TLS certificates')),
 			E('ul',{'class':'cbi-tabmenu'},[E('li',{},E('a',{'href':L.url('admin/services/caddy')},_('Overview'))),E('li',{},E('a',{'href':L.url('admin/services/caddy/configuration')},_('Configuration'))),E('li',{'class':'cbi-tab'},E('a',{'href':L.url('admin/services/caddy/tls')},_('TLS certificates')))]),
 			status,
+			current.draft && current.draft.mode=='manual'?E('p',{},_('Complete Caddyfile mode: TLS forms and credentials are read-only. The independent manual source is not rewritten by form credentials.')):'',
 			!current.draft?E('p',{},_('Save a site configuration before adding credentials.')):'',
 			E('div',{'class':'cbi-section'},[E('h3',{},_('Default verification method')),method,E('p',{},_('Used for new sites only. Existing sites retain their verification method. Wildcard domains require DNS-01.'))]),
 			E('div',{'class':'cbi-section'},[E('h3',{},_('Cloudflare DNS credentials')),credentialStatus,token,E('p',{},_('Grant Zone DNS Edit and Zone Read only for the required zones. Tokens are write-only and never shown in previews or exports. Saving stages a private revision; successful Apply hot loads it. The active revision remains available after a failed apply. Changing the default verification method never removes credentials.')),E('p',{},_('Removing a credential reference from a draft does not delete its private active version. Apply the new configuration before retiring an active credential.')),E('p',{},_('DNS-01 needs Cloudflare API connectivity and authoritative DNS propagation. A successful Apply does not prove token acceptance or certificate issuance.'))]),
