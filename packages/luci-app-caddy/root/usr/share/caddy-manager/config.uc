@@ -133,7 +133,7 @@ return function(options) {
 			if (length(keys(snippet.apps || {})) != 1 || !snippet.apps.http || length(keys(snippet.apps.http.servers || {})) != 1 || snippet.apps.http.servers.srv0.tls_connection_policies != null || snippet.apps.http.servers.srv0.automatic_https != null)
 				die('Advanced snippets support HTTP routing directives only');
 			let server = snippet.apps.http.servers.srv0;
-			if (length(server.routes) != 1 || server.routes[0].match?.[0]?.host?.[0] != 'snippet.invalid') die('Unsupported snippet scope');
+			if (sprintf('%J',server.listen) != sprintf('%J',[':80']) || length(server.routes) != 1 || server.routes[0].match?.[0]?.host?.[0] != 'snippet.invalid') die('Unsupported snippet scope');
 			for (let key in keys(server)) if (index(['listen','routes'],key) < 0) die('Unsupported snippet server option');
 			let routes = server.routes[0].handle?.[0]?.routes;
 			if (type(routes) != 'array') die('Unsupported advanced snippet');
