@@ -25,8 +25,14 @@ return function(options) {
 	function check(config) {
 		let g = config?.settings;
 		let s = config?.sites?.[0];
-		if (config?.version != 1 || !g || length(config.sites) != 1 || !s)
+		if (type(config) != 'object' || config.version != 1 || type(g) != 'object' || type(config.sites) != 'array' || length(config.sites) != 1 || type(s) != 'object')
 			return 'Configure exactly one site';
+		for (let key in keys(config))
+			if (index(['version', 'settings', 'sites'], key) < 0) return 'Unsupported configuration field';
+		for (let key in keys(g))
+			if (index(['http_port', 'https_port', 'email', 'storage'], key) < 0) return 'Unsupported configuration field';
+		for (let key in keys(s))
+			if (index(['domain', 'backend', 'challenge'], key) < 0) return 'Unsupported configuration field';
 		if (type(s.domain) != 'string' || length(s.domain) > 253 || !match(s.domain, /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/))
 			return 'Enter a valid non-wildcard domain';
 		for (let label in split(s.domain, '.'))
