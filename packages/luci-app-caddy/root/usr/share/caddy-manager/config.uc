@@ -37,11 +37,12 @@ return function(options) {
 	}
 	function check(config) {
 		let g = config?.settings;
-		if (!keys(config,['version','settings','sites']) || config.version != 2 || !keys(g,['http_port','https_port','email','storage']) || type(config.sites) != 'array' || length(config.sites) < 1)
+		if (!keys(config,['version','settings','sites']) || !keys(g,['http_port','https_port','email','storage'])) return 'Unsupported configuration field';
+		if (config.version != 2 || type(config.sites) != 'array' || length(config.sites) < 1)
 			return 'Configure at least one site using the supported schema';
 		let domains={};
 		for (let s in config.sites) {
-			if (!keys(s,['domain','upstreams','balance','path','strip','challenge'])) return 'Unsupported site field';
+			if (!keys(s,['domain','upstreams','balance','path','strip','challenge'])) return 'Unsupported configuration field';
 			if (type(s.domain) != 'string' || length(s.domain) > 253 || !match(s.domain, /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/)) return 'Enter a valid non-wildcard domain';
 			for (let label in split(s.domain, '.')) if (length(label) > 63) return 'Domain labels must not exceed 63 characters';
 			if (domains[s.domain]) return 'Each domain must have exactly one site';

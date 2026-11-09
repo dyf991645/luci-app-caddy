@@ -29,7 +29,7 @@ return view.extend({
 		option = section.option(form.Value,'path',_('Optional path'),_('Exact path or a trailing /*. /media/* matches /media/ and descendants, excludes /media and /mediaX. Other paths return 404.'));
 		option.validate = function(sid,value) {return !value || (/^\/(?:[a-zA-Z0-9_~.-]+\/)*(?:[a-zA-Z0-9_~.-]+|\*)?$/.test(value) && !value.split('/').some(function(x){return x==='.' || x==='..';})) || _('Use an exact path or a trailing /*');};
 		option = section.option(form.Flag,'strip',_('Remove path prefix')); option.default='0';
-		option.cfgvalue = function(sid) {return ['true','1'].indexOf(map.data.get('json',sid,'strip')) >= 0 ? '1':'0';};
+		option.cfgvalue = function(sid) {return [true,'true','1'].indexOf(map.data.get('json',sid,'strip')) >= 0 ? '1':'0';};
 		option.write = function(sid,value) {map.data.set('json',sid,'strip',value==='1');};
 		option = section.option(form.ListValue,'challenge',_('Verification method'));
 		option.value('http-01','HTTP-01'); option.value('tls-alpn-01','TLS-ALPN-01');
