@@ -1,0 +1,63 @@
+'use strict';
+import { access, popen } from 'fs';
+import { connect } from 'ubus';
+import { init_enabled, init_action } from 'luci.sys';
+
+function output(command) {
+	let pipe = popen(command, 'r');
+	if (!pipe)
+		return null;
+	let text = trim(pipe.read('all'));
+	return pipe.close() == 0 ? text : null;
+}
+
+return {
+	'luci.caddy': {
+		status: {
+			call: function() {
+				let installed = access('/usr/bin/caddy');
+				let result = {
+					installed: !!installed,
+					running: false,
+					enabled: !!init_enabled('caddy'),
+					version: installed ? output('/usr/bin/caddy version 2>/dev/null') : null,
+					modules: []
+				};
+				if (installed) {
+					let modules = output('/usr/bin/caddy list-modules --versions 2>/dev/null');
+					result.modules = modules ? filter(split(modules, '\n'), line => length(line) > 0) : [];
+				}
+				let bus = connect();
+				if (!bus) {
+					result.running = null;
+					result.error = 'Unable to query procd';
+					return result;
+				}
+				let service = bus.call('service', 'list', { name: 'caddy' });
+				if (service == null) {
+					result.running = null;
+					result.error = 'Unable to query procd';
+				}
+				for (let name, instance in service?.caddy?.instances)
+					if (instance.running)
+						result.running = true;
+				bus.disconnect();
+				return result;
+			}
+		},
+		action: {
+			args: { action: 'action' },
+			call: function(request) {
+				let action = request.args.action;
+				if (index(['start', 'stop', 'restart', 'reload', 'enable', 'disable'], action) < 0)
+					return { ok: false, error: 'Unsupported service action' };
+				if (!access('/etc/init.d/caddy'))
+					return { ok: false, error: 'Caddy service is not installed' };
+				let code = init_action('caddy', action);
+				return code === 0 ? { ok: true } : {
+					ok: false, error: 'Caddy service action failed', code
+				};
+			}
+		}
+	}
+};

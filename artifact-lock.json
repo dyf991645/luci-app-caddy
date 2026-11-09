@@ -1,0 +1,21 @@
+{
+  "target": {
+    "openwrt": "25.12.4",
+    "revision": "r32933-4ccb782af7",
+    "board": "GL-MT6000",
+    "target": "mediatek/filogic",
+    "architecture": "aarch64_cortex-a53",
+    "sdk": "openwrt-sdk-25.12.4-mediatek-filogic_gcc-14.3.0_musl.Linux-x86_64.tar.zst",
+    "sdk_sha256": "411a2277ca10f909c30275a506aab4dc28a4f1281d7fda4f19faaa2ded6630bb"
+  },
+  "caddy": {
+    "url": "https://caddyserver.com/api/download?os=linux&arch=arm64&p=github.com%2Fcaddy-dns%2Fcloudflare%40v0.2.4",
+    "retrieved": "2026-11-09",
+    "version": "v2.11.8",
+    "version_hash": "h1:E2pv1BoZ5bJaWqFkU6QvLa21iGAX8bDzlEQG4dDQ/Vc=",
+    "cloudflare": "v0.2.4",
+    "sha256": "6d8d57926dd4bd5ce4894ec38b7e18c4bf5d18a569cd36826e8b8300d160f686",
+    "reproducible": false,
+    "note": "The official custom download pins the module but does not document core-version pinning. Packaging rejects a changed artifact hash; preserve this reviewed artifact in the SDK download cache."
+  }
+}
