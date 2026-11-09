@@ -20,7 +20,7 @@ let invalid={...config,sites:[{...config.sites[0],challenge:'http-01'}]};
 assert(!manager.draft_save({config:invalid,expected_revision:3}).ok,'wildcard HTTP challenge rejected');
 invalid.sites[0].challenge='tls-alpn-01';
 assert(!manager.preview({config:invalid}).ok,'wildcard TLS-ALPN preview rejected');
-let specific={...rotated.draft,sites:[{...config.sites[0],domain:'specific.example.test'}]};
+let specific={...rotated.draft,sites:[{...rotated.draft.sites[0],domain:'specific.example.test'}]};
 assert(manager.preview({config:specific}).ok,'specific domains support DNS validation');
 specific.settings.default_challenge='http-01';
 assert(manager.draft_save({config:specific,expected_revision:3}).ok,'default change preserves existing DNS site and credential');

@@ -1,4 +1,4 @@
-# Managed configuration contract (ticket 02)
+# Managed configuration contract (tickets 02–03)
 
 The installed `config.uc` module returns `create(options)`. Options configure the
 local test environment only; RPC never accepts root paths, executables, admin
@@ -8,7 +8,7 @@ isolated real-router test seam, with CA trust installation explicitly disabled.
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "settings": {
     "http_port": 10080,
     "https_port": 10443,
@@ -17,21 +17,42 @@ isolated real-router test seam, with CA trust installation explicitly disabled.
   },
   "sites": [{
     "domain": "app.example.com",
-    "backend": "http://192.168.1.2:8080",
+    "upstreams": ["http://192.168.1.2:8080", "http://192.168.1.3:8080"],
+    "balance": "round_robin",
+    "path": "/media/*",
+    "strip": true,
     "challenge": "http-01"
   }]
 }
 ```
 
-Ticket02 accepts one non-wildcard DNS domain, one HTTP backend with explicit port,
-and `http-01` or `tls-alpn-01`. Backend URLs do not contain credentials, path,
-query or fragment. Global port fields are JSON integers. Unknown top-level, settings and site keys
-are rejected before saving or previewing; arbitrary request properties cannot
-enter the readable draft. Schema extensions must deliberately update these
-allowlists and their public save/read tests along with validation/generation.
-Future ticket03 extends
-`sites[]` and replaces `backend` with a backend group (including HTTPS transport),
-with a deliberate version/migration change. Future auth/manual/credential fields
+Version2 accepts one or more sites, exactly one per non-wildcard DNS domain.
+Each group has at least one HTTP or HTTPS backend with explicit port; a group
+must use the same scheme. URLs exclude credentials, path, query and fragment.
+`balance` is `round_robin`, `least_conn` or `random`. HTTPS uses Caddy's verified
+TLS transport: there is no insecure-skip-verify switch. With Caddy2.11 HTTP
+retains the incoming Host; HTTPS sets Host to the upstream authority for SNI
+compatibility. WebSocket upgrades are automatic. Changed-config reload closes
+existing WebSockets by default; clients must reconnect (verified on2.11.8).
+
+`path` is empty for the entire domain, an exact path, or a path with a final
+`/*`. `/media/*` includes `/media/` and descendants, excludes `/media` and
+`/mediaX`; unmatched requests explicitly return404. Only ASCII unreserved path
+segments are accepted; encoding, query, fragment, parent/dot segments and other
+wildcard positions are rejected. `strip:true` requires a trailing `/*` and
+removes its prefix while preserving the request query. Matching happens inside
+the domain's subroute; future authentication must run inside that matching
+handler before rewrite/proxy, keeping the404 fallback outside authentication.
+
+Version1 drafts using `backend` deliberately migrate to version2 with a
+single-element `upstreams`, `round_robin`, empty path and `strip:false` when
+read, saved or previewed. Reads do not rewrite files or change revisions. The
+next save persists version2; existing active.json and active metadata remain
+startup authority until a successful apply. Existing version1 public callers
+remain accepted through migration. Revisions and journal recovery are unchanged.
+Global port fields are JSON integers. `http-01` and `tls-alpn-01` are supported.
+All public object keys remain allowlisted; unknown fields fail validation.
+Future auth/manual/credential fields
 must be explicitly added to validation and generation; they must not be silently
 interpreted as Caddy JSON. Secret credentials belong to separate private storage,
 not the readable draft or preview. Generated preview is built from the public
