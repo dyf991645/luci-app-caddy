@@ -5,7 +5,7 @@
 
 var getDraft=rpc.declare({object:'luci.caddy',method:'draft_get',expect:{'':{}}});
 var getCredentials=rpc.declare({object:'luci.caddy',method:'credential_status',expect:{'':{}}});
-var saveDraft=rpc.declare({object:'luci.caddy',method:'draft_save',params:['config','expected_revision'],expect:{'':{}}});
+var saveDefault=rpc.declare({object:'luci.caddy',method:'tls_save',params:['default_challenge','expected_revision'],expect:{'':{}}});
 var saveCredential=rpc.declare({object:'luci.caddy',method:'credential_save',params:['token','expected_revision'],expect:{'':{}}});
 var apply=rpc.declare({object:'luci.caddy',method:'config_apply',params:['expected_revision'],expect:{'':{}}});
 
@@ -30,9 +30,7 @@ return view.extend({
 		function checked(response){if(!response.ok)throw new Error(response.error || _('Operation failed'));return response;}
 		function perform(wantApply){
 			busy=true;update();
-			var config=JSON.parse(JSON.stringify(current.draft));
-			config.settings.default_challenge=method.value;
-			return (dirty?saveDraft(config,current.draft_revision).then(checked).then(function(saved){current=saved;}):Promise.resolve())
+			return (dirty?saveDefault(method.value,current.draft_revision).then(checked).then(function(saved){current=saved;}):Promise.resolve())
 				.then(function(){if(!token.value)return;var value=token.value;token.value='';return saveCredential(value,current.draft_revision).then(checked).then(function(saved){current=saved;});})
 				.then(function(){dirty=false;return wantApply?apply(current.draft_revision).then(checked).then(function(saved){current=saved;}):null;})
 				.catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');})

@@ -31,6 +31,7 @@ try { const saved = JSON.parse(localStorage.getItem('caddy-preview-v1')); state 
 catch { state = structuredClone(initial); }
 state.auth = {...initial.auth, ...state.auth};
 let unsaved = false;
+let savedSnapshot = structuredClone(state);
 state.draftRevision ??= state.dirty ? 1 : 0;
 state.activeRevision ??= 0;
 let page, query = '', filter = 'all', toastTimer, editingId, editorOpener;
@@ -42,7 +43,7 @@ const demoLogs = [
   ['10:42:09','INFO','演示：自动续期维护任务已启动。'],
 ];
 const titles = {overview:['概览','查看服务状态、监听端口与配置概况。'],sites:['反向代理','将域名连接到你的家庭服务，HTTPS 由 Caddy 自动管理。'],tls:['TLS 证书','设置默认验证方式，站点也可以单独覆盖。'],settings:['全局设置','管理服务监听、持久化存储和启动行为。'],config:['配置文件','查看表单生成的 Caddyfile，或切换到手动管理。'],logs:['运行日志','查看配置应用、服务启动和证书签发记录。']};
-function persist(){try{localStorage.setItem('caddy-preview-v1',JSON.stringify(state));}catch{toast('浏览器存储不可用，本次更改仅保留在当前页面。',true);} $('#nav-count').textContent=state.sites.length; $('#apply-bar').hidden=false; $('#save-draft').disabled=!unsaved; $('#apply').disabled=!unsaved&&!state.dirty; $('#draft-status').textContent=`草稿 v${state.draftRevision} · 生效 v${state.activeRevision}${state.dirty?' · 待应用':''}${unsaved?' · 尚未保存':''}`; document.body.classList.add('has-changes');}
+function persist(){if(!unsaved)savedSnapshot=structuredClone(state);try{localStorage.setItem('caddy-preview-v1',JSON.stringify(savedSnapshot));}catch{toast('浏览器存储不可用，本次更改仅保留在当前页面。',true);} $('#nav-count').textContent=state.sites.length; $('#apply-bar').hidden=false; $('#save-draft').disabled=!unsaved; $('#apply').disabled=!unsaved&&!state.dirty; $('#draft-status').textContent=`草稿 v${state.draftRevision} · 生效 v${state.activeRevision}${state.dirty?' · 待应用':''}${unsaved?' · 尚未保存':''}`; document.body.classList.add('has-changes');}
 function change(){unsaved=false;state.draftRevision++;state.dirty=true;persist();}
 function toast(message,error=false){clearTimeout(toastTimer);const t=$('#toast');t.textContent=message;t.classList.toggle('error',error);t.hidden=false;toastTimer=setTimeout(()=>t.hidden=true,4200);}
 function badge(text,type=''){return `<span class="pill ${type}">${esc(text)}</span>`;}
@@ -93,10 +94,14 @@ function generate(){
   }
   return text.trimEnd()+'\n';
 }
-function configPage(){return `<div class="config-head"><div class="segmented" aria-label="配置模式"><button data-mode="form" class="${state.mode==='form'?'selected':''}" aria-pressed="${state.mode==='form'}">表单生成</button><button data-mode="manual" class="${state.mode==='manual'?'selected':''}" aria-pressed="${state.mode==='manual'}">完整 Caddyfile</button></div><div class="actions"><button class="button" data-action="copy">${icon('copy')}复制配置</button><button class="button" data-action="download-config">${icon('download')}下载</button></div></div><div class="info-note mode-note">${icon('info')}<span>${state.mode==='form'?'当前配置由表单生成。高级指令可在站点编辑器中补充；切换为完整 Caddyfile 模式后，站点表单将停用。':'当前为手动管理模式，表单数据保留但不参与生成。切回表单模式会使用保留的表单配置，手动内容仍会保存。'}</span></div><section class="panel"><div class="panel-top"><h2 class="mono">/etc/caddy/Caddyfile</h2><span class="tag-neutral">${state.mode==='form'?'只读预览':'手动编辑'}</span></div>${state.mode==='form'?`<pre class="code-panel" tabindex="0" aria-label="生成的 Caddyfile">${esc(generate())}</pre>`:`<textarea id="manual-config" class="code-input mono" spellcheck="false" aria-label="完整 Caddyfile">${esc(state.custom)}</textarea>`}<div class="readonly-note">预览仅生成文本；真实的 caddy validate 与热重载将在 OpenWrt 服务端接入。</div>${state.mode==='manual'?'<div class="form-actions"><button class="button primary" data-action="save-manual">保存手动配置</button></div>':''}</section>`;}
+function configPage(){return `<div class="config-head"><div class="segmented" aria-label="配置模式"><button data-mode="form" class="${state.mode==='form'?'selected':''}" aria-pressed="${state.mode==='form'}">表单生成</button><button data-mode="manual" class="${state.mode==='manual'?'selected':''}" aria-pressed="${state.mode==='manual'}">完整 Caddyfile</button></div><div class="actions"><button class="button" data-action="copy">${icon('copy')}复制配置</button><button class="button" data-action="download-config">${icon('download')}下载</button></div></div><div class="info-note mode-note">${icon('info')}<span>${state.mode==='form'?'当前配置由表单生成。高级指令可在站点编辑器中补充；切换为完整 Caddyfile 模式后，站点表单将停用。':'当前为手动管理模式，表单数据保留但不参与生成。切回表单模式会使用保留的表单配置，手动内容仍会保存。'}</span></div><section class="panel"><div class="panel-top"><h2 class="mono">/etc/caddy/Caddyfile</h2><span class="tag-neutral">${state.mode==='form'?'只读预览':'手动编辑'}</span></div>${state.mode==='form'?`<pre class="code-panel" tabindex="0" aria-label="生成的 Caddyfile">${esc(generate())}</pre>`:`<textarea id="manual-config" class="code-input mono" spellcheck="false" aria-label="完整 Caddyfile">${esc(state.custom)}</textarea>`}<div class="readonly-note">预览仅生成文本；真实的 caddy validate 与热重载将在 OpenWrt 服务端接入。</div></section>`;}
 function logsPage(){return `<section class="panel"><div class="panel-top"><div><h2>服务日志</h2><p>演示事件记录，不连接真实 Caddy 进程</p></div><span class="tag-neutral">${demoLogs.length} 条记录</span></div><div>${demoLogs.map(([t,l,m])=>`<div class="log-line"><time class="mono">${esc(t)}</time><span class="log-level ${l==='WARN'?'warn':''} mono">${l}</span><p class="mono">${esc(m)}</p></div>`).join('')}</div></section>`;}
 function render(){page=location.hash.slice(1);if(!titles[page])page='sites';$$('[data-page]').forEach(a=>{a.classList.toggle('active',a.dataset.page===page);if(a.dataset.page===page)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});$('#main').innerHTML=heading()+({sites:sitesPage,overview:overviewPage,tls:tlsPage,settings:settingsPage,config:configPage,logs:logsPage}[page])();document.title=`${titles[page][0]} · Caddy · OpenWrt`;bindPage();persist();}
 function bindPage(){
+  if(state.mode==='manual'){
+    $$('#main #tls-form input,#main #tls-form button,#main [data-edit],#main [data-toggle],#main [data-action=add]').forEach(el=>el.disabled=true);
+    $$('#settings-form input:not([name=autostart]),#settings-form select,#settings-form textarea').forEach(el=>el.disabled=true);
+  }
   if(page==='sites'){
     $('#site-search').addEventListener('input',e=>{query=e.target.value;$('#site-table').innerHTML=siteTable();});
     $('#site-filter').addEventListener('change',e=>{filter=e.target.value;$('#site-table').innerHTML=siteTable();});
@@ -105,7 +110,7 @@ function bindPage(){
     $$('[name=method]').forEach(input=>input.addEventListener('change',()=>{$('#default-challenge-help').innerHTML=challengeHelp(input.value);}));
     $('#tls-form').addEventListener('submit',e=>{e.preventDefault();const data=new FormData(e.target);state.tls={method:data.get('method'),credential:data.get('credential').trim()};change();render();toast('默认验证方式已保存（演示），已有站点保持原设置。');});
   }
-  if(page==='settings')$('#settings-form').addEventListener('submit',e=>{e.preventDefault();const d=new FormData(e.target);if(d.get('http')===d.get('https'))return toast('HTTP 与 HTTPS 端口不能相同。',true);const auth={upstream:d.get('authUpstream').trim(),uri:d.get('authUri').trim()};const authError=validateAuth(auth);if(authError)return toast(authError,true);state.auth=auth;state.settings={http:d.get('http'),https:d.get('https'),email:d.get('email').trim(),storage:d.get('storage').trim(),autostart:d.has('autostart'),accessLog:d.has('accessLog')};change();toast('全局设置已保存到浏览器。');});
+  if(page==='settings')$('#settings-form').addEventListener('submit',e=>{e.preventDefault();const d=new FormData(e.target);if(state.mode==='manual'){state.settings.autostart=d.has('autostart');persist();toast('开机启动已保存（模拟）；内容表单保持只读。');return;}if(d.get('http')===d.get('https'))return toast('HTTP 与 HTTPS 端口不能相同。',true);const auth={upstream:d.get('authUpstream').trim(),uri:d.get('authUri').trim()};const authError=validateAuth(auth);if(authError)return toast(authError,true);state.auth=auth;state.settings={http:d.get('http'),https:d.get('https'),email:d.get('email').trim(),storage:d.get('storage').trim(),autostart:d.has('autostart'),accessLog:d.has('accessLog')};change();toast('全局设置已保存到浏览器。');});
 }
 function openEditor(id){
   if(state.mode==='manual')return toast('当前为完整 Caddyfile 模式，请先切回表单模式。',true);
@@ -147,7 +152,7 @@ document.addEventListener('click',async e=>{
   const toggle=e.target.closest('[data-toggle]');if(toggle){if(state.mode==='manual')return toast('完整 Caddyfile 模式下不能操作站点表单。',true);const s=state.sites.find(x=>x.id===toggle.dataset.toggle);s.enabled=!s.enabled;change();render();return;}
   const remove=e.target.closest('[data-remove-upstream]');if(remove){if($$('.upstream-row').length===1)return toast('至少保留一个后端。',true);remove.closest('.upstream-row').remove();return;}
   const del=e.target.closest('[data-delete]');if(del){const s=state.sites.find(x=>x.id===del.dataset.delete);ask('删除站点',`将从演示配置中移除 ${s.domain}。应用前不会修改运行配置。`,()=>{state.sites=state.sites.filter(x=>x.id!==s.id);change();closeEditor();render();toast('站点已删除（演示）。');});return;}
-  const mode=e.target.closest('[data-mode]');if(mode&&mode.dataset.mode!==state.mode){ask('切换配置模式',mode.dataset.mode==='manual'?'切换后使用完整 Caddyfile，站点表单停用；已有表单数据会保留。':'切换后使用表单生成的配置；手动 Caddyfile 会保留。',()=>{if(state.mode==='manual')state.custom=$('#manual-config').value;if(!state.custom)state.custom=generate();state.mode=mode.dataset.mode;change();render();});return;}
+  const mode=e.target.closest('[data-mode]');if(mode&&mode.dataset.mode!==state.mode){ask('切换配置模式',mode.dataset.mode==='manual'?'切换后使用完整 Caddyfile，站点表单停用；已有表单数据会保留。':'切换后使用表单生成的配置；手动 Caddyfile 会保留。',()=>{if(state.mode==='manual')state.custom=$('#manual-config').value;state.mode=mode.dataset.mode;unsaved=true;render();});return;}
   const action=e.target.closest('[data-action]')?.dataset.action;
   if(action==='add')openEditor();
   if(action==='close-editor')closeEditor();
@@ -166,15 +171,28 @@ document.addEventListener('click',async e=>{
   if(action==='download-config')download('Caddyfile',currentConfig());
   if(action==='download-logs')download('caddy-preview.log',demoLogs.map(x=>x.join(' ')).join('\n'));
 });
-function saveVisibleDraft(){if(!unsaved)return true; const form=$('#main form');if(form){if(!form.reportValidity())return false;form.requestSubmit();return !unsaved;}if($('#manual-config')){saveManual();return true;}return false;}
+function saveVisibleDraft(){if(!unsaved)return true; const form=$('#main form');if(form){if(!form.reportValidity())return false;form.requestSubmit();return !unsaved;}if($('#manual-config')){saveManual();return true;}change();return true;}
 $('#save-draft').addEventListener('click',saveVisibleDraft);
-$('#main').addEventListener('input',()=>{unsaved=true;persist();});
+$('#main').addEventListener('input',e=>{if(e.target.id==='site-search')return;unsaved=true;persist();});
 window.addEventListener('beforeunload',e=>{if(unsaved){e.preventDefault();e.returnValue='';}});
 $('#apply').addEventListener('click',async()=>{if(!saveVisibleDraft())return;if(state.mode==='manual'&&$('#manual-config')){if($('#manual-config').value!==state.custom)state.custom=$('#manual-config').value;}if(state.mode==='manual'&&!state.custom.trim())return toast('完整 Caddyfile 不能为空。',true);const b=$('#apply');b.disabled=true;b.textContent='正在模拟应用…';await new Promise(resolve=>setTimeout(resolve,650));state.activeRevision=state.draftRevision;state.dirty=false;persist();demoLogs.push([new Date().toLocaleTimeString('zh-CN'),'INFO','演示：配置应用流程完成。未执行真实 Caddy 校验或重载。']);b.textContent='保存并模拟应用';persist();toast('模拟应用完成；未执行真实 Caddy 校验或重载。');if(page==='overview'||page==='logs')render();});
 $('#mobile-menu').addEventListener('click',()=>{const expanded=$('#top-navigation').classList.toggle('expanded');$('#mobile-menu').setAttribute('aria-expanded',expanded);});
 function closeNavigation(){ $('#top-navigation').classList.remove('expanded'); $('#mobile-menu').setAttribute('aria-expanded','false'); $('#services-menu').open=false; }
 $('#services-menu a').addEventListener('click',closeNavigation);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeNavigation();});
-window.addEventListener('hashchange',()=>{if(unsaved&&!confirm('有未保存的编辑。放弃后离开？')){history.replaceState(null,'','#'+page);return;}unsaved=false;closeNavigation();render();});
+window.addEventListener('hashchange',()=>{
+  if(unsaved){
+    const destination=location.hash;
+    history.replaceState(null,'','#'+page);
+    const dialog=$('#confirm');
+    dialog.innerHTML='<h2>尚未保存的编辑</h2><p>保存草稿后离开，或放弃本次编辑。不会应用配置。</p><div class="actions"><button class="button" id="leave-cancel">取消</button><button class="button" id="leave-discard">放弃并离开</button><button class="button primary" id="leave-save">保存并离开</button></div>';
+    dialog.showModal();
+    $('#leave-cancel').onclick=()=>dialog.close();
+    $('#leave-discard').onclick=()=>{state=structuredClone(savedSnapshot);unsaved=false;dialog.close();location.hash=destination;};
+    $('#leave-save').onclick=()=>{if(saveVisibleDraft()){dialog.close();location.hash=destination;}};
+    return;
+  }
+  closeNavigation();render();
+});
 $('#editor').addEventListener('cancel',()=>{setTimeout(()=>editorOpener?.focus(),0);});
 render();
