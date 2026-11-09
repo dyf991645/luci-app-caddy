@@ -19,12 +19,12 @@ return view.extend({
 		var section = map.section(form.NamedSection,'site','site',_('Site'));
 		var option = section.option(form.Value,'domain',_('Domain'));
 		option.rmempty = false;
-		option.validate = function(sid,value) {return /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(value) && value.split('.').every(function(label) {return label.length <= 63;}) || _('Enter a non-wildcard domain');};
+		option.validate = function(sid,value) {return /^(?=.{1,253}$)(?:\*\.)?[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(value) && value.split('.').every(function(label) {return label.length <= 63;}) || _('Enter a valid domain; wildcards require DNS-01');};
 		option = section.option(form.Value,'backend',_('Backend'));
 		option.rmempty = false;
 		option.validate = function(sid,value) {try {var u = new URL(value);return (u.protocol == 'http:' && !u.username && !u.password && u.pathname == '/' && !u.search && !u.hash && /^http:\/\/(?:[\w.-]+|\[[a-fA-F0-9:]+\]):\d+$/.test(value) && +value.split(':').pop() > 0 && +value.split(':').pop() < 65536) || _('Use http://host:port without credentials or paths');} catch(e) {return _('Invalid backend address');}};
 		option = section.option(form.ListValue,'challenge',_('Verification method'));
-		option.value('http-01','HTTP-01'); option.value('tls-alpn-01','TLS-ALPN-01');
+		option.value('dns-01','DNS-01'); option.value('http-01','HTTP-01'); option.value('tls-alpn-01','TLS-ALPN-01');
 		section = map.section(form.NamedSection,'settings','settings',_('Global settings'));
 		[['http_port',_('Internal HTTP port')],['https_port',_('Internal HTTPS port')]].forEach(function(field) {var o=section.option(form.Value,field[0],field[1]);o.datatype='port';o.rmempty=false;});
 		option = section.option(form.Value,'email',_('ACME contact email'));
@@ -42,7 +42,9 @@ return view.extend({
 		}
 		function values() {
 			function get(section,key) {return map.data.get('json',section,key) || '';}
-			return {version:1,settings:{http_port:+get('settings','http_port'),https_port:+get('settings','https_port'),email:get('settings','email'),storage:get('settings','storage')},sites:[{domain:get('site','domain'),backend:get('site','backend'),challenge:get('site','challenge')}]};
+			var site={domain:get('site','domain'),backend:get('site','backend'),challenge:get('site','challenge')};
+			if(site.domain.startsWith('*.') && site.challenge!='dns-01') throw new Error(_('Wildcard domains require DNS-01'));
+			return {version:1,settings:Object.assign({},config.settings,{http_port:+get('settings','http_port'),https_port:+get('settings','https_port'),email:get('settings','email'),storage:get('settings','storage')}),sites:[site]};
 		}
 		function result(response) {if (!response.ok) throw new Error(response.error || _('Configuration operation failed'));return response;}
 		function showPreview(data) {var n=++sequence;return preview(data).then(result).then(function(response) {if(n==sequence) code.textContent=JSON.stringify(response.config,null,2);});}
@@ -64,7 +66,7 @@ return view.extend({
 			node.addEventListener('change',function(){dirty=true;update();});
 			if(initial.draft) showPreview(initial.draft).catch(function(){});
 			return E('div',{},[
-				E('ul',{'class':'cbi-tabmenu'},[E('li',{},E('a',{'href':L.url('admin/services/caddy')},_('Overview'))),E('li',{'class':'cbi-tab'},E('a',{'href':L.url('admin/services/caddy/configuration')},_('Configuration')))]),
+				E('ul',{'class':'cbi-tabmenu'},[E('li',{},E('a',{'href':L.url('admin/services/caddy')},_('Overview'))),E('li',{'class':'cbi-tab'},E('a',{'href':L.url('admin/services/caddy/configuration')},_('Configuration'))),E('li',{},E('a',{'href':L.url('admin/services/caddy/tls')},_('TLS certificates')))]),
 				status,node,
 				E('p',{},_('Public HTTP-01 requires Internet port 80 to reach the internal HTTP port. TLS-ALPN-01 requires Internet port 443 to reach the internal HTTPS port. This application does not configure NAT, firewall, DNS or uhttpd.')),
 				E('details',{},[E('summary',{},_('Generated JSON preview')),code,E('button',{'class':'cbi-button','click':function(){return map.parse().then(function(){return showPreview(values());}).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');});}},_('Refresh preview'))]),

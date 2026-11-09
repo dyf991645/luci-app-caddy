@@ -61,6 +61,19 @@ remain the deployment fixture's responsibility; local tests cannot replace them.
 
 ## APK build boundary
 
+Ticket05: copy `dns.uc`, `dns-rotation.uc`, `dns-rpc.uc`, `dns-router.sh`, the
+manager `config.uc` and executable `caddy-command` into `/tmp/luci-caddy-ticket05`.
+Run `ucode dns.uc config.uc <fresh-private-root> caddy-command` in that directory,
+then `sh dns-router.sh`. The latter creates one short-lived loopback Caddy on
+25019/25080/25443, disables certificate automation (not provider provision),
+hot loads two private credential versions, rejects a malformed third version,
+checks last-active reload, unchanged process PID, private file permissions and
+absence of rejected-token daemon log leakage. The RPC test uses a temporary
+plugin copy redirected to the same temporary manager and a fresh state root.
+No installed plugin/service is changed. Public ACME issuance, Cloudflare token
+acceptance/actual DNS mutations, renewal and native visual acceptance remain
+explicitly deferred until final controlled public acceptance.
+
 Run `python3 tests/build_test.py` on the host. It submits a changed upstream
 artifact to the real build entry point and requires failure before SDK creation.
 The success path uses the official SDK, not mocked make output:

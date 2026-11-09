@@ -7,6 +7,8 @@ return function(options) {
 	let admin = options?.admin || '127.0.0.1:2019';
 	mkdir(root, 0700);
 	chmod(root, 0700);
+	mkdir(root + '/credentials', 0700);
+	chmod(root + '/credentials', 0700);
 	function read(name, fallback) {
 		let text = readfile(root + '/' + name);
 		return text == null ? fallback : json(text);
@@ -30,18 +32,22 @@ return function(options) {
 		for (let key in keys(config))
 			if (index(['version', 'settings', 'sites'], key) < 0) return 'Unsupported configuration field';
 		for (let key in keys(g))
-			if (index(['http_port', 'https_port', 'email', 'storage'], key) < 0) return 'Unsupported configuration field';
+			if (index(['http_port', 'https_port', 'email', 'storage', 'default_challenge', 'cloudflare_credential'], key) < 0) return 'Unsupported configuration field';
 		for (let key in keys(s))
 			if (index(['domain', 'backend', 'challenge'], key) < 0) return 'Unsupported configuration field';
-		if (type(s.domain) != 'string' || length(s.domain) > 253 || !match(s.domain, /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/))
-			return 'Enter a valid non-wildcard domain';
-		for (let label in split(s.domain, '.'))
+		let domain = type(s.domain) == 'string' && substr(s.domain,0,2) == '*.' ? substr(s.domain,2) : s.domain;
+		if (type(domain) != 'string' || length(s.domain) > 253 || !match(domain, /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/))
+			return 'Enter a valid domain or leading wildcard domain';
+		if (domain != s.domain && s.challenge != 'dns-01') return 'Wildcard domains require DNS-01';
+		for (let label in split(domain, '.'))
 			if (length(label) > 63) return 'Domain labels must not exceed 63 characters';
 		if (type(s.backend) != 'string' || !match(s.backend, /^http:\/\/([a-zA-Z0-9.-]+|\[[a-fA-F0-9:]+\]):[0-9]{1,5}$/))
 			return 'Backend must be an HTTP host and explicit port without credentials or paths';
 		let port = +split(s.backend, ':')[-1];
 		if (port < 1 || port > 65535) return 'Invalid backend port';
-		if (index(['http-01', 'tls-alpn-01'], s.challenge) < 0) return 'Unsupported verification method';
+		if (index(['http-01', 'dns-01', 'tls-alpn-01'], s.challenge) < 0) return 'Unsupported verification method';
+		if (g.default_challenge != null && index(['http-01','dns-01','tls-alpn-01'],g.default_challenge) < 0) return 'Unsupported default verification method';
+		if (g.cloudflare_credential != null && (type(g.cloudflare_credential) != 'int' || g.cloudflare_credential < 1)) return 'Invalid credential revision';
 		for (let name in ['http_port', 'https_port'])
 			if (type(g[name]) != 'int' || g[name] < 1 || g[name] > 65535 || g[name] == +split(admin, ':')[1]) return 'Invalid or reserved listening port';
 		if (g.http_port == g.https_port) return 'HTTP and HTTPS ports must differ';
@@ -49,9 +55,14 @@ return function(options) {
 		if (type(g.storage) != 'string' || !match(g.storage, /^\/[a-zA-Z0-9_\/-]+$/) || index(g.storage, '..') >= 0 || g.storage == '/') return 'Invalid persistent storage directory';
 		return null;
 	}
-	function generate(config) {
+	function generate(config, private_config) {
 		let g = config.settings, s = config.sites[0];
 		let issuer = { module: 'acme', email: g.email, challenges: { http: { disabled: s.challenge != 'http-01' }, 'tls-alpn': { disabled: s.challenge != 'tls-alpn-01' } } };
+		if (s.challenge == 'dns-01') {
+			let credential = private_config ? read('credentials/' + g.cloudflare_credential + '.json',null) : null;
+			if (private_config && !credential) die('Missing Cloudflare credential');
+			issuer.challenges.dns = {provider:{name:'cloudflare',api_token:credential ? credential.token : '[REDACTED: Cloudflare credential]'}};
+		}
 		if (options?.internal_tls) issuer = {module:'internal'};
 		let generated = {
 			admin: { listen: admin, config: { persist: false } },
@@ -59,7 +70,7 @@ return function(options) {
 			apps: {
 				http: { http_port: g.http_port, https_port: g.https_port, servers: {
 					redirect: { listen: [(options?.bind || '') + ':' + g.http_port], routes:[{match:[{host:[s.domain]}],handle:[{handler:'static_response',status_code:308,headers:{Location:['https://' + s.domain + (g.https_port == 443 ? '' : ':' + g.https_port) + '{http.request.uri}']}}]}] },
-					proxy: { automatic_https:{disable_redirects:true}, listen: [(options?.bind || '') + ':' + g.https_port], routes: [
+					proxy: { automatic_https:options?.disable_certificates ? {disable_redirects:true,disable_certificates:true} : {disable_redirects:true}, listen: [(options?.bind || '') + ':' + g.https_port], routes: [
 						{ match: [{host:[s.domain]}], handle: [{handler:'reverse_proxy', upstreams:[{dial:substr(s.backend,7)}]}], terminal:true },
 						{handle:[{handler:'static_response',status_code:404}]}
 					], tls_connection_policies:[{}] }
@@ -97,6 +108,25 @@ return function(options) {
 
 	return {
 		draft_get: state,
+		credential_status: function() {
+			let draft = state().draft, active = read('active-state.json',{config:null}).config;
+			return {ok:true,configured:draft?.settings?.cloudflare_credential != null,draft_revision:draft?.settings?.cloudflare_credential,active_revision:active?.settings?.cloudflare_credential};
+		},
+		credential_save: function(request) {
+			return locked(function() {
+				let current = state();
+				if (request.expected_revision != current.draft_revision) return {ok:false,error:'Draft changed; reload before saving credentials'};
+				if (!current.draft) return {ok:false,error:'Save a draft before adding credentials'};
+				if (type(request.token) != 'string' || length(request.token) < 1 || length(request.token) > 4096 || match(request.token, /[[:space:][:cntrl:]]/)) return {ok:false,error:'Enter a Cloudflare API Token without whitespace'};
+				// Immutable versions preserve the last active secret across failed applies.
+				let revision = read('credentials/sequence.json',{revision:0}).revision + 1;
+				write('credentials/sequence.json',{revision});
+				write('credentials/' + revision + '.json',{token:request.token});
+				current.draft.settings.cloudflare_credential = revision;
+				write('draft.json',{revision:current.draft_revision+1,config:current.draft});
+				return state();
+			});
+		},
 		recover: function(request) { return locked(function() { return recover(request?.load != false); }); },
 		active_reload: function() {
 			return locked(function() {
@@ -113,7 +143,8 @@ return function(options) {
 				if (request.expected_revision != current.draft_revision) return {ok:false,error:'Draft changed; reload before applying'};
 				let error = check(current.draft);
 				if (error) return {ok:false,error};
-				let candidate = generate(current.draft);
+				if (current.draft.sites[0].challenge == 'dns-01' && !read('credentials/' + current.draft.settings.cloudflare_credential + '.json',null)) return {ok:false,error:'Save Cloudflare credentials before applying DNS-01'};
+				let candidate = generate(current.draft,true);
 				write('candidate.json', candidate);
 				if (!command('validate','candidate.json')) return {ok:false,error:'Caddy rejected the generated configuration; active configuration is unchanged'};
 				let next = {revision:current.draft_revision,config:current.draft};

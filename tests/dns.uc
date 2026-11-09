@@ -1,0 +1,28 @@
+// Public manager save/read/preview boundary. Tokens are write-only.
+let manager=loadfile(ARGV[0])()({root:ARGV[1],admin:'127.0.0.1:25019',command:ARGV[2]});
+let config={version:1,settings:{http_port:25080,https_port:25443,email:'',storage:ARGV[1]+'/data',default_challenge:'dns-01'},sites:[{domain:'*.example.test',backend:'http://127.0.0.1:25081',challenge:'dns-01'}]};
+assert(manager.draft_save({config,expected_revision:0}).ok,'wildcard DNS draft saves');
+let token='ticket05!invalid-private-canary';
+let saved=manager.credential_save({token,expected_revision:1});
+assert(saved.ok && saved.draft_revision==2 && saved.pending,'credential staging advances draft revision');
+assert(saved.draft.settings.cloudflare_credential==1,'draft contains only credential revision');
+let status=manager.credential_status();
+assert(status.configured && status.draft_revision==1 && status.active_revision==null,'credential status distinguishes pending from active');
+let publicData=sprintf('%J',[saved,status,manager.draft_get(),manager.preview({config:saved.draft})]);
+assert(index(publicData,token)<0,'private credential never enters public reads or preview');
+let failed=manager.apply({expected_revision:2});
+assert(!failed.ok && index(sprintf('%J',failed),token)<0,'invalid provider token error is safe');
+assert(manager.draft_get().active_revision==0,'invalid credential leaves active revision unchanged');
+let rotated=manager.credential_save({token:'second-invalid-canary',expected_revision:2});
+assert(rotated.ok && rotated.draft.settings.cloudflare_credential==2 && rotated.draft_revision==3,'rotation stages a distinct private revision');
+assert(!manager.credential_save({token:'stale-token',expected_revision:2}).ok,'rotation honors draft concurrency');
+let invalid={...config,sites:[{...config.sites[0],challenge:'http-01'}]};
+assert(!manager.draft_save({config:invalid,expected_revision:3}).ok,'wildcard HTTP challenge rejected');
+invalid.sites[0].challenge='tls-alpn-01';
+assert(!manager.preview({config:invalid}).ok,'wildcard TLS-ALPN preview rejected');
+let specific={...rotated.draft,sites:[{...config.sites[0],domain:'specific.example.test'}]};
+assert(manager.preview({config:specific}).ok,'specific domains support DNS validation');
+specific.settings.default_challenge='http-01';
+assert(manager.draft_save({config:specific,expected_revision:3}).ok,'default change preserves existing DNS site and credential');
+assert(manager.credential_status().draft_revision==2,'credentials remain visible after default change');
+print('PASS DNS wildcard validation, write-only credential staging and safe provider failure\n');
