@@ -34,7 +34,7 @@ return function(options) {
 			delete public_config.manual_caddyfile;
 			for (let site in public_config.sites) delete site.advanced_snippet;
 		}
-		return { ok: true, draft: private ? draft.config : public_config, draft_revision: draft.revision, active_revision: active.revision, pending: draft.revision != active.revision, recovery_required: read('transaction.json', null) != null };
+		return { ok: true, draft: private ? draft.config : public_config, draft_revision: draft.revision, active_revision: active.revision, active_source: active.config ? (active.config.mode || 'form') : null, pending: draft.revision != active.revision, recovery_required: read('transaction.json', null) != null };
 	}
 	function source_check(text) {
 		if (type(text) != 'string' || length(text) > 65536) return 'Caddyfile content must be text up to 64 KiB';

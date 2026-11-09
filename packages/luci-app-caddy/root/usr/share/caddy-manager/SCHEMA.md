@@ -105,6 +105,9 @@ the interrupted-process contract, not physical storage hardware durability.
 
 ## Independent Caddyfile source (ticket 04)
 
+Public state additionally exposes `active_source` (`form`, `manual`, or null
+when no managed revision is committed), independently of the selected draft mode.
+
 `mode` is `form` (default for existing drafts) or `manual`.
 `manual_caddyfile` is the separate complete Caddyfile string. Each form site may
 contain `advanced_snippet`, a string of HTTP routing directives. Both sources
