@@ -69,3 +69,34 @@ The build itself checks real APK architecture/integrity, extracts the packaged
 Caddy, compares its locked checksum, and executes version/modules/build-info via
 qemu-aarch64. See [build instructions](../scripts/README.md) for prerequisites,
 provenance and the separate router-install/remote-Actions acceptance boundary.
+
+## Ticket03 upstream groups and path boundary
+
+`upstreams.uc` tests the public manager save/preview/apply seam with real ucode
+and Caddy. Copy it, `upstreams-reload.uc`, `upstreams-router.sh`, manager config.uc
+(as `manager.uc`) and executable caddy-command into `/tmp/luci-caddy-ticket03`.
+Run `sh /tmp/luci-caddy-ticket03/upstreams-router.sh` for the standalone fixture:
+loopback admin23019, HTTP23080, HTTPS23443, backends23081/23082. It verifies real
+round-robin distribution, stripped prefix, exact wildcard boundary404, separate
+domain routing, invalid-input retention and real alternate-policy validation.
+Version1 migration is tested without activation.
+
+The optional `extended` fixture additionally needs controlled loopback backends:
+create a one-day self-signed CA/server certificate with IP127.0.0.1 SAN; run
+`python3 tests/upstreams-host.py serve <ca.pem> <key.pem>` on the host. Copy ONLY
+the public ca.pem into the router fixture. Open SSH forwards
+`-R 127.0.0.1:23083:127.0.0.1:23183 -R 127.0.0.1:23084:127.0.0.1:23184
+-L 127.0.0.1:23444:127.0.0.1:23443`. Run the router script with `extended`, then
+read `/tmp/luci-caddy-ticket03/current-root` and run
+`python3 tests/upstreams-host.py client <root>` on the host. Finally touch
+`/tmp/luci-caddy-ticket03/client-done`; the router script cleans its processes.
+Stop the host fixture and cancel the SSH forwards. SSH client multiplexing may
+retain forwards after the command exits; explicitly cancel the same forwards
+with `ssh -O cancel ... router.home`.
+
+Extended checks verify HTTPS upstream trust using process-only SSL_CERT_FILE
+(no OS trust installation), TLS hostname mismatch502, Host behavior, query/path
+preservation, actual WebSocket101 and bidirectional frames, and closure of an
+open socket after a changed configuration reload. All storage/HOME/XDG remain
+in `/tmp`; public ACME and external notifications are never attempted. Native
+form visual/browser acceptance and public certificate issuance remain separate.

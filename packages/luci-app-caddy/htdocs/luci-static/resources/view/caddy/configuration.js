@@ -13,16 +13,24 @@ return view.extend({
 	load: function() {return getDraft();},
 	render: function(initial) {
 		var current = initial;
-		var config = initial.draft || {version:1,settings:{http_port:10080,https_port:10443,email:'',storage:'/etc/caddy/data'},sites:[{domain:'',backend:'http://127.0.0.1:8080',challenge:'http-01'}]};
-		var map = new form.JSONMap({settings:Object.assign({},config.settings),site:Object.assign({},config.sites[0])}, _('HTTPS site'), _('Saving changes only updates the draft. Applying validates and hot loads Caddy; certificate issuance continues asynchronously.'));
+		var config = initial.draft || {version:2,settings:{http_port:10080,https_port:10443,email:'',storage:'/etc/caddy/data'},sites:[{domain:'',upstreams:['http://127.0.0.1:8080'],balance:'round_robin',path:'',strip:false,challenge:'http-01'}]};
+		var map = new form.JSONMap({settings:Object.assign({},config.settings),sites:config.sites.map(function(site) {return Object.assign({},site);})}, _('HTTPS sites'), _('Saving changes only updates the draft. Applying validates and hot loads Caddy; certificate issuance continues asynchronously.'));
 		map.readonly = !L.hasViewPermission();
-		var section = map.section(form.NamedSection,'site','site',_('Site'));
+		var section = map.section(form.TypedSection,'sites',_('Sites'));
+		section.anonymous = true; section.addremove = true;
 		var option = section.option(form.Value,'domain',_('Domain'));
 		option.rmempty = false;
 		option.validate = function(sid,value) {return /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(value) && value.split('.').every(function(label) {return label.length <= 63;}) || _('Enter a non-wildcard domain');};
-		option = section.option(form.Value,'backend',_('Backend'));
-		option.rmempty = false;
-		option.validate = function(sid,value) {try {var u = new URL(value);return (u.protocol == 'http:' && !u.username && !u.password && u.pathname == '/' && !u.search && !u.hash && /^http:\/\/(?:[\w.-]+|\[[a-fA-F0-9:]+\]):\d+$/.test(value) && +value.split(':').pop() > 0 && +value.split(':').pop() < 65536) || _('Use http://host:port without credentials or paths');} catch(e) {return _('Invalid backend address');}};
+		option = section.option(form.DynamicList,'upstreams',_('Backends'),_('Use explicit ports. All backends in a site must use the same protocol. HTTPS certificates are verified.'));
+		option.rmempty = false; option.default = 'http://127.0.0.1:8080';
+		option.validate = function(sid,value) {try {new URL(value);} catch(e) {return _('Invalid backend address');} return /^https?:\/\/(?:[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?|\[[a-fA-F0-9:]+\]):[0-9]{1,5}$/.test(value) && +value.split(':').pop() > 0 && +value.split(':').pop() < 65536 || _('Use http(s)://host:port without credentials or paths');};
+		option = section.option(form.ListValue,'balance',_('Load balancing')); option.default='round_robin';
+		option.value('round_robin',_('Round robin')); option.value('least_conn',_('Least connections')); option.value('random',_('Random'));
+		option = section.option(form.Value,'path',_('Optional path'),_('Exact path or a trailing /*. /media/* matches /media/ and descendants, excludes /media and /mediaX. Other paths return 404.'));
+		option.validate = function(sid,value) {return !value || (/^\/(?:[a-zA-Z0-9_~.-]+\/)*(?:[a-zA-Z0-9_~.-]+|\*)?$/.test(value) && !value.split('/').some(function(x){return x==='.' || x==='..';})) || _('Use an exact path or a trailing /*');};
+		option = section.option(form.Flag,'strip',_('Remove path prefix')); option.default='0';
+		option.cfgvalue = function(sid) {return [true,'true','1'].indexOf(map.data.get('json',sid,'strip')) >= 0 ? '1':'0';};
+		option.write = function(sid,value) {map.data.set('json',sid,'strip',value==='1');};
 		option = section.option(form.ListValue,'challenge',_('Verification method'));
 		option.value('http-01','HTTP-01'); option.value('tls-alpn-01','TLS-ALPN-01');
 		section = map.section(form.NamedSection,'settings','settings',_('Global settings'));
@@ -32,6 +40,8 @@ return view.extend({
 		option = section.option(form.Value,'storage',_('Persistent storage directory'));option.rmempty=false;
 		option.validate = function(sid,value) {return /^\/[a-zA-Z0-9_\/-]+$/.test(value) && !value.includes('..') && value != '/' || _('Use an absolute directory without parent segments');};
 		var dirty = false, busy = false, sequence = 0;
+		var siteSection=map.children[0];
+		['handleAdd','handleRemove'].forEach(function(name) {var original=siteSection[name];siteSection[name]=function() {dirty=true;update();return original.apply(this,arguments);};});
 		var status = E('p',{'role':'status','aria-live':'polite'});
 		var code = E('pre',{'style':'white-space:pre-wrap;overflow-wrap:anywhere'},_('Save or preview to generate configuration.'));
 		var saveButton, applyButton;
@@ -42,14 +52,21 @@ return view.extend({
 		}
 		function values() {
 			function get(section,key) {return map.data.get('json',section,key) || '';}
-			return {version:1,settings:{http_port:+get('settings','http_port'),https_port:+get('settings','https_port'),email:get('settings','email'),storage:get('settings','storage')},sites:[{domain:get('site','domain'),backend:get('site','backend'),challenge:get('site','challenge')}]};
+			return {version:2,settings:{http_port:+get('settings','http_port'),https_port:+get('settings','https_port'),email:get('settings','email'),storage:get('settings','storage')},sites:map.data.sections('json','sites').map(function(site) {return {domain:site.domain || '',upstreams:site.upstreams || [],balance:site.balance || 'round_robin',path:site.path || '',strip:site.strip === true || site.strip === 'true' || site.strip === '1',challenge:site.challenge || 'http-01'};})};
+		}
+		function validateConfig(data) {
+			var domains={}; data.sites.forEach(function(site) {
+				if(domains[site.domain]) throw new Error(_('Each domain must have exactly one site')); domains[site.domain]=true;
+				if(!site.upstreams.length || site.upstreams.some(function(url){return url.split(':')[0] !== site.upstreams[0].split(':')[0];})) throw new Error(_('Backends must use the same protocol'));
+				if(site.strip && !site.path.endsWith('/*')) throw new Error(_('Prefix removal requires a path ending in /*'));
+			}); if(!data.sites.length) throw new Error(_('Configure at least one site')); return data;
 		}
 		function result(response) {if (!response.ok) throw new Error(response.error || _('Configuration operation failed'));return response;}
-		function showPreview(data) {var n=++sequence;return preview(data).then(result).then(function(response) {if(n==sequence) code.textContent=JSON.stringify(response.config,null,2);});}
+		function showPreview(data) {var n=++sequence;return preview(validateConfig(data)).then(result).then(function(response) {if(n==sequence) code.textContent=JSON.stringify(response.config,null,2);});}
 		function perform(wantApply) {
 			busy=true;update();
 			return map.parse().then(function() {
-				return dirty ? saveDraft(values(),current.draft_revision).then(result).then(function(saved) {current=saved;dirty=false;}) : null;
+				return dirty ? saveDraft(validateConfig(values()),current.draft_revision).then(result).then(function(saved) {current=saved;dirty=false;}) : null;
 			}).then(function() {return wantApply ? apply(current.draft_revision).then(result).then(function(active) {current=active;}) : null;})
 				.then(function() {return showPreview(values());})
 				.catch(function(error) {ui.addNotification(null,E('p',{},error.message),'error');return getDraft().then(function(saved) {current=saved;});})
