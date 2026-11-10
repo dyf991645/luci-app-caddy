@@ -135,7 +135,11 @@ return view.extend({
 		siteSection.renderMoreOptionsModal=function() {if(accountDirty){ui.addNotification(null,E('p',{},_('Save account edits before editing a site.')),'warning');return Promise.resolve();}return Promise.resolve(renderSiteModal.apply(this,arguments)).then(function() {
 			var node=siteSection.getActiveModalMap();
 			var button=node && dom.findClassInstance(node).parent===map ? node.parentNode.querySelector('div.button-row > button:last-child') : null;
-			if(button) button.textContent=_('Save');
+			if(button) {
+				button.textContent=_('Save');
+				var cancel=button.parentNode.querySelector('button:first-child');
+				if(cancel)cancel.textContent=_('Cancel');
+			}
 		});};
 		var cancelSiteModal=siteSection.handleModalCancel;
 		siteSection.handleModalCancel=function(modalMap,ev,isSaving) {

@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 function widget(values,disabled=false) {
  let changes=0;
  function E(tag,attrs={},children=[]) {
-  const node={tag,attrs,children:[],value:'',appendChild(child){this.children.push(child);child.parentNode=this;},remove(){this.parentNode.children=this.parentNode.children.filter(n=>n!==this);},dispatchEvent(){changes++;}};
+  const node={tag,attrs,disabled:attrs.disabled!=null,children:[],value:'',appendChild(child){this.children.push(child);child.parentNode=this;},remove(){this.parentNode.children=this.parentNode.children.filter(n=>n!==this);},dispatchEvent(){changes++;}};
   (Array.isArray(children)?children:[children]).forEach(child=>{if(typeof child==='object')node.appendChild(child);});return node;
  }
  const ui={AbstractElement:{extend(methods){class Element {constructor(...args){methods.__init__.apply(this,args);}}Object.assign(Element.prototype,methods);return Element;}},Textfield:class {
@@ -37,3 +37,5 @@ test('read-only widgets disable editing, adding and removing; changing input doe
 });
 
 test('a scalar new-site default renders as one editable backend',()=>{const {editor}=widget('http://127.0.0.1:8080');expect(editor.getValue()).toEqual(['http://127.0.0.1:8080']);expect(editor.isValid()).toBe(true);});
+
+test('editable backend buttons omit the HTML disabled attribute',()=>{const {editor}=widget(['http://127.0.0.1:80']);expect(editor.node.children[1].disabled).toBe(false);expect(editor.rows[0].node.children[1].disabled).toBe(false);});

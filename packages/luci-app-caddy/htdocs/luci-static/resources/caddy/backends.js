@@ -9,7 +9,7 @@ var BackendList=ui.AbstractElement.extend({
  __init__:function(values,options) {this.values=Array.isArray(values)?values:values?[values]:[];this.options=options || {};this.rows=[];},
  render:function() {
   var self=this,rows=E('div',{'class':'caddy-backend-rows'});
-  var root=E('div',{'id':this.options.id,'class':'caddy-backends'},[rows,E('button',{'type':'button','class':'cbi-button','disabled':this.options.disabled,'click':function(){self.addRow('');}},_('Add backend'))]);
+  var root=E('div',{'id':this.options.id,'class':'caddy-backends'},[rows,E('button',{'type':'button','class':'cbi-button','disabled':this.options.disabled || null,'click':function(){self.addRow('');}},_('Add backend'))]);
   this.node=root;dom.bindClassInstance(root,this);this.rowsNode=rows;
   this.values.forEach(function(value){self.addRow(value);});
   if(!this.rows.length)this.addRow('');
@@ -22,7 +22,7 @@ var BackendList=ui.AbstractElement.extend({
   });
   var row={field:field};
   row.node=E('div',{'class':'caddy-backend-row'},[field.render(),E('button',{
-   'type':'button','class':'cbi-button','disabled':this.options.disabled,'aria-label':_('Remove backend'),
+   'type':'button','class':'cbi-button','disabled':this.options.disabled || null,'aria-label':_('Remove backend'),
    'click':function(){self.rows=self.rows.filter(function(other){return other!==row;});row.node.remove();self.changed();}
   },'×')]);
   this.rows.push(row);this.rowsNode.appendChild(row.node);
