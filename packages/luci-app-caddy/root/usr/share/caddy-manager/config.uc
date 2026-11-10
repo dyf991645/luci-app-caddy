@@ -120,6 +120,7 @@ return function(options) {
 		let domains={};
 		for (let s in config.sites) {
 			if (!known_keys(s,['domain','upstreams','balance','path','strip','challenge','advanced_snippet','auth'])) return 'Unsupported configuration field';
+			if (config.mode == 'manual') continue;
 			if (s.auth != null) {
 				if (!known_keys(s.auth,['mode','source','profile','authelia']) || index(['none','basic','authelia'],s.auth.mode)<0) return 'Unsupported access authentication';
 				if (s.auth.mode=='basic' && (index(['global','independent'],s.auth.source)<0 || !profile(s.auth.source=='global' ? config.auth?.basic?.profile : s.auth.profile))) return 'Configure the selected Basic Auth profile first';
