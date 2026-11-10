@@ -227,7 +227,8 @@ return function(options) {
 
 	function command(action, name) {
 		let ok=system([options?.command || '/usr/share/caddy-manager/caddy-command', action, root + '/' + name, admin], 30000) == 0;
-		let evidence=read('operation-evidence.json',[]);if(type(evidence)!='array')evidence=[];
+		let evidence=[];try {evidence=read('operation-evidence.json',[]);}catch(e) {}
+		if(type(evidence)!='array')evidence=[];
 		push(evidence,{ts:time(),level:ok?'info':'error',logger:'manager',kind:'runtime',event:'config_'+action+(ok?'_success':'_failed')});
 		try {write('operation-evidence.json',slice(evidence,-32));} catch(e) {}
 		return ok;
