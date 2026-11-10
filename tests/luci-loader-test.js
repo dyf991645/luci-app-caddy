@@ -4,9 +4,11 @@
 import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 const runtime=readFileSync(process.argv[2],'utf8');
-const framework=runtime.slice(runtime.indexOf('const toCamelCase ='),runtime.indexOf('const Headers ='));
+const framework=runtime.slice(runtime.search(/const toCamelCase\s*=/),runtime.search(/const Headers\s*=/));
 const Class=new Function(framework+';return Class;')();
-const loader=runtime.slice(runtime.indexOf('require(name, from = []) {'),runtime.indexOf('/* DOM setup */',runtime.indexOf('require(name, from = []) {')));
+const loaderStart=runtime.search(/require\(name,\s*from\s*=\s*\[\]\)\s*\{/);
+assert(loaderStart>=0,'target L.require implementation found');
+const loader=runtime.slice(loaderStart,runtime.indexOf('probeRPCBaseURL()',loaderStart));
 const moduleSource=readFileSync(process.argv[3] || new URL('../packages/luci-app-caddy/htdocs/luci-static/resources/caddy/backends.js',import.meta.url),'utf8');
 function E(tag,attrs={},children=[]) {
  const node={tag,attrs,children:[],appendChild(child){this.children.push(child);child.parentNode=this;},dispatchEvent(){},remove(){this.parentNode.children=this.parentNode.children.filter(child=>child!==this);}};
