@@ -9,7 +9,7 @@ Run `python3 scripts/build.py` on Linux x86_64 with the prerequisites listed in
 use `--work` and `--output` to choose fresh directories. The script never deletes
 an existing SDK. Downloads under `--cache` are reusable and checked on every run.
 The script extracts the SHA256-locked official SDK, uses its commit-pinned base
-and LuCI feeds, copies only these two package sources, and runs the real SDK
+LuCI and packages feeds, copies only these two package sources, and runs the real SDK
 package targets. Caddy is downloaded, never compiled from source.
 
 The output contains both APKs, their actual metadata, Caddy version/modules/Go
@@ -18,6 +18,8 @@ SHA256SUMS. The manifest includes source revision/dirty state, SDK and feed
 commits, actual upstream and packaged binary checksums, APK checksums and run
 URL. The build verifies APK integrity, architectures and the unmodified Caddy
 binary; qemu-aarch64 executes that packaged binary to verify core/module versions.
+It compiles the native Chinese catalog using the SDK's luci-base host po2lmo
+and checks the extracted LuCI APK contains that exact catalog.
 It does **not** install the APKs on a router. A successful SDK build cannot replace
 installation, authenticated LuCI, configuration or certificate acceptance.
 

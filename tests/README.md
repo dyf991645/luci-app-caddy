@@ -259,3 +259,25 @@ argv excludes URL/query/header canaries without printing any argv. Shut down
 the host receiver and explicitly cancel `ssh -O cancel -R 29082:127.0.0.1:29082
 router.home` afterward; multiplexed forwarding can outlive the initiating SSH.
 No arbitrary real notification target or public ACME endpoint is exercised.
+
+## Ticket12 native language catalog
+
+After a real SDK build, extract the **actual LuCI APK** using that SDK's
+`apk extract --allow-untrusted --no-chown --destination <fresh-dir> <apk>`.
+Copy its `usr/lib/lua/luci/i18n/caddy.zh-cn.lmo` and `tests/i18n.uc` into
+`/tmp/luci-caddy-ticket12/i18n/` and `/tmp/luci-caddy-ticket12/` on the agreed
+router. Then run:
+
+```sh
+ucode /tmp/luci-caddy-ticket12/i18n.uc /tmp/luci-caddy-ticket12/i18n
+```
+
+The public native LuCI runtime test loads only this temporary catalog and checks
+literal Chinese navigation, TLS, authentication, Save/Apply and service labels.
+It confirms an unknown key has no catalog override (native JavaScript `_()`
+keeps the English msgid). No language/theme UCI, installed catalog, RPC or service
+is changed. The SDK build also independently compiles the source PO and compares
+it with the extracted package catalog. Direct host-tool compilation is an early
+catalog check, **not** proof the final APK was built or installed. Browser
+Bootstrap light/dark, mobile, keyboard, dirty/save controls and error feedback
+still require real native browser acceptance; do not substitute the preview.

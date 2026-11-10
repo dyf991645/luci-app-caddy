@@ -1,0 +1,783 @@
+msgid ""
+msgstr ""
+"Language: zh_Hans\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "ACME contact email"
+msgstr "ACME 联系邮箱"
+
+msgid "Access"
+msgstr "访问"
+
+msgid "Access authentication"
+msgstr "访问认证"
+
+msgid "Access logs"
+msgstr "访问日志"
+
+msgid "Account configuration: global or site domain"
+msgstr "账号配置：global 或站点域名"
+
+msgid "Active credential revision"
+msgstr "生效凭据修订"
+
+msgid "Active revision"
+msgstr "生效修订"
+
+msgid "Active sites and issuance / renewal evidence"
+msgstr "生效站点与签发 / 续期证据"
+
+msgid "Active source"
+msgstr "生效来源"
+
+msgid "Actual Caddy modules"
+msgstr "实际 Caddy 模块"
+
+msgid "Actual DNS coverage"
+msgstr "实际 DNS 覆盖范围"
+
+msgid "Actual local TCP listeners"
+msgstr "本机实际 TCP 监听"
+
+msgid "Add account"
+msgstr "添加账号"
+
+msgid "Additional directives inside this site and path boundary. Imports and environment expansion are unsupported."
+msgstr "此站点及路径边界内的附加指令。不支持 import 和环境变量展开。"
+
+msgid "Advanced HTTP routing snippet"
+msgstr "高级 HTTP 路由片段"
+
+msgid "Advanced snippet line"
+msgstr "高级片段行号"
+
+msgid "Advanced: existing bcrypt hash"
+msgstr "高级：已有 bcrypt 哈希"
+
+msgid "All"
+msgstr "全部"
+
+msgid "Application cancelled; draft retained"
+msgstr "已取消应用；草稿已保留"
+
+msgid "Apply"
+msgstr "应用"
+
+msgid "Apply global authentication change"
+msgstr "应用全局认证变更"
+
+msgid "Applying global authentication changes affects:"
+msgstr "应用全局认证变更将影响："
+
+msgid "Architecture (kernel / APK)"
+msgstr "架构（内核 / APK）"
+
+msgid "Associated active sites"
+msgstr "关联的生效站点"
+
+msgid "Attempt started; outcome unknown"
+msgstr "已开始尝试；结果未知"
+
+msgid "Attempts"
+msgstr "尝试次数"
+
+msgid "Authelia backend"
+msgstr "Authelia 后端"
+
+msgid "Authentication configuration"
+msgstr "认证配置"
+
+msgid "Authorization interface"
+msgstr "认证接口"
+
+msgid "Backend reachability"
+msgstr "后端连通性"
+
+msgid "Backends"
+msgstr "后端"
+
+msgid "Backends must use the same protocol"
+msgstr "同一站点的后端必须使用相同协议"
+
+msgid "Background monitoring runs independently of LuCI and the Caddy service, including complete Caddyfile mode. Expiry uses actual stored PEM. Renewal history is partial. Near expiry requires distinct repeated observed renewal issues; issuer errors do not prove terminal failure."
+msgstr "后台监控独立于 LuCI 和 Caddy 服务运行，完整 Caddyfile 模式下也可用。到期判断依据实际存储的 PEM；续期历史不完整。临近到期告警需要多次观察到不同的续期问题；签发机构错误不代表最终失败。"
+
+msgid "Basic Auth accounts"
+msgstr "Basic Auth 账号"
+
+msgid "Caddy"
+msgstr "Caddy"
+
+msgid "Caddy version"
+msgstr "Caddy 版本"
+
+msgid "Caddyfile adaptation failed"
+msgstr "Caddyfile 转换失败"
+
+msgid "Caddyfile adaptation succeeded"
+msgstr "Caddyfile 转换成功"
+
+msgid "Caddyfile line"
+msgstr "Caddyfile 行号"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "Certificate alerts"
+msgstr "证书告警"
+
+msgid "Certificate alerts and webhook"
+msgstr "证书告警与 Webhook"
+
+msgid "Certificate operation started"
+msgstr "证书操作已开始"
+
+msgid "Certificate operation succeeded"
+msgstr "证书操作成功"
+
+msgid "Certificate state"
+msgstr "证书状态"
+
+msgid "Cloudflare DNS credentials"
+msgstr "Cloudflare DNS 凭据"
+
+msgid "Cloudflare module"
+msgstr "Cloudflare 模块"
+
+msgid "Complete Caddyfile"
+msgstr "完整 Caddyfile"
+
+msgid "Complete Caddyfile mode: TLS forms and credentials are read-only. The independent manual source is not rewritten by form credentials."
+msgstr "完整 Caddyfile 模式：TLS 表单与凭据只读。表单凭据不会改写独立的手动配置。"
+
+msgid "Complete Caddyfile: retained form ports do not describe the active listener. See last active ports and actual listeners."
+msgstr "完整 Caddyfile：保留的表单端口不代表生效监听。请查看最近生效端口和实际监听。"
+
+msgid "Configuration"
+msgstr "配置"
+
+msgid "Configuration operation failed"
+msgstr "配置操作失败"
+
+msgid "Configuration reload failed"
+msgstr "配置重载失败"
+
+msgid "Configuration reload succeeded"
+msgstr "配置重载成功"
+
+msgid "Configuration source"
+msgstr "配置来源"
+
+msgid "Configuration validation failed"
+msgstr "配置校验失败"
+
+msgid "Configuration validation succeeded"
+msgstr "配置校验成功"
+
+msgid "Configure at least one site"
+msgstr "请至少配置一个站点"
+
+msgid "Conflict with another service"
+msgstr "与其他服务冲突"
+
+msgid "Core APK"
+msgstr "内核 APK"
+
+msgid "DNS-01 needs Cloudflare API connectivity and authoritative DNS propagation. A successful Apply does not prove token acceptance or certificate issuance."
+msgstr "DNS-01 需要连通 Cloudflare API 并等待权威 DNS 传播。应用成功不代表 Token 被接受或证书已签发。"
+
+msgid "Debug"
+msgstr "调试"
+
+msgid "Default verification method"
+msgstr "默认验证方式"
+
+msgid "Diagnostics unavailable"
+msgstr "诊断不可用"
+
+msgid "Discard and leave"
+msgstr "放弃并离开"
+
+msgid "Domain"
+msgstr "域名"
+
+msgid "Draft port checks"
+msgstr "草稿端口检查"
+
+msgid "Draft revision"
+msgstr "草稿修订"
+
+msgid "Draft source: complete Caddyfile. Retained form settings are read-only and do not participate. Service and autostart remain available on Overview."
+msgstr "草稿来源：完整 Caddyfile。保留的表单配置只读且不参与生成。概览页仍可操作服务和开机启动。"
+
+msgid "Draft source: form configuration. The separate manual Caddyfile is preserved."
+msgstr "草稿来源：表单配置。独立的手动 Caddyfile 已保留。"
+
+msgid "Each domain must have exactly one site"
+msgstr "每个域名只能配置一个站点"
+
+msgid "Enable external notification (off by default)"
+msgstr "启用外部通知（默认关闭）"
+
+msgid "Enter a new token to replace the saved credential"
+msgstr "输入新 Token 以替换已保存凭据"
+
+msgid "Enter a valid domain; wildcards require DNS-01"
+msgstr "请输入有效域名；通配符需要 DNS-01"
+
+msgid "Enter global for shared accounts, or the exact site domain for independent accounts."
+msgstr "共享账号请输入 global，独立账号请输入准确的站点域名。"
+
+msgid "Episode"
+msgstr "告警周期"
+
+msgid "Error"
+msgstr "错误"
+
+msgid "Exact path or a trailing /*. /media/* matches /media/ and descendants, excludes /media and /mediaX. Other paths return 404."
+msgstr "精确路径或以 /* 结尾的路径。/media/* 匹配 /media/ 及其下级，不匹配 /media 和 /mediaX。其他路径返回 404。"
+
+msgid "Existing bcrypt hash"
+msgstr "已有 bcrypt 哈希"
+
+msgid "Expired"
+msgstr "已过期"
+
+msgid "Expires (UTC)"
+msgstr "到期时间（UTC）"
+
+msgid "Export filtered safe events"
+msgstr "导出筛选后的安全事件"
+
+msgid "Form configuration"
+msgstr "表单配置"
+
+msgid "Global Authelia configuration"
+msgstr "全局 Authelia 配置"
+
+msgid "Global reference"
+msgstr "全局引用"
+
+msgid "Global settings"
+msgstr "全局设置"
+
+msgid "Grant Zone DNS Edit and Zone Read only for the required zones. Tokens are write-only and never shown in previews or exports. Saving stages a private revision; successful Apply hot loads it. The active revision remains available after a failed apply. Changing the default verification method never removes credentials."
+msgstr "仅授予所需区域的 Zone DNS Edit 和 Zone Read 权限。Token 只写，不会显示在预览或导出中。保存仅暂存私有修订；应用成功后热加载。应用失败时保留生效修订。修改默认验证方式不会删除凭据。"
+
+msgid "HTTPS sites"
+msgstr "HTTPS 站点"
+
+msgid "Headers must be a JSON object."
+msgstr "请求头必须是 JSON 对象。"
+
+msgid "Independent Authelia backend"
+msgstr "独立 Authelia 后端"
+
+msgid "Independent authorization interface"
+msgstr "独立认证接口"
+
+msgid "Independent configuration"
+msgstr "独立配置"
+
+msgid "Independent login portal"
+msgstr "独立登录门户"
+
+msgid "Info"
+msgstr "信息"
+
+msgid "Installed modules"
+msgstr "已安装模块"
+
+msgid "Internal HTTP port"
+msgstr "内部 HTTP 端口"
+
+msgid "Internal HTTPS port"
+msgstr "内部 HTTPS 端口"
+
+msgid "Invalid backend address"
+msgstr "后端地址无效"
+
+msgid "Invalid email"
+msgstr "邮箱无效"
+
+msgid "Inventory is incomplete or storage is unsupported. Missing certificates remain unknown."
+msgstr "清单不完整或不支持此存储。缺失证书仍为未知。"
+
+msgid "Issuance"
+msgstr "签发"
+
+msgid "Issuance and renewal history: unknown"
+msgstr "签发与续期历史：未知"
+
+msgid "Issuer"
+msgstr "签发机构"
+
+msgid "Issuer error; final outcome unknown"
+msgstr "签发机构错误；最终结果未知"
+
+msgid "Issuer reported an error"
+msgstr "签发机构报告错误"
+
+msgid "Keep existing password"
+msgstr "保留现有密码"
+
+msgid "Last active internal ports"
+msgstr "最近生效的内部端口"
+
+msgid "Last background check"
+msgstr "最近后台检查"
+
+msgid "Least connections"
+msgstr "最少连接"
+
+msgid "Leave blank to retain private target"
+msgstr "留空以保留私有目标"
+
+msgid "Level"
+msgstr "级别"
+
+msgid "Listener query unavailable"
+msgstr "监听查询不可用"
+
+msgid "Load balancing"
+msgstr "负载均衡"
+
+msgid "Log level"
+msgstr "日志级别"
+
+msgid "Log retention"
+msgstr "日志保留"
+
+msgid "Log source unavailable"
+msgstr "日志来源不可用"
+
+msgid "Log type"
+msgstr "日志类型"
+
+msgid "Login portal URL"
+msgstr "登录门户 URL"
+
+msgid "Logs and deployment diagnostics"
+msgstr "日志与部署诊断"
+
+msgid "Logs and diagnostics"
+msgstr "日志与诊断"
+
+msgid "Managed HOME and XDG directories"
+msgstr "受管理的 HOME 和 XDG 目录"
+
+msgid "Missing"
+msgstr "缺失"
+
+msgid "Missing or unsafe permissions"
+msgstr "权限缺失或不安全"
+
+msgid "Module query unavailable"
+msgstr "模块查询不可用"
+
+msgid "Near expiry"
+msgstr "临近到期"
+
+msgid "Near expiry with repeated issuer issues; final attempt outcomes unknown"
+msgstr "临近到期且多次出现签发机构问题；最终尝试结果未知"
+
+msgid "New password"
+msgstr "新密码"
+
+msgid "No DNS SAN evidence"
+msgstr "无 DNS SAN 证据"
+
+msgid "No additional authentication"
+msgstr "不附加认证"
+
+msgid "No current TCP listener"
+msgstr "当前无 TCP 监听"
+
+msgid "No listener evidence"
+msgstr "无监听证据"
+
+msgid "No managed revision"
+msgstr "无受管理修订"
+
+msgid "No module information available"
+msgstr "暂无模块信息"
+
+msgid "No retained certificate alerts. Missing evidence remains unknown."
+msgstr "没有保留的证书告警。证据缺失仍为未知。"
+
+msgid "No safe records match these filters. Refresh after a service event, or enable access logging and apply the draft."
+msgstr "没有符合筛选条件的安全记录。请在服务事件后刷新，或启用访问日志并应用草稿。"
+
+msgid "No stored certificate was observed. Configuration and service startup do not prove issuance."
+msgstr "未观察到已存储证书。配置存在和服务启动不代表已签发。"
+
+msgid "None"
+msgstr "无"
+
+msgid "Nonstandard internal ports also affect redirect and browser addresses. Use https://domain:10443 when accessing that port directly; Internet forwarding to port 443 needs the corresponding public URL and redirect plan. This application does not modify uhttpd, firewall, DNS or NAT."
+msgstr "非标准内部端口也影响重定向和浏览器地址。直接访问该端口时使用 https://domain:10443；公网 443 转发需要相应的公网 URL 和重定向方案。本应用不修改 uhttpd、防火墙、DNS 或 NAT。"
+
+msgid "Not configured"
+msgstr "未配置"
+
+msgid "Not installed"
+msgstr "未安装"
+
+msgid "Not yet observed"
+msgstr "尚未观察到"
+
+msgid "Not yet valid"
+msgstr "尚未生效"
+
+msgid "Notification settings saved."
+msgstr "通知设置已保存。"
+
+msgid "Notification state unavailable"
+msgstr "通知状态不可用"
+
+msgid "Observed at"
+msgstr "观察时间"
+
+msgid "OpenWrt"
+msgstr "OpenWrt"
+
+msgid "Operation failed"
+msgstr "操作失败"
+
+msgid "Optional path"
+msgstr "可选路径"
+
+msgid "Optional status-only access evidence in the bounded system RAM log. Requests, headers and URLs are omitted from this viewer."
+msgstr "可选的状态信息访问证据，保存在有界系统内存日志中。此查看器省略请求、请求头和 URL。"
+
+msgid "Optional webhook"
+msgstr "可选 Webhook"
+
+msgid "Overview"
+msgstr "概览"
+
+msgid "Owned by Caddy"
+msgstr "由 Caddy 占用"
+
+msgid "Partial logd window: at most 256 records / 128 KiB. Unknown or private fields and unrecognized lines are omitted. Empty history does not prove success."
+msgstr "部分 logd 窗口：最多 256 条 / 128 KiB。省略未知或私有字段及无法识别的行。空历史不代表成功。"
+
+msgid "Passwords are hashed on the router. Existing passwords and hashes are never read back. Remove an account row to delete it. Save accounts updates the draft; apply activates the change."
+msgstr "密码在路由器上生成哈希。已有密码和哈希不会回显。删除账号行即可删除账号。保存账号仅更新草稿；应用后生效。"
+
+msgid "Pending application"
+msgstr "待应用"
+
+msgid "Persistent storage directory"
+msgstr "持久存储目录"
+
+msgid "Prefix removal requires a path ending in /*"
+msgstr "移除前缀需要路径以 /* 结尾"
+
+msgid "Present"
+msgstr "存在"
+
+msgid "Private HTTP or HTTPS webhook URL"
+msgstr "私有 HTTP 或 HTTPS Webhook URL"
+
+msgid "Private configuration permissions"
+msgstr "私有配置权限"
+
+msgid "Private headers (JSON object)"
+msgstr "私有请求头（JSON 对象）"
+
+msgid "Privileged server configuration: only trusted administrators should edit it. Local admin and managed filesystem storage are enforced; imports and environment expansion are unsupported."
+msgstr "此配置具有服务器管理权限：仅限可信管理员编辑。强制使用本机管理接口和受管理的文件系统存储；不支持 import 和环境变量展开。"
+
+msgid "Probe configured draft backends"
+msgstr "探测草稿中已配置的后端"
+
+msgid "Process environment"
+msgstr "进程环境"
+
+msgid "Public HTTP-01 requires Internet port 80 to reach the internal HTTP port. TLS-ALPN-01 requires Internet port 443 to reach the internal HTTPS port. This application does not configure NAT, firewall, DNS or uhttpd."
+msgstr "公网 HTTP-01 需要互联网 80 端口连通内部 HTTP 端口。TLS-ALPN-01 需要互联网 443 端口连通内部 HTTPS 端口。本应用不配置 NAT、防火墙、DNS 或 uhttpd。"
+
+msgid "RAM ring"
+msgstr "内存环形缓冲区"
+
+msgid "Random"
+msgstr "随机"
+
+msgid "Read complete"
+msgstr "读取完整"
+
+msgid "Read-only local evidence. HTTP-01 needs public port 80 → internal HTTP (for example 10080); TLS-ALPN-01 needs public port 443 → internal HTTPS (for example 10443). DNS-01 needs provider access and TXT propagation. Local listeners and TCP probes cannot verify public DNS, NAT or firewall reachability."
+msgstr "本机只读证据。HTTP-01 需要公网 80 → 内部 HTTP（如 10080）；TLS-ALPN-01 需要公网 443 → 内部 HTTPS（如 10443）。DNS-01 需要连通提供商并等待 TXT 传播。本机监听和 TCP 探测不能验证公网 DNS、NAT 或防火墙连通性。"
+
+msgid "Reading local evidence…"
+msgstr "正在读取本机证据…"
+
+msgid "Recovery required: start or restart Caddy"
+msgstr "需要恢复：请启动或重启 Caddy"
+
+msgid "Redacted configuration preview"
+msgstr "脱敏配置预览"
+
+msgid "Refresh"
+msgstr "刷新"
+
+msgid "Refresh background status"
+msgstr "刷新后台状态"
+
+msgid "Refresh certificate evidence"
+msgstr "刷新证书证据"
+
+msgid "Refresh preview"
+msgstr "刷新预览"
+
+msgid "Reload active configuration"
+msgstr "重载生效配置"
+
+msgid "Remove account"
+msgstr "移除账号"
+
+msgid "Remove path prefix"
+msgstr "移除路径前缀"
+
+msgid "Removing a credential reference from a draft does not delete its private active version. Apply the new configuration before retiring an active credential."
+msgstr "从草稿移除凭据引用不会删除其私有生效版本。请先应用新配置，再停用生效凭据。"
+
+msgid "Renewal"
+msgstr "续期"
+
+msgid "Request completed"
+msgstr "请求已完成"
+
+msgid "Restart"
+msgstr "重启"
+
+msgid "Retained form content will become the source after Save & Apply. Manual content is preserved."
+msgstr "保存并应用后，保留的表单内容将成为配置来源。手动内容仍保留。"
+
+msgid "Root only"
+msgstr "仅 root"
+
+msgid "Round robin"
+msgstr "轮询"
+
+msgid "Running"
+msgstr "运行中"
+
+msgid "Runs only when requested, against up to 8 saved form backends, with a 2.5-second limit each. It opens a TCP connection without sending credentials or HTTP requests."
+msgstr "仅在请求时执行，最多探测 8 个已保存的表单后端，每个限时 2.5 秒。仅建立 TCP 连接，不发送凭据或 HTTP 请求。"
+
+msgid "Runtime"
+msgstr "运行日志"
+
+msgid "SHA256 fingerprint"
+msgstr "SHA256 指纹"
+
+msgid "Safe runtime and access events"
+msgstr "安全运行事件与访问事件"
+
+msgid "Save"
+msgstr "保存"
+
+msgid "Save & Apply"
+msgstr "保存并应用"
+
+msgid "Save a site configuration before adding credentials."
+msgstr "请先保存站点配置，再添加凭据。"
+
+msgid "Save account edits before switching configuration source."
+msgstr "切换配置来源前请保存账号编辑。"
+
+msgid "Save accounts to draft"
+msgstr "保存账号到草稿"
+
+msgid "Save and leave"
+msgstr "保存并离开"
+
+msgid "Save notification settings"
+msgstr "保存通知设置"
+
+msgid "Save or preview to generate configuration."
+msgstr "保存或预览以生成配置。"
+
+msgid "Save this draft before leaving, or discard unsaved edits?"
+msgstr "离开前保存草稿，还是放弃未保存的编辑？"
+
+msgid "Saved changes pending application"
+msgstr "已保存的变更待应用"
+
+msgid "Saved credential revision"
+msgstr "已保存凭据修订"
+
+msgid "Saved draft revision"
+msgstr "已保存草稿修订"
+
+msgid "Saving changes only updates the draft. Applying validates and hot loads Caddy; certificate issuance continues asynchronously."
+msgstr "保存仅更新草稿。应用将校验并热加载 Caddy；证书签发异步继续。"
+
+msgid "Saving…"
+msgstr "正在保存…"
+
+msgid "Separate complete Caddyfile"
+msgstr "独立的完整 Caddyfile"
+
+msgid "Service"
+msgstr "服务"
+
+msgid "Service error"
+msgstr "服务错误"
+
+msgid "Service event"
+msgstr "服务事件"
+
+msgid "Service operation failed"
+msgstr "服务操作失败"
+
+msgid "Service status"
+msgstr "服务状态"
+
+msgid "Service warning"
+msgstr "服务警告"
+
+msgid "Sites"
+msgstr "站点"
+
+msgid "Source: stored leaf certificates in the active filesystem storage. This does not verify the certificate served by a live connection. Renewal history is partial: only a bounded logd window and retained observations are available."
+msgstr "来源为生效文件系统存储中的叶证书。这不能验证实时连接实际提供的证书。续期历史不完整：仅有有界 logd 窗口及保留的观察记录。"
+
+msgid "Start"
+msgstr "启动"
+
+msgid "Start on boot"
+msgstr "开机启动"
+
+msgid "Startup, restart and reload use the last successfully applied configuration. This application does not change uhttpd, DNS or firewall settings."
+msgstr "启动、重启及重载使用最近成功应用的配置。本应用不修改 uhttpd、DNS 或防火墙设置。"
+
+msgid "Stop"
+msgstr "停止"
+
+msgid "Stopped"
+msgstr "已停止"
+
+msgid "Stored certificate"
+msgstr "已存储证书"
+
+msgid "Stored certificate expired"
+msgstr "已存储证书已过期"
+
+msgid "Stored certificate is not currently valid"
+msgstr "已存储证书当前无效"
+
+msgid "Stored certificate is valid"
+msgstr "已存储证书有效"
+
+msgid "Stored certificates"
+msgstr "已存储证书"
+
+msgid "Success recorded in retained log"
+msgstr "保留日志中记录成功"
+
+msgid "Switch configuration source"
+msgstr "切换配置来源"
+
+msgid "Switch source"
+msgstr "切换来源"
+
+msgid "System logging has a separately configured file or remote destination. Review its retention and access permissions. This application does not change it."
+msgstr "系统日志另有文件或远程目标配置。请检查其保留策略及访问权限。本应用不会修改它。"
+
+msgid "TCP only: this does not verify HTTP health, TLS trust, authentication or Internet reachability."
+msgstr "仅 TCP：不能验证 HTTP 健康、TLS 信任、认证或互联网连通性。"
+
+msgid "TCP reachable"
+msgstr "TCP 可达"
+
+msgid "TLS certificates"
+msgstr "TLS 证书"
+
+msgid "The complete Caddyfile will become the source after Save & Apply. Form content is preserved and becomes read-only."
+msgstr "保存并应用后，完整 Caddyfile 将成为配置来源。表单内容将保留并变为只读。"
+
+msgid "The following domains reference the updated global authentication configuration:"
+msgstr "以下域名引用了已更新的全局认证配置："
+
+msgid "Type"
+msgstr "类型"
+
+msgid "URL, query and headers are write-only. Blank fields retain existing values; changing the target clears old headers unless new headers are supplied. Requests never follow redirects. Delivery has a timeout and a persistent three-attempt budget. Event IDs remain stable across restart; receivers should deduplicate retries."
+msgstr "URL、查询参数和请求头只写。留空保留已有值；修改目标会清除旧请求头，除非同时提供新请求头。请求不跟随重定向。发送有超时和持久化的三次尝试上限。事件 ID 在重启后保持稳定；接收方应对重试去重。"
+
+msgid "Unable to read certificate evidence"
+msgstr "无法读取证书证据"
+
+msgid "Unable to save notification settings"
+msgstr "无法保存通知设置"
+
+msgid "Unavailable while stopped or unreadable"
+msgstr "停止或无法读取时不可用"
+
+msgid "Unexpected HOME or XDG directory"
+msgstr "HOME 或 XDG 目录不符合预期"
+
+msgid "Unknown"
+msgstr "未知"
+
+msgid "Unreachable or timed out"
+msgstr "不可达或超时"
+
+msgid "Unsaved edits"
+msgstr "未保存的编辑"
+
+msgid "Use a router-reachable HTTP(S) backend with an explicit port, /api/authz/forward-auth, and an HTTP(S) login portal URL. The portal site must use no additional authentication. Configure users, MFA, session cookie domain/authelia_url, and access policies in external Authelia. An unreachable service fails closed."
+msgstr "使用路由器可达、显式端口的 HTTP(S) 后端、/api/authz/forward-auth 认证接口和 HTTP(S) 登录门户 URL。门户站点须不附加认证。用户、多因素认证、会话 Cookie 域名 / authelia_url 和访问策略在外部 Authelia 配置。服务不可达时拒绝访问。"
+
+msgid "Use an absolute directory without parent segments"
+msgstr "请使用不含父目录段的绝对目录"
+
+msgid "Use an exact path or a trailing /*"
+msgstr "请使用精确路径或以 /* 结尾的路径"
+
+msgid "Use explicit ports. All backends in a site must use the same protocol. HTTPS certificates are verified."
+msgstr "请使用显式端口。同一站点的后端必须使用相同协议。HTTPS 证书会被校验。"
+
+msgid "Use http(s)://host:port without credentials or paths"
+msgstr "请使用 http(s)://host:port，不含凭据或路径"
+
+msgid "Used for new sites only. Existing sites retain their verification method. Wildcard domains require DNS-01."
+msgstr "仅用于新站点。已有站点保留原验证方式。通配符域名需要 DNS-01。"
+
+msgid "Username"
+msgstr "用户名"
+
+msgid "Valid from (UTC)"
+msgstr "生效时间（UTC）"
+
+msgid "Valid replacement observed"
+msgstr "已观察到有效替换证书"
+
+msgid "Valid stored certificate"
+msgstr "有效的已存储证书"
+
+msgid "Verification method"
+msgstr "验证方式"
+
+msgid "Verification settings"
+msgstr "验证设置"
+
+msgid "View actual stored certificates and retained issuance / renewal evidence on the Stored certificates tab. Configuration alone does not prove issuance."
+msgstr "在“已存储证书”标签查看实际证书及保留的签发 / 续期证据。仅有配置不代表已签发。"
+
+msgid "Warning"
+msgstr "警告"
+
+msgid "Wildcard domains require DNS-01"
+msgstr "通配符域名需要 DNS-01"
+
+msgid "Working…"
+msgstr "正在处理…"
+
+msgid "global or site domain"
+msgstr "global 或站点域名"
+
