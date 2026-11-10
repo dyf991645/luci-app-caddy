@@ -212,13 +212,19 @@ substituted for actual Authelia login evidence.
 
 Ticket06 stored certificate evidence: copy `certificates.uc`, executable
 `certificate-command` and `certificate-log` from the manager directory plus
-`tests/{certificate-inventory,certificate-events,certificate-edge}.uc` and
+`tests/{certificate-inventory,certificate-events,certificate-edge,certificate-critical-san}.uc` and
 `tests/certificates-router.sh` to `/tmp/luci-caddy-ticket06/` on the authorized
 router. Run `sh /tmp/luci-caddy-ticket06/certificates-router.sh`. This generates
-self-signed short-cycle SAN fixtures only; no Caddy process or public ACME.
+local short-cycle SAN fixtures only; no Caddy process or public ACME.
 Tests cover leaf metadata, one-label wildcard coverage, expiration boundaries,
 relative near-expiry, malformed PEM/symlinks/unsupported storage, source-derived
-issuer failure→success, replay and credential-error privacy. See
+issuer failure→success, replay and credential-error privacy. The harness also
+generates an empty-subject leaf with a critical SAN, matching Caddy's real
+certificate format; it checks complete metadata and stored-valid site mapping.
+`certificate-critical-san.uc` can additionally scan an isolated copy of the
+public Caddy internal-CA CRT with its matching temporary active configuration
+(default issuer `CN=Caddy Local Authority - ECC Intermediate`). Never copy its
+private key or replace installed state. See
 `CERTIFICATES.md` for bounded-window and local filesystem trust limitations.
 
 ## Ticket10 safe logs and diagnostics
