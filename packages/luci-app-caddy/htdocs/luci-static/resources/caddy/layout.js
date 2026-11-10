@@ -13,7 +13,7 @@ return baseclass.extend({
 	memory: function(kib) {return kib==null?_('Unknown'):(kib/1024).toFixed(1)+' MiB';},
 	page: function(key, title, description, children, actions) {
 		if (!document.querySelector('link[data-caddy-layout]'))
-			document.head.appendChild(E('link', { 'rel': 'stylesheet', 'href': L.resource('caddy/caddy.css') + '?v=12', 'data-caddy-layout': '' }));
+			document.head.appendChild(E('link', { 'rel': 'stylesheet', 'href': L.resource('caddy/caddy.css') + '?v=13', 'data-caddy-layout': '' }));
 		return E('div', { 'class': 'caddy-app', 'data-page': key }, [
 			E('div', { 'class': 'heading' }, [
 				E('div', {}, [E('div', { 'class': 'heading-title' }, E('h1', {}, title)), E('p', {}, description)]),
@@ -50,13 +50,13 @@ return baseclass.extend({
 		serviceStatus().then(update).catch(function() { update({}); });
 		poll.add(function() { return busy ? Promise.resolve() : serviceStatus().then(update); }, 5);
 		var siteCount = E('strong', {'aria-label':_('Saved sites')});
-		var httpsPort=E('strong',{'aria-label':_('Draft HTTPS port')});
+		var httpsPort=E('strong',{'aria-label':_('HTTPS port')});
 		var activeRevision = E('strong', {'aria-label':_('Active revision')});
 		var strip = E('section', { 'class':'status-strip' }, [
 			E('div', { 'class':'status-service' }, [emblem,E('div',{},[E('small',{},'Caddy'),state])]),
-			E('div', { 'class':'status-metric' }, [E('small',{},_('Draft enabled / total sites')),siteCount]),
+			E('div', { 'class':'status-metric' }, [E('small',{},_('Enabled sites')),siteCount]),
 			E('div', { 'class':'status-metric' }, [E('small',{},_('Active revision')),activeRevision]),
-			E('div',{'class':'status-metric'},[E('small',{},_('Draft HTTPS port')),httpsPort]),
+			E('div',{'class':'status-metric'},[E('small',{},_('HTTPS port')),httpsPort]),
 			E('div',{'class':'status-metric'},[E('small',{},_('Uptime')),uptime]),
 			E('div',{'class':'status-metric'},[E('small',{},_('Resident memory')),memory]),
 			controls

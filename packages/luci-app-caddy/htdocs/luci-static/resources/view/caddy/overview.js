@@ -61,21 +61,19 @@ return view.extend({
   return layout.page('overview',_('Overview'),_('View service status, listener ports and configuration.'),[
    E('section',{'class':'status-strip overview-status'},[
     E('div',{'class':'status-service'},[emblem,E('div',{},[state,uptime])]),
-    metric(_('Draft enabled / total sites'),manual?_('Manual mode'):enabled.length+' / '+sites.length),
-    metric(_('Draft HTTPS port'),manual?_('Manual mode'):':'+(settings.https_port || '—')),
+    metric(_('Enabled sites'),manual?_('Manual mode'):enabled.length+' / '+sites.length),
+    metric(_('HTTPS port'),manual?_('Manual mode'):':'+(settings.https_port || '—')),
     metric(_('Resident memory'),memory),controls
    ]),
-   E('div',{'class':'overview-note'},[E('strong',{},_('HTTPS entry for your services')),E('p',{},_('Manage reverse proxies, certificates and access authentication in one place.'))]),
    E('div',{'class':'two-column overview-columns'},[
     layout.panel(_('Service information'),'',info,[badge]),
     layout.panel(_('Configuration summary'),'',[
-     layout.row(_('Draft enabled sites'),manual?_('Manual mode'):String(enabled.length)),
-     layout.row(_('Draft Authelia sites'),manual?_('Manual mode'):String(enabled.filter(function(site){return site.auth?.mode=='authelia';}).length)),
+     layout.row(_('Enabled sites'),manual?_('Manual mode'):String(enabled.length)),
+     layout.row(_('Authelia sites'),manual?_('Manual mode'):String(enabled.filter(function(site){return site.auth?.mode=='authelia';}).length)),
      layout.row(_('Default verification method'),manual?_('Manual mode'):(settings.default_challenge || 'http-01').toUpperCase()),
      layout.row(_('Configuration state'),snapshot.pending?_('Pending application'):_('No pending changes')),
      E('div',{'class':'overview-flow','aria-label':_('Domain to Caddy to your services')},[flowPart('globe',_('Domain')),E('span',{'class':'muted','aria-hidden':'true'},'→'),flowPart('shield','Caddy'),E('span',{'class':'muted','aria-hidden':'true'},'→'),flowPart('network',_('Your services'))]),
-     layout.note(_('Summary counts and ports describe the saved draft. Restart and reload use the last successfully applied configuration. Certificate issuance is shown on the TLS certificates page.')),
-     E('details',{'class':'overview-details'},[E('summary',{},_('Configuration revisions')),layout.row(_('Saved draft revision'),snapshot.draft_revision),layout.row(_('Active revision'),snapshot.active_revision),snapshot.recovery_required?layout.note(_('Recovery required: start or restart Caddy')):''])
+     E('details',{'class':'overview-details'},[E('summary',{},_('Configuration revisions')),layout.row(_('Saved revision'),snapshot.draft_revision),layout.row(_('Active revision'),snapshot.active_revision),snapshot.recovery_required?layout.note(_('Recovery required: start or restart Caddy')):''])
     ])
    ])
   ]);

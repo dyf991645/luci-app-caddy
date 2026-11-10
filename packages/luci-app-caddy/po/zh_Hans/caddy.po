@@ -1053,3 +1053,15 @@ msgstr "数量与端口展示已保存的草稿；重启和重载使用上次成
 
 msgid "Configuration revisions"
 msgstr "配置版本详情"
+
+msgid "Enabled sites"
+msgstr "已启用站点"
+
+msgid "Authelia sites"
+msgstr "Authelia 站点数"
+
+msgid "HTTPS port"
+msgstr "HTTPS 端口"
+
+msgid "Saved revision"
+msgstr "已保存版本"
