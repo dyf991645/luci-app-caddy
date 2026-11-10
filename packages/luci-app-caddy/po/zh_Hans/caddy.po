@@ -873,3 +873,33 @@ msgstr "查看服务状态、监听端口与配置概况。"
 
 msgid "View the protected generated configuration or edit the complete Caddyfile."
 msgstr "查看脱敏后的生成配置，或切换到完整 Caddyfile 编辑。"
+
+msgid "Advanced"
+msgstr "高级"
+
+msgid "Connection"
+msgstr "连接"
+
+msgid "Global authentication"
+msgstr "全局认证"
+
+msgid "Global default"
+msgstr "使用全局默认"
+
+msgid "Manage shared authentication in Global settings"
+msgstr "前往全局设置管理共享认证"
+
+msgid "Passwords are hashed on the router. Leave an existing password blank to keep it. Saving this site updates the draft; apply activates it."
+msgstr "密码在路由器生成哈希。已有账号密码留空则保留原密码。保存站点仅更新草稿，应用后才生效。"
+
+msgid "Save account edits before editing a site."
+msgstr "请先保存账号更改，再编辑站点。"
+
+msgid "Save site to draft"
+msgstr "保存站点到草稿"
+
+msgid "TLS and authentication"
+msgstr "TLS 与认证"
+
+msgid "Sites using the global default follow this setting after Apply. Explicit site methods remain unchanged. Wildcard domains require DNS-01."
+msgstr "选择“使用全局默认”的站点在应用后跟随此设置；显式指定方式的站点保持不变。通配符域名必须使用 DNS-01。"
