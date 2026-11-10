@@ -31,6 +31,7 @@ return view.extend({
 		section.modaltitle = _('Edit site');
 		section.nodescriptions = true;
 		section.addModalOptions = function(modalSection) {
+			modalSection.map.readonly = map.readonly || busy || mode == 'manual';
 			var render = modalSection.map.render;
 			modalSection.map.render = function() {
 				return render.apply(this, arguments).then(function(node) {
