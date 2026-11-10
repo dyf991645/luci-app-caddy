@@ -1,5 +1,5 @@
 'use strict';
-import {open,readfile,writefile,mkdir,chmod,lstat,realpath,opendir,unlink,rename} from 'fs';
+import {open,writefile,chmod,lstat,realpath,opendir,unlink,rename} from 'fs';
 
 // Local constructor options are never RPC arguments. See CERTIFICATES.md.
 return function(options) {

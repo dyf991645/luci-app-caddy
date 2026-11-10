@@ -13,6 +13,6 @@ cat > "$root/active.json" <<JSON
 {"storage":{"module":"file_system","root":"$root/data"},"apps":{"http":{"servers":{"test":{"routes":[{"match":[{"host":["a.example.test","other.test","a.b.example.test","example.test"]}]}]}}}}}
 JSON
 chmod 600 "$root/fixture.key" "$root/active.json"
-for test in certificates certificate-events certificate-edge; do
+for test in certificate-inventory certificate-events certificate-edge; do
  ucode "$base/$test.uc" "$base/certificates.uc" "$root" "$base/certificate-command"
 done

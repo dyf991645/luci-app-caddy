@@ -48,7 +48,7 @@ return view.extend({
 			!current.draft?E('p',{},_('Save a site configuration before adding credentials.')):'',
 			E('div',{'class':'cbi-section'},[E('h3',{},_('Default verification method')),method,E('p',{},_('Used for new sites only. Existing sites retain their verification method. Wildcard domains require DNS-01.'))]),
 			E('div',{'class':'cbi-section'},[E('h3',{},_('Cloudflare DNS credentials')),credentialStatus,token,E('p',{},_('Grant Zone DNS Edit and Zone Read only for the required zones. Tokens are write-only and never shown in previews or exports. Saving stages a private revision; successful Apply hot loads it. The active revision remains available after a failed apply. Changing the default verification method never removes credentials.')),E('p',{},_('Removing a credential reference from a draft does not delete its private active version. Apply the new configuration before retiring an active credential.')),E('p',{},_('DNS-01 needs Cloudflare API connectivity and authoritative DNS propagation. A successful Apply does not prove token acceptance or certificate issuance.'))]),
-			E('p',{},_('Certificate inventory and renewal evidence are provided by the certificate monitor; configuration alone does not prove issuance.')),
+			E('p',{},_('View actual stored certificates and retained issuance / renewal evidence on the Stored certificates tab. Configuration alone does not prove issuance.')),
 			E('div',{'class':'cbi-page-actions'},[save,' ',activate])
 		]);
 	},handleSave:null,handleSaveApply:null,handleReset:null

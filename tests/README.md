@@ -132,7 +132,7 @@ form visual/browser acceptance and public certificate issuance remain separate.
 
 Ticket06 stored certificate evidence: copy `certificates.uc`, executable
 `certificate-command` and `certificate-log` from the manager directory plus
-`tests/{certificates,certificate-events,certificate-edge}.uc` and
+`tests/{certificate-inventory,certificate-events,certificate-edge}.uc` and
 `tests/certificates-router.sh` to `/tmp/luci-caddy-ticket06/` on the authorized
 router. Run `sh /tmp/luci-caddy-ticket06/certificates-router.sh`. This generates
 self-signed short-cycle SAN fixtures only; no Caddy process or public ACME.

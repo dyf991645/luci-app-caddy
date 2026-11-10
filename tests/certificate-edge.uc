@@ -7,6 +7,16 @@ assert(create({...opts,now:cert.not_before-1}).scan().certificates[0].validity==
 assert(create({...opts,now:cert.not_after}).scan().certificates[0].validity=='expired','expiry boundary is exact');
 assert(create({...opts,now:cert.not_after-3600}).scan().certificates[0].near_expiry,'short lifetime uses relative near expiry threshold');
 let base=root+'/data/certificates/fixture/leaf/';
+let pem=readfile(base+'leaf.crt');
+writefile(base+'leaf.crt',pem+'\n'+pem);
+assert(create(opts).scan().certificates[0].fingerprint==cert.fingerprint,'PEM chain contributes only first leaf');
+writefile(base+'leaf.crt',pem+'\n-----BEGIN PRIVATE KEY-----\nCANARY_PRIVATE_KEY\n');
+assert(!length(create(opts).scan().certificates),'mixed private-key PEM is rejected');
+writefile(base+'leaf.crt',pem);
+// The size cap test uses an independently fixed >256KiB payload.
+writefile(base+'oversize.crt',sprintf('%262145s','x'));
+assert(!create(opts).scan().complete,'oversized PEM marks inventory incomplete');
+unlink(base+'oversize.crt');
 symlink(base+'leaf.crt',base+'symlink.crt');
 writefile(base+'bad.crt','not a certificate');
 let result=create(opts).scan();
