@@ -4,6 +4,7 @@
 'require rpc';
 'require ui';
 
+var saveBasic = rpc.declare({object:'luci.caddy',method:'basic_profile_save',params:['scope','config','users','expected_revision'],expect:{'':{}}});
 var getDraft = rpc.declare({object:'luci.caddy',method:'draft_edit',expect:{'':{}}});
 var saveDraft = rpc.declare({object:'luci.caddy',method:'draft_save',params:['config','expected_revision'],expect:{'':{}}});
 var preview = rpc.declare({object:'luci.caddy',method:'config_preview',params:['config'],expect:{'':{}}});
@@ -37,6 +38,12 @@ return view.extend({
 		option.write = function(sid,value) {map.data.set('json',sid,'strip',value==='1');};
 		option = section.option(form.ListValue,'challenge',_('Verification method'));
 		option.value('http-01','HTTP-01'); option.value('tls-alpn-01','TLS-ALPN-01');
+		option = section.option(form.ListValue,'authMode',_('Access authentication'));option.value('none',_('No additional authentication'));option.value('basic','Basic Auth');
+		option.cfgvalue=function(sid){return map.data.get('json',sid,'auth')?.mode || 'none';};
+		option.write=function(sid,value){var auth=map.data.get('json',sid,'auth') || {};map.data.set('json',sid,'auth',Object.assign({},auth,{mode:value,source:auth.source || 'global'}));};
+		option = section.option(form.ListValue,'authSource',_('Basic Auth configuration'));option.depends('authMode','basic');option.value('global',_('Global reference'));option.value('independent',_('Independent accounts'));
+		option.cfgvalue=function(sid){return map.data.get('json',sid,'auth')?.source || 'global';};
+		option.write=function(sid,value){map.data.set('json',sid,'auth',Object.assign({},map.data.get('json',sid,'auth'),{source:value}));};
 		option = section.option(form.TextValue,'advanced_snippet',_('Advanced HTTP routing snippet'));option.rows=5;
 		option.description=_('Additional directives inside this site and path boundary. Imports and environment expansion are unsupported.');
 		section = map.section(form.NamedSection,'settings','settings',_('Global settings'));
@@ -51,8 +58,23 @@ return view.extend({
 		var status = E('p',{'role':'status','aria-live':'polite'});
 		var code = E('pre',{'style':'white-space:pre-wrap;overflow-wrap:anywhere'},_('Save or preview to generate configuration.'));
 		var saveButton, applyButton;
+		var affected=E('p',{'role':'status'});
+		var accountsNode, accountRows=E('div'), scope=E('select',{'aria-label':_('Account configuration')},[E('option',{'value':'global'},_('Global Basic Auth'))]);
+		config.sites.forEach(function(site){scope.appendChild(E('option',{'value':site.domain},site.domain));});
+		function accountRow(user) {
+			var username=E('input',{'placeholder':_('Username'),'aria-label':_('Username'),'value':user?.username || ''});
+			var password=E('input',{'type':'password','placeholder':user ? _('Keep existing password') : _('New password'),'aria-label':_('New password'),'autocomplete':'new-password'});
+			var hash=E('input',{'type':'password','placeholder':_('Advanced: existing bcrypt hash'),'aria-label':_('Existing bcrypt hash'),'autocomplete':'new-password'});
+			var row=E('div',{'class':'cbi-value'},[username,' ',password,' ',hash,' ',E('button',{'class':'cbi-button','click':function(){row.remove();}},_('Remove account'))]);
+			row.account=function(){return Object.assign({username:username.value},password.value ? {password:password.value} : hash.value ? {hash:hash.value} : {retain:true});};accountRows.appendChild(row);
+		}
+		function loadAccounts(){accountRows.replaceChildren();var selected=scope.value;var ref=selected=='global' ? config.auth?.basic?.profile : config.sites.find(function(site){return site.domain==selected;})?.auth?.profile;(current.basic_profiles?.[ref] || []).forEach(accountRow);if(!accountRows.children.length)accountRow();}
+		scope.addEventListener('change',loadAccounts);loadAccounts();
+		accountsNode=E('fieldset',{},[E('legend',{},_('Basic Auth accounts')),E('p',{},_('Passwords are hashed on the router. Existing passwords and hashes are never read back. Remove an account row to delete it. Save accounts updates the draft; apply activates the change.')),scope,accountRows,E('button',{'class':'cbi-button','click':function(){accountRow();}},_('Add account')),' ',E('button',{'class':'cbi-button cbi-button-save','click':function(){busy=true;update();return map.parse().then(function(){return saveBasic(scope.value,values(),Array.from(accountRows.children).map(function(row){return row.account();}),current.draft_revision);}).then(result).then(function(saved){current=saved;config=Object.assign(values(),saved.draft,{manual_caddyfile:manual.value});config.sites.forEach(function(site){map.data.sections('json','sites').forEach(function(buffer){if(buffer.domain==site.domain)map.data.set('json',buffer['.name'],'auth',site.auth);});});dirty=false;loadAccounts();}).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');}).finally(function(){busy=false;update();});}},_('Save accounts to draft'))]);
 		function update() {
 			sourceStatus.textContent = mode == 'manual' ? _('Draft source: complete Caddyfile. Retained form settings are read-only and do not participate. Service and autostart remain available on Overview.') : _('Draft source: form configuration. The separate manual Caddyfile is preserved.');
+			affected.textContent=current.affected_domains?.length ? _('Applying the global Basic Auth change affects:')+' '+current.affected_domains.join(', ') : '';
+			if(accountsNode) accountsNode.querySelectorAll('input,select,button').forEach(function(field){field.disabled=busy || map.readonly || mode=='manual';});
 			manual.disabled = busy || map.readonly || mode != 'manual';
 			if(formNode) formNode.querySelectorAll('input,select,textarea,button').forEach(function(field) {field.disabled = busy || map.readonly || mode == 'manual';});
 			status.textContent = _('Saved draft revision') + ': ' + current.draft_revision + ' · ' + _('Active revision') + ': ' + current.active_revision + ' · ' + _('Active source') + ': ' + (current.active_source || _('No managed revision')) + (current.pending ? ' · ' + _('Saved changes pending application') : '') + (dirty ? ' · ' + _('Unsaved edits') : '') + (current.recovery_required ? ' · ' + _('Recovery required: start or restart Caddy') : '');
@@ -65,7 +87,7 @@ return view.extend({
 		}
 		function values() {
 			function get(section,key) {return map.data.get('json',section,key) || '';}
-			return Object.assign({},config,{mode:mode,manual_caddyfile:manual.value,version:2,settings:Object.assign({},config.settings,{http_port:+get('settings','http_port'),https_port:+get('settings','https_port'),email:get('settings','email'),storage:get('settings','storage')}),sites:map.data.sections('json','sites').map(function(site) {return {domain:site.domain || '',upstreams:site.upstreams || [],balance:site.balance || 'round_robin',path:site.path || '',strip:site.strip === true || site.strip === 'true' || site.strip === '1',challenge:site.challenge || 'http-01',advanced_snippet:site.advanced_snippet || ''};})});
+			return Object.assign({},config,{mode:mode,manual_caddyfile:manual.value,version:2,settings:Object.assign({},config.settings,{http_port:+get('settings','http_port'),https_port:+get('settings','https_port'),email:get('settings','email'),storage:get('settings','storage')}),sites:map.data.sections('json','sites').map(function(site) {return {domain:site.domain || '',upstreams:site.upstreams || [],balance:site.balance || 'round_robin',path:site.path || '',strip:site.strip === true || site.strip === 'true' || site.strip === '1',challenge:site.challenge || 'http-01',advanced_snippet:site.advanced_snippet || '',auth:site.auth || {mode:'none'}};})});
 		}
 		function validateConfig(data) {
 			if(data.mode=='manual')return data;
@@ -104,7 +126,7 @@ return view.extend({
 			if(initial.draft && !map.readonly) showPreview(initial.draft).catch(function(){});
 			return E('div',{},[
 				E('ul',{'class':'cbi-tabmenu'},[E('li',{},E('a',{'href':L.url('admin/services/caddy')},_('Overview'))),E('li',{'class':'cbi-tab'},E('a',{'href':L.url('admin/services/caddy/configuration')},_('Configuration')))]),
-				status,E('div',{},[E('label',{},_('Configuration source')),E('select',{'disabled':map.readonly,'change':function(event){var selected=event.target.value;event.target.value=mode;if(busy)return;if(selected==mode)return;ui.showModal(_('Switch configuration source'),[E('p',{},selected=='manual'?_('The complete Caddyfile will become the source after Save & Apply. Form content is preserved and becomes read-only.'):_('Retained form content will become the source after Save & Apply. Manual content is preserved.')),E('div',{'class':'right'},[E('button',{'class':'cbi-button','click':ui.hideModal},_('Cancel')),' ',E('button',{'class':'cbi-button cbi-button-action','click':function(){if(mode=='form')rememberForm();mode=selected;event.target.value=mode;dirty=true;update();ui.hideModal();}},_('Switch source'))])]);}},[E('option',{'value':'form','selected':mode=='form'},_('Form configuration')),E('option',{'value':'manual','selected':mode=='manual'},_('Complete Caddyfile'))]),sourceStatus]),node,E('label',{},_('Separate complete Caddyfile')),manual,E('p',{},_('Privileged server configuration: only trusted administrators should edit it. Local admin and managed filesystem storage are enforced; imports and environment expansion are unsupported.')),
+				status,affected,E('div',{},[E('label',{},_('Configuration source')),E('select',{'disabled':map.readonly,'change':function(event){var selected=event.target.value;event.target.value=mode;if(busy)return;if(selected==mode)return;ui.showModal(_('Switch configuration source'),[E('p',{},selected=='manual'?_('The complete Caddyfile will become the source after Save & Apply. Form content is preserved and becomes read-only.'):_('Retained form content will become the source after Save & Apply. Manual content is preserved.')),E('div',{'class':'right'},[E('button',{'class':'cbi-button','click':ui.hideModal},_('Cancel')),' ',E('button',{'class':'cbi-button cbi-button-action','click':function(){if(mode=='form')rememberForm();mode=selected;event.target.value=mode;dirty=true;update();ui.hideModal();}},_('Switch source'))])]);}},[E('option',{'value':'form','selected':mode=='form'},_('Form configuration')),E('option',{'value':'manual','selected':mode=='manual'},_('Complete Caddyfile'))]),sourceStatus]),node,accountsNode,E('label',{},_('Separate complete Caddyfile')),manual,E('p',{},_('Privileged server configuration: only trusted administrators should edit it. Local admin and managed filesystem storage are enforced; imports and environment expansion are unsupported.')),
 				E('p',{},_('Public HTTP-01 requires Internet port 80 to reach the internal HTTP port. TLS-ALPN-01 requires Internet port 443 to reach the internal HTTPS port. This application does not configure NAT, firewall, DNS or uhttpd.')),
 				E('details',{},[E('summary',{},_('Redacted configuration preview')),code,E('button',{'class':'cbi-button','disabled':map.readonly,'click':function(){return (mode=='manual'?Promise.resolve():map.parse()).then(function(){return showPreview(values());}).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');});}},_('Refresh preview'))]),
 				E('div',{'class':'cbi-page-actions','style':'position:sticky;bottom:0;background:var(--background-color,#fff);padding:1em;z-index:5'},[saveButton,' ',applyButton])
