@@ -31,7 +31,7 @@ try {
  const module=await LuCI.prototype.require('caddy.backends');
  assert.equal(typeof module,'object','L.require supplies an instance');
  assert.equal(typeof module.create,'function','instance exposes widget factory');
- const a=module.create(['http://127.0.0.1:80'],{}),b=module.create(['http://127.0.0.1:81'],{});
+ const a=module.create(['http://127.0.0.1:80'],{disabled:false}),b=module.create(['http://127.0.0.1:81'],{disabled:false});
  assert.equal(a.render().instance,a,'widget binds to its native container');assert.deepEqual(a.getValue(),['http://127.0.0.1:80']);
  assert.equal(a.node.children[1].disabled,false,'native DOM omits disabled on Add');assert.equal(a.rows[0].node.children[1].disabled,false,'native DOM omits disabled on Remove');
  const readonly=module.create(['http://127.0.0.1:82'],{disabled:true});readonly.render();assert.equal(readonly.node.children[1].disabled,true);assert.equal(readonly.rows[0].node.children[1].disabled,true);
