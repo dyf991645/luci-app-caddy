@@ -9,8 +9,10 @@ return view.extend({
  load:function(){return Promise.all([diagnostics(),logs('all','all')]);},
  render:function(initial){
   var info=E('div'),records=E('div'),feedback=E('p',{'role':'status','aria-live':'polite'}),probeResult=E('div'),entries=[],busy=false;
-  var level=E('select',{'aria-label':_('Log level')},['all','debug','info','warn','error'].map(function(x){return E('option',{'value':x},x);}));
-  var kind=E('select',{'aria-label':_('Log type')},['all','runtime','access'].map(function(x){return E('option',{'value':x},x);}));
+  var levelNames={all:_('All'),debug:_('Debug'),info:_('Info'),warn:_('Warning'),error:_('Error')},kindNames={all:_('All'),runtime:_('Runtime'),access:_('Access')};
+  var eventNames={certificate_pending:_('Certificate operation started'),issuer_error:_('Issuer reported an error'),certificate_success:_('Certificate operation succeeded'),request_completed:_('Request completed'),service_error:_('Service error'),service_warning:_('Service warning'),service_event:_('Service event'),config_adapt_success:_('Caddyfile adaptation succeeded'),config_adapt_failed:_('Caddyfile adaptation failed'),config_validate_success:_('Configuration validation succeeded'),config_validate_failed:_('Configuration validation failed'),config_reload_success:_('Configuration reload succeeded'),config_reload_failed:_('Configuration reload failed')};
+  var level=E('select',{'aria-label':_('Log level')},['all','debug','info','warn','error'].map(function(x){return E('option',{'value':x},levelNames[x]);}));
+  var kind=E('select',{'aria-label':_('Log type')},['all','runtime','access'].map(function(x){return E('option',{'value':x},kindNames[x]);}));
   function row(label,value){return E('p',{},[E('strong',{},label+': '),value==null ? _('Unknown') : String(value)]);}
   function showDiagnostic(data){
    if(!data.ok){info.replaceChildren(E('p',{'class':'alert-message warning'},data.error || _('Diagnostics unavailable')));return;}
@@ -32,7 +34,7 @@ return view.extend({
    if(!data.ok){records.replaceChildren(E('p',{'class':'alert-message warning'},data.error || _('Log source unavailable')));return;}
    records.replaceChildren(E('p',{},_('Partial logd window: at most 256 records / 128 KiB. Unknown or private fields and unrecognized lines are omitted. Empty history does not prove success.')));
    if(!entries.length)records.appendChild(E('p',{},_('No safe records match these filters. Refresh after a service event, or enable access logging and apply the draft.')));
-   else records.appendChild(E('pre',{'style':'white-space:pre-wrap;overflow-wrap:anywhere;max-height:32em;overflow:auto'},entries.map(function(e){return new Date(e.ts*1000).toLocaleString()+' '+e.level+' '+e.logger+' '+e.event+(e.status?' · HTTP '+e.status:'');}).join('\n')));
+   else records.appendChild(E('pre',{'style':'white-space:pre-wrap;overflow-wrap:anywhere;max-height:32em;overflow:auto'},entries.map(function(e){return new Date(e.ts*1000).toLocaleString()+' '+levelNames[e.level]+' '+e.logger+' '+eventNames[e.event]+(e.status?' · HTTP '+e.status:'');}).join('\n')));
   }
   function working(task){if(busy)return;busy=true;feedback.textContent=_('Reading local evidence…');refresh.disabled=true;probeButton.disabled=true;return task().catch(function(e){ui.addNotification(null,E('p',{},e.message),'error');}).finally(function(){busy=false;feedback.textContent=_('Read complete');refresh.disabled=false;probeButton.disabled=!L.hasViewPermission();});}
   var refresh=E('button',{'class':'cbi-button','click':function(){return working(function(){return Promise.all([diagnostics(),logs(level.value,kind.value)]).then(function(data){showDiagnostic(data[0]);showLogs(data[1]);});});}},_('Refresh'));
