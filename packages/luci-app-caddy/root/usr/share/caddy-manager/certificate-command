@@ -1,0 +1,5 @@
+#!/bin/sh
+# Local manager only: private snapshot and output, no RPC supplied arguments.
+umask 077
+ulimit -f 128
+exec /usr/bin/openssl x509 -in "$1" -noout -issuer -nameopt RFC2253 -startdate -enddate -dateopt iso_8601 -ext subjectAltName -sha256 -fingerprint >"$2" 2>/dev/null

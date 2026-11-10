@@ -6,7 +6,8 @@
         "luci.caddy": [
           "status",
           "draft_get",
-          "config_preview"
+          "config_preview",
+          "certificates"
         ]
       }
     },

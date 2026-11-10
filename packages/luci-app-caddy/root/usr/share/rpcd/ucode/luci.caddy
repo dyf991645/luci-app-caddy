@@ -15,6 +15,7 @@ function manager() { return loadfile('/usr/share/caddy-manager/config.uc')()(); 
 
 return {
 	'luci.caddy': {
+		certificates: {call:function() {return loadfile('/usr/share/caddy-manager/certificates.uc')()().status();}},
 		draft_get: {call: function() {return manager().draft_get();}},
 		draft_save: {args:{config:{},expected_revision:0},call:function(request) {return manager().draft_save(request.args);}},
 		config_preview: {args:{config:{}},call:function(request) {return manager().preview(request.args);}},

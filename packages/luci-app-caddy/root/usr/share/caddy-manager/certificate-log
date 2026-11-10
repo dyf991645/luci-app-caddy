@@ -1,0 +1,5 @@
+#!/bin/sh
+# Fixed logd source. A bounded window cannot prove complete renewal history.
+umask 077
+ulimit -f 128
+exec /sbin/logread -l 256 -e caddy >"$1" 2>/dev/null

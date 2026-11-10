@@ -100,3 +100,14 @@ preservation, actual WebSocket101 and bidirectional frames, and closure of an
 open socket after a changed configuration reload. All storage/HOME/XDG remain
 in `/tmp`; public ACME and external notifications are never attempted. Native
 form visual/browser acceptance and public certificate issuance remain separate.
+
+Ticket06 stored certificate evidence: copy `certificates.uc`, executable
+`certificate-command` and `certificate-log` from the manager directory plus
+`tests/{certificates,certificate-events,certificate-edge}.uc` and
+`tests/certificates-router.sh` to `/tmp/luci-caddy-ticket06/` on the authorized
+router. Run `sh /tmp/luci-caddy-ticket06/certificates-router.sh`. This generates
+self-signed short-cycle SAN fixtures only; no Caddy process or public ACME.
+Tests cover leaf metadata, one-label wildcard coverage, expiration boundaries,
+relative near-expiry, malformed PEM/symlinks/unsupported storage, source-derived
+issuer failure→success, replay and credential-error privacy. See
+`CERTIFICATES.md` for bounded-window and local filesystem trust limitations.

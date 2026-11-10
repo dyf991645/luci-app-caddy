@@ -1,0 +1,12 @@
+let root=ARGV[1];
+let create=loadfile(ARGV[0])();
+let manager=create({root,command:ARGV[2]});
+let result=manager.scan();
+assert(result.ok && length(result.certificates)==1,'actual PEM inventory');
+let cert=result.certificates[0];
+assert(cert.issuer=='CN=Ticket06 Fixture' && length(cert.fingerprint)==95,'real issuer and SHA256');
+assert(index(cert.domains,'*.example.test')>=0 && index(cert.domains,'other.test')>=0,'multi SAN from leaf');
+assert(length(cert.sites)==2 && index(cert.sites,'a.b.example.test')<0 && index(cert.sites,'example.test')<0,'wildcard covers exactly one label');
+assert(cert.validity=='valid' && cert.not_after>cert.not_before,'actual UTC certificate dates');
+assert(index(sprintf('%J',result),'PRIVATE KEY')<0 && index(sprintf('%J',result),root)<0,'no PEM or source paths');
+print('PASS real stored PEM metadata, wildcard coverage, UTC validity and privacy\n');
