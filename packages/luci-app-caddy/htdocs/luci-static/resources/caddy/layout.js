@@ -13,7 +13,7 @@ return baseclass.extend({
 	memory: function(kib) {return kib==null?_('Unknown'):(kib/1024).toFixed(1)+' MiB';},
 	page: function(key, title, description, children, actions) {
 		if (!document.querySelector('link[data-caddy-layout]'))
-			document.head.appendChild(E('link', { 'rel': 'stylesheet', 'href': L.resource('caddy/caddy.css') + '?v=18', 'data-caddy-layout': '' }));
+			document.head.appendChild(E('link', { 'rel': 'stylesheet', 'href': L.resource('caddy/caddy.css') + '?v=19', 'data-caddy-layout': '' }));
 		return E('div', { 'class': 'caddy-app', 'data-page': key }, [
 			E('div', { 'class': 'heading' }, [
 				E('div', {}, [E('div', { 'class': 'heading-title' }, E('h1', {}, title)), E('p', {}, description)]),

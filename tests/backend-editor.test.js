@@ -12,8 +12,11 @@ function widget(values,disabled=false) {
   isValid(){return this.valid;}getValidationError(){return 'Invalid backend';}
  }};
  const source=readFileSync(new URL('../packages/luci-app-caddy/htdocs/luci-static/resources/caddy/backends.js',import.meta.url),'utf8');
- const Editor=new Function('ui','dom','E','_',source)(ui,{bindClassInstance(node,instance){node.instance=instance;}},E,x=>x);
- const editor=new Editor(values,{disabled,validate:value=>/^https?:\/\/[^/]+:\d+$/.test(value)});editor.render();return {editor,get changes(){return changes;}};
+ const baseclass={extend(methods){class Module {}Object.assign(Module.prototype,methods);return Module;}};
+ // L.require() instantiates a module before passing it to a view.
+ const Export=new Function('ui','dom','baseclass','E','_',source)(ui,{bindClassInstance(node,instance){node.instance=instance;}},baseclass,E,x=>x);
+ const module=new Export();
+ const editor=module.create(values,{disabled,validate:value=>/^https?:\/\/[^/]+:\d+$/.test(value)});editor.render();return {editor,get changes(){return changes;}};
 }
 test('existing backends can be edited in place without a delete/add cycle',()=>{
  const {editor}=widget(['http://127.0.0.1:80','http://127.0.0.2:8080']);editor.rows[0].field.input.value='http://192.168.31.1:80';

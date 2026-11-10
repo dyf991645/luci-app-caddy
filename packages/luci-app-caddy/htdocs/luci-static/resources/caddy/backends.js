@@ -1,10 +1,11 @@
 'use strict';
 'require ui';
 'require dom';
+'require baseclass';
 
 // Editable array widget. Each row is a native Textfield, so both incremental
 // validation and form.parse() inspect the same inputs that are saved.
-return ui.AbstractElement.extend({
+var BackendList=ui.AbstractElement.extend({
  __init__:function(values,options) {this.values=Array.isArray(values)?values:values?[values]:[];this.options=options || {};this.rows=[];},
  render:function() {
   var self=this,rows=E('div',{'class':'caddy-backend-rows'});
@@ -33,3 +34,6 @@ return ui.AbstractElement.extend({
  getValidationError:function(){var row=this.rows.find(function(row){return !row.field.isValid();});return row?row.field.getValidationError():_('Configure at least one backend');},
  triggerValidation:function(){return this.isValid();}
 });
+
+// LuCI instantiates module exports; keep widget construction behind a factory.
+return baseclass.extend({create:function(values,options){return new BackendList(values,options);}});
