@@ -220,3 +220,34 @@
 .caddy-app .toolbar > select { width:auto; min-width:130px; }
 .caddy-app .toolbar .count { white-space:nowrap; color:var(--muted); font-size:12px; }
 .caddy-app .toolbar { flex-wrap:wrap; }
+
+/* Overview follows the approved preview: one compact strip and two equal panels. */
+.caddy-app[data-page=overview] .overview-status .status-service { flex:1.2 1 210px; }
+.caddy-app[data-page=overview] .overview-status .status-metric { flex:1 1 115px; }
+.caddy-app[data-page=overview] .overview-status .status-actions { flex:0 0 auto; }
+.caddy-app[data-page=overview] .overview-note { padding:18px 20px; margin-bottom:24px; }
+.caddy-app[data-page=overview] .overview-note > strong { color:var(--brand); font-size:14px; }
+.caddy-app[data-page=overview] .overview-columns { align-items:stretch; }
+.caddy-app[data-page=overview] .overview-columns > .panel { margin-bottom:0; }
+.caddy-app[data-page=overview] .overview-columns .panel-top { min-height:62px; }
+.caddy-app[data-page=overview] .overview-columns .detail-row { padding:14px 0; align-items:center; }
+.caddy-app[data-page=overview] .overview-columns .detail-row > :last-child { font-weight:500; }
+.caddy-app[data-page=overview] .overview-flow { display:flex; flex-wrap:wrap; align-items:center; gap:14px; padding:20px 0; }
+.caddy-app[data-page=overview] .overview-flow-part { display:inline-flex; align-items:center; gap:10px; }
+.caddy-app[data-page=overview] .overview-flow-icon { color:var(--brand); font-size:22px; line-height:1; }
+.caddy-app[data-page=overview] .overview-details { padding-top:18px; color:var(--muted); font-size:12px; }
+.caddy-app[data-page=overview] .overview-details summary { cursor:pointer; }
+.caddy-app[data-page=overview] .overview-details pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:240px; overflow:auto; margin:12px 0 0; }
+@media(max-width:1050px) {
+ .caddy-app[data-page=overview] .overview-status .status-actions { flex-basis:100%; border-top:1px solid var(--line); padding-top:12px; margin:0; }
+}
+
+.caddy-app[data-page=overview] .overview-status .status-emblem.is-running { color:var(--success-color-low,#23734d); background:color-mix(in srgb,var(--success-color-medium,#23734d) 13%,var(--surface)); }
+.caddy-app[data-page=overview] .overview-status .status-actions button::before { content:'↻'; font-size:19px; line-height:1; }
+.caddy-app[data-page=overview] .overview-flow-icon { display:inline-block; width:19px; height:19px; background:var(--brand); mask-size:contain; mask-repeat:no-repeat; }
+
+.caddy-app[data-page=overview] .overview-flow-icon.globe { mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%229%22%2F%3E%3Cellipse%20cx%3D%2212%22%20cy%3D%2212%22%20rx%3D%224%22%20ry%3D%229%22%2F%3E%3Cpath%20d%3D%22M3%2012h18%22%2F%3E%3C%2Fsvg%3E"); }
+
+.caddy-app[data-page=overview] .overview-flow-icon.shield { mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%202l9%204v6c0%205-9%2010-9%2010S3%2017%203%2012V6z%22%2F%3E%3Cpath%20d%3D%22m8%2012%203%203%205-6%22%2F%3E%3C%2Fsvg%3E"); }
+
+.caddy-app[data-page=overview] .overview-flow-icon.network { mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M9%203h6v5H9zM3%2017h6v5H3zM15%2017h6v5h-6zM12%208v5M6%2017v-4h12v4%22%2F%3E%3C%2Fsvg%3E"); }

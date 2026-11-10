@@ -1014,3 +1014,42 @@ msgstr "证书与存储"
 
 msgid "ACME account and persistent certificate data"
 msgstr "ACME 账户及持久化证书数据"
+
+msgid "Target system"
+msgstr "目标系统"
+
+msgid "Target architecture"
+msgstr "目标架构"
+
+msgid "HTTP / HTTPS"
+msgstr "HTTP / HTTPS"
+
+msgid "Managed filesystem"
+msgstr "托管文件存储"
+
+msgid "Version and module details"
+msgstr "版本与模块详情"
+
+msgid "Firmware revision"
+msgstr "固件修订版本"
+
+msgid "HTTPS entry for your services"
+msgstr "家庭服务的 HTTPS 入口"
+
+msgid "Manage reverse proxies, certificates and access authentication in one place."
+msgstr "站点配置、证书管理与访问认证集中在这里。"
+
+msgid "Draft enabled sites"
+msgstr "草稿已启用站点"
+
+msgid "Domain to Caddy to your services"
+msgstr "域名经过 Caddy 转发到家庭服务"
+
+msgid "Your services"
+msgstr "家庭服务"
+
+msgid "Summary counts and ports describe the saved draft. Restart and reload use the last successfully applied configuration. Certificate issuance is shown on the TLS certificates page."
+msgstr "数量与端口展示已保存的草稿；重启和重载使用上次成功应用的配置，实际证书签发结果请查看 TLS 证书页。"
+
+msgid "Configuration revisions"
+msgstr "配置版本详情"
