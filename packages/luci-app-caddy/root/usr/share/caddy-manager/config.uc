@@ -7,6 +7,8 @@ return function(options) {
 	let admin = options?.admin || '127.0.0.1:2019';
 	mkdir(root, 0700);
 	chmod(root, 0700);
+	mkdir(root + '/credentials', 0700);
+	chmod(root + '/credentials', 0700);
 	function read(name, fallback) {
 		let text = readfile(root + '/' + name);
 		return text == null ? fallback : json(text);
@@ -25,26 +27,56 @@ return function(options) {
 			return next;
 		})};
 	}
-	function state() {
+	function state(private) {
 		let draft = read('draft.json', { revision: 0, config: null });
 		let active = read('active-state.json', { revision: 0, config: null });
-		return { ok: true, draft: migrate(draft.config), draft_revision: draft.revision, active_revision: active.revision, pending: draft.revision != active.revision, recovery_required: read('transaction.json', null) != null };
+		draft.config = migrate(draft.config);
+		let public_config = draft.config == null ? null : json(sprintf('%J', draft.config));
+		if (!private && public_config) {
+			delete public_config.manual_caddyfile;
+			for (let site in public_config.sites) delete site.advanced_snippet;
+		}
+		return { ok: true, draft: private ? draft.config : public_config, draft_revision: draft.revision, active_revision: active.revision, active_source: active.config ? (active.config.mode || 'form') : null, pending: draft.revision != active.revision, recovery_required: read('transaction.json', null) != null };
 	}
-	function keys(value, allowed) {
+	function source_check(text) {
+		if (type(text) != 'string' || length(text) > 65536) return 'Caddyfile content must be text up to 64 KiB';
+		// Deliberately conservative lexical boundary, not a sandbox. No escaped
+		// tokens, imports or process-environment expansion, including in strings.
+		if (index(text, '\\') >= 0 || index(text, '`') >= 0 || index(text, '{$') >= 0 || index(lc(text), '{env.') >= 0 || match(text, /(^|[^a-zA-Z0-9_])import([^a-zA-Z0-9_]|$)/))
+			return 'Imports, escapes, backticks and environment expansion are unsupported in managed Caddyfile content';
+		return null;
+	}
+	function known_keys(value, allowed) {
 		if (type(value) != 'object') return false;
 		for (let key in value) if (index(allowed,key) < 0) return false;
 		return true;
 	}
 	function check(config) {
+		if (config?.mode != null && index(['form', 'manual'], config.mode) < 0) return 'Select form or manual configuration source';
+		if (config?.manual_caddyfile != null) {
+			let error = source_check(config.manual_caddyfile);
+			if (error) return error;
+		}
+		for (let site in config?.sites) {
+			if (site.advanced_snippet != null) {
+				let error = source_check(site.advanced_snippet);
+				if (error) return error;
+			}
+		}
 		let g = config?.settings;
-		if (!keys(config,['version','settings','sites']) || !keys(g,['http_port','https_port','email','storage'])) return 'Unsupported configuration field';
+		if (!known_keys(config,['version','settings','sites','mode','manual_caddyfile']) || !known_keys(g,['http_port','https_port','email','storage','default_challenge','cloudflare_credential'])) return 'Unsupported configuration field';
 		if (config.version != 2 || type(config.sites) != 'array' || length(config.sites) < 1)
 			return 'Configure at least one site using the supported schema';
 		let domains={};
 		for (let s in config.sites) {
-			if (!keys(s,['domain','upstreams','balance','path','strip','challenge'])) return 'Unsupported configuration field';
-			if (type(s.domain) != 'string' || length(s.domain) > 253 || !match(s.domain, /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/)) return 'Enter a valid non-wildcard domain';
-			for (let label in split(s.domain, '.')) if (length(label) > 63) return 'Domain labels must not exceed 63 characters';
+			if (!known_keys(s,['domain','upstreams','balance','path','strip','challenge','advanced_snippet'])) return 'Unsupported configuration field';
+			if (config.mode == 'manual') continue;
+			let domain = type(s.domain) == 'string' && substr(s.domain,0,2) == '*.' ? substr(s.domain,2) : s.domain;
+			if (type(domain) != 'string' || length(s.domain) > 253 || !match(domain, /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/))
+				return 'Enter a valid domain or leading wildcard domain';
+			if (domain != s.domain && s.challenge != 'dns-01') return 'Wildcard domains require DNS-01';
+			for (let label in split(domain, '.'))
+				if (length(label) > 63) return 'Domain labels must not exceed 63 characters';
 			if (domains[s.domain]) return 'Each domain must have exactly one site';
 			domains[s.domain]=true;
 			if (type(s.upstreams) != 'array' || !length(s.upstreams)) return 'Configure at least one backend';
@@ -76,8 +108,11 @@ return function(options) {
 			if (index(['round_robin','least_conn','random'],s.balance) < 0) return 'Unsupported load balancing strategy';
 			if (type(s.path) != 'string' || (s.path != '' && !match(s.path,/^\/([a-zA-Z0-9_~.-]+\/)*([a-zA-Z0-9_~.-]+|\*)?$/)) || index(split(s.path,'/'),'..') >= 0 || index(split(s.path,'/'),'.') >= 0) return 'Path must be exact or end in /*, without query, encoding or parent segments';
 			if (type(s.strip) != 'bool' || (s.strip && (s.path == '' || substr(s.path,-2) != '/*'))) return 'Prefix removal requires a path ending in /*';
-			if (index(['http-01', 'tls-alpn-01'], s.challenge) < 0) return 'Unsupported verification method';
+			if (index(['http-01', 'dns-01', 'tls-alpn-01'], s.challenge) < 0) return 'Unsupported verification method';
 		}
+		if (g.default_challenge != null && index(['http-01','dns-01','tls-alpn-01'],g.default_challenge) < 0) return 'Unsupported default verification method';
+		if (g.cloudflare_credential != null && (type(g.cloudflare_credential) != 'int' || g.cloudflare_credential < 1)) return 'Invalid credential revision';
+		if (config.mode == 'manual') return length(trim(config.manual_caddyfile || '')) ? null : 'Enter a complete Caddyfile';
 		for (let name in ['http_port', 'https_port'])
 			if (type(g[name]) != 'int' || g[name] < 1 || g[name] > 65535 || g[name] == +split(admin, ':')[1]) return 'Invalid or reserved listening port';
 		if (g.http_port == g.https_port) return 'HTTP and HTTPS ports must differ';
@@ -85,10 +120,15 @@ return function(options) {
 		if (type(g.storage) != 'string' || !match(g.storage, /^\/[a-zA-Z0-9_\/-]+$/) || index(g.storage, '..') >= 0 || g.storage == '/') return 'Invalid persistent storage directory';
 		return null;
 	}
-	function generate(config) {
+	function generate(config, private_config) {
 		let g=config.settings, routes=[], redirects=[], policies=[];
 		for (let s in config.sites) {
 			let issuer={module:'acme',email:g.email,challenges:{http:{disabled:s.challenge!='http-01'},'tls-alpn':{disabled:s.challenge!='tls-alpn-01'}}};
+			if (s.challenge == 'dns-01') {
+				let credential = private_config ? read('credentials/' + g.cloudflare_credential + '.json',null) : null;
+				if (private_config && !credential) die('Missing Cloudflare credential');
+				issuer.challenges.dns = {provider:{name:'cloudflare',api_token:credential ? credential.token : '[REDACTED: Cloudflare credential]'}};
+			}
 			if (options?.internal_tls) issuer={module:'internal'};
 			push(policies,{subjects:[s.domain],issuers:[issuer]});
 			push(redirects,{match:[{host:[s.domain]}],handle:[{handler:'static_response',status_code:308,headers:{Location:['https://'+s.domain+(g.https_port==443?'':':'+g.https_port)+'{http.request.uri}']}}]});
@@ -103,8 +143,58 @@ return function(options) {
 			push(routes,{match:[{host:[s.domain]}],handle:[{handler:'subroute',routes:[pathRoute,{handle:[{handler:'static_response',status_code:404}]}]}],terminal:true});
 		}
 		push(routes,{handle:[{handler:'static_response',status_code:404}]});
-		let generated={admin:{listen:admin,config:{persist:false}},storage:{module:'file_system',root:g.storage},apps:{http:{http_port:g.http_port,https_port:g.https_port,servers:{redirect:{listen:[(options?.bind||'')+':'+g.http_port],routes:redirects},proxy:{automatic_https:{disable_redirects:true},listen:[(options?.bind||'')+':'+g.https_port],routes,tls_connection_policies:[{}]}}},tls:{automation:{policies}}}};
+		let generated={admin:{listen:admin,config:{persist:false}},storage:{module:'file_system',root:g.storage},apps:{http:{http_port:g.http_port,https_port:g.https_port,servers:{redirect:{listen:[(options?.bind||'')+':'+g.http_port],routes:redirects},proxy:{automatic_https:options?.disable_certificates ? {disable_redirects:true,disable_certificates:true} : {disable_redirects:true},listen:[(options?.bind||'')+':'+g.https_port],routes,tls_connection_policies:[{}]}}},tls:{automation:{policies}}}};
 		if (options?.internal_tls) generated.apps.pki={certificate_authorities:{local:{install_trust:false}}};
+		return generated;
+	}
+
+
+	function command(action, name) {
+		return system([options?.command || '/usr/share/caddy-manager/caddy-command', action, root + '/' + name, admin], 30000) == 0;
+	}
+	function adapt(text) {
+		let path = root + '/source.caddyfile';
+		if (writefile(path, text) == null || !chmod(path, 0600)) die('Unable to persist private source');
+		if (!command('adapt', 'source.caddyfile')) die('Caddy rejected Caddyfile');
+		return read('source.caddyfile.json', null);
+	}
+	function compile(config, private_config) {
+		if (config.mode == 'manual') {
+			let candidate = adapt(config.manual_caddyfile);
+			if (type(candidate) != 'object') die('Caddy rejected Caddyfile');
+			let a = candidate.admin;
+			if (a && (a.disabled || (a.listen != null && a.listen != admin) || a.remote != null || a.config?.load != null || a.config?.persist == true))
+				die('Unsafe admin configuration');
+			candidate.admin = {listen:admin,config:{persist:false}};
+			if (candidate.storage && (candidate.storage.module != 'file_system' || candidate.storage.root != root + '/data')) die('Unsupported certificate storage');
+			candidate.storage = {module:'file_system',root:root + '/data'};
+			candidate.apps ||= {};
+			candidate.apps.pki ||= {};
+			candidate.apps.pki.certificate_authorities ||= {};
+			candidate.apps.pki.certificate_authorities.local ||= {};
+			for (let name, ca in candidate.apps.pki.certificate_authorities) ca.install_trust = false;
+			return candidate;
+		}
+		let generated = generate(config,private_config);
+		for (let site in config.sites) {
+			if (!length(trim(site.advanced_snippet || ''))) continue;
+			let snippet = adapt('http://snippet.invalid {\n' + site.advanced_snippet + '\n}\n');
+			if (length(keys(snippet.apps || {})) != 1 || !snippet.apps.http || length(keys(snippet.apps.http.servers || {})) != 1 || snippet.apps.http.servers.srv0.tls_connection_policies != null || snippet.apps.http.servers.srv0.automatic_https != null)
+				die('Advanced snippets support HTTP routing directives only');
+			let server = snippet.apps.http.servers.srv0;
+			if (sprintf('%J',server.listen) != sprintf('%J',[':80']) || length(server.routes) != 1 || server.routes[0].match?.[0]?.host?.[0] != 'snippet.invalid') die('Unsupported snippet scope');
+			for (let key in keys(server)) if (index(['listen','routes'],key) < 0) die('Unsupported snippet server option');
+			let routes = server.routes[0].handle?.[0]?.routes;
+			if (type(routes) != 'array') die('Unsupported advanced snippet');
+			for (let name, server in generated.apps.http.servers) {
+				for (let route in server.routes) {
+					if (route.match?.[0]?.host?.[0] != site.domain || name == 'redirect') continue;
+					let scoped = route.handle[0].routes[0];
+					let proxy = scoped.handle;
+					scoped.handle = [{handler:'subroute',routes:[...routes,{handle:proxy}]}];
+				}
+			}
+		}
 		return generated;
 	}
 
@@ -117,9 +207,7 @@ return function(options) {
 		lock.close();
 		return result;
 	}
-	function command(action, name) {
-		return system([options?.command || '/usr/share/caddy-manager/caddy-command', action, root + '/' + name, admin], 30000) == 0;
-	}
+
 	function recover(load) {
 		let journal = read('transaction.json', null);
 		if (!journal) return {ok:true};
@@ -133,7 +221,40 @@ return function(options) {
 	}
 
 	return {
-		draft_get: state,
+		draft_get: function() { return state(false); },
+		draft_edit: function() { return state(true); },
+		tls_save: function(request) {
+			return locked(function() {
+				let current = state(true);
+				if (request.expected_revision != current.draft_revision) return {ok:false,error:'Draft changed; reload before saving TLS settings'};
+				if (!current.draft) return {ok:false,error:'Save a site draft before changing TLS defaults'};
+				if (current.draft.mode == 'manual') return {ok:false,error:'TLS forms are read-only in complete Caddyfile mode'};
+				if (index(['http-01','dns-01','tls-alpn-01'],request.default_challenge) < 0) return {ok:false,error:'Unsupported default verification method'};
+				current.draft.settings.default_challenge = request.default_challenge;
+				write('draft.json',{revision:current.draft_revision+1,config:current.draft});
+				return state();
+			});
+		},
+		credential_status: function() {
+			let draft = state().draft, active = read('active-state.json',{config:null}).config;
+			return {ok:true,configured:draft?.settings?.cloudflare_credential != null,draft_revision:draft?.settings?.cloudflare_credential,active_revision:active?.settings?.cloudflare_credential};
+		},
+		credential_save: function(request) {
+			return locked(function() {
+				let current = state(true);
+				if (request.expected_revision != current.draft_revision) return {ok:false,error:'Draft changed; reload before saving credentials'};
+				if (!current.draft) return {ok:false,error:'Save a draft before adding credentials'};
+				if (current.draft.mode == 'manual') return {ok:false,error:'Cloudflare form credentials are read-only in complete Caddyfile mode'};
+				if (type(request.token) != 'string' || length(request.token) < 1 || length(request.token) > 4096 || match(request.token, /[[:space:][:cntrl:]]/)) return {ok:false,error:'Enter a Cloudflare API Token without whitespace'};
+				// Immutable versions preserve the last active secret across failed applies.
+				let revision = read('credentials/sequence.json',{revision:0}).revision + 1;
+				write('credentials/sequence.json',{revision});
+				write('credentials/' + revision + '.json',{token:request.token});
+				current.draft.settings.cloudflare_credential = revision;
+				write('draft.json',{revision:current.draft_revision+1,config:current.draft});
+				return state();
+			});
+		},
 		recover: function(request) { return locked(function() { return recover(request?.load != false); }); },
 		active_reload: function() {
 			return locked(function() {
@@ -146,11 +267,13 @@ return function(options) {
 			return locked(function() {
 				let recovered = recover(true);
 				if (!recovered.ok) return recovered;
-				let current = state();
+				let current = state(true);
 				if (request.expected_revision != current.draft_revision) return {ok:false,error:'Draft changed; reload before applying'};
 				let error = check(current.draft);
 				if (error) return {ok:false,error};
-				let candidate = generate(current.draft);
+				let candidate;
+				try { candidate = compile(current.draft,true); }
+				catch(e) { return {ok:false,error:'Caddyfile adaptation or managed admin/storage policy rejected configuration; active configuration is unchanged'}; }
 				write('candidate.json', candidate);
 				if (!command('validate','candidate.json')) return {ok:false,error:'Caddy rejected the generated configuration; active configuration is unchanged'};
 				let next = {revision:current.draft_revision,config:current.draft};
@@ -177,9 +300,19 @@ return function(options) {
 			});
 		},
 		preview: function(request) {
-			let config = migrate(request.config || state().draft);
-			let error = check(config);
-			return error ? { ok:false, error } : { ok:true, config:generate(config) };
+			return locked(function() {
+				let config = migrate(request.config || state(true).draft);
+				let error = check(config);
+				if (error) return {ok:false,error};
+				if (config.mode == 'manual' || length(filter(config.sites, s => length(s.advanced_snippet || '') > 0))) {
+					try {
+						write('preview.json', compile(config,true));
+						if (!command('validate','preview.json')) die('Validation failed');
+					} catch(e) { return {ok:false,error:'Caddy rejected configuration or managed admin/storage policy'}; }
+					return {ok:true,config:{source:config.mode || 'form',validated:true,redacted:true,admin:admin,storage:'managed filesystem'}};
+				}
+				return {ok:true,config:generate(config)};
+			});
 		},
 		draft_save: function(request) {
 			return locked(function() {
