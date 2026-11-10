@@ -12,7 +12,7 @@ define Package/luci-app-caddy
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
   TITLE:=Caddy service management
-  DEPENDS:=+luci-base +caddy-binary +rpcd-mod-ucode +ucode-mod-fs +ucode-mod-ubus +openssl-util +logd
+  DEPENDS:=+luci-base +caddy-binary +rpcd-mod-ucode +ucode-mod-fs +ucode-mod-ubus +openssl-util +logd +curl
   PKGARCH:=all
 endef
 
@@ -25,6 +25,8 @@ if [ -z "$${IPKG_INSTROOT}" ]; then
 	rm -f /tmp/luci-indexcache.*
 	rm -rf /tmp/luci-modulecache/
 	/etc/init.d/rpcd reload 2>/dev/null
+	/etc/init.d/caddy-monitor enable
+	/etc/init.d/caddy-monitor restart
 fi
 exit 0
 endef
