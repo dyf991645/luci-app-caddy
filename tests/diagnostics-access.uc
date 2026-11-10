@@ -1,0 +1,11 @@
+'use strict';
+import {writefile,chmod} from 'fs';
+let api=loadfile(ARGV[0])()({root:ARGV[1],command:ARGV[2],internal_tls:true,bind:'127.0.0.1'});
+let config={version:2,settings:{http_port:30080,https_port:30443,email:'',storage:ARGV[1]+'/data',access_log:true},sites:[{domain:'logs.invalid',upstreams:['http://127.0.0.1:30081'],balance:'round_robin',path:'',strip:false,challenge:'http-01'}]};
+let saved=api.draft_save({config,expected_revision:0});assert(saved.ok,'optional access logs can be saved');
+let preview=api.preview({config});assert(preview.ok && type(preview.config.apps.http.servers.proxy.logs)=='object','enabled access logs compile into real Caddy server logging');
+writefile(ARGV[1]+'/validate.json',sprintf('%J',preview.config));chmod(ARGV[1]+'/validate.json',0600);
+assert(system([ARGV[2],'validate',ARGV[1]+'/validate.json'],5000)==0,'real Caddy accepts generated access logging');
+config.settings.access_log=false;
+assert(api.preview({config}).config.apps.http.servers.proxy.logs==null,'access logs disabled by default/choice');
+print('PASS optional access log setting\n');

@@ -42,7 +42,7 @@ return view.extend({
 		update();
 		return E('div',{'class':'cbi-map'},[
 			E('h2',{},_('TLS certificates')),
-			E('ul',{'class':'cbi-tabmenu'},[E('li',{},E('a',{'href':L.url('admin/services/caddy')},_('Overview'))),E('li',{},E('a',{'href':L.url('admin/services/caddy/configuration')},_('Configuration'))),E('li',{'class':'cbi-tab'},E('a',{'href':L.url('admin/services/caddy/tls')},_('TLS certificates'))),E('li',{},E('a',{'href':L.url('admin/services/caddy/certificates')},_('Stored certificates')))]),
+			E('ul',{'class':'cbi-tabmenu'},[E('li',{},E('a',{'href':L.url('admin/services/caddy')},_('Overview'))),E('li',{},E('a',{'href':L.url('admin/services/caddy/configuration')},_('Configuration'))),E('li',{'class':'cbi-tab'},E('a',{'href':L.url('admin/services/caddy/tls')},_('TLS certificates'))),E('li',{},E('a',{'href':L.url('admin/services/caddy/certificates')},_('Stored certificates'))),E('li',{},E('a',{'href':L.url('admin/services/caddy/diagnostics')},_('Logs and diagnostics')))]),
 			status,
 			current.draft && current.draft.mode=='manual'?E('p',{},_('Complete Caddyfile mode: TLS forms and credentials are read-only. The independent manual source is not rewritten by form credentials.')):'',
 			!current.draft?E('p',{},_('Save a site configuration before adding credentials.')):'',
