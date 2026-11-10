@@ -1065,3 +1065,6 @@ msgstr "HTTPS 端口"
 
 msgid "Saved revision"
 msgstr "已保存版本"
+
+msgid "Domain to Caddy to service"
+msgstr "域名经过 Caddy 转发到服务"

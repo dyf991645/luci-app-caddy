@@ -69,10 +69,9 @@ return view.extend({
     layout.panel(_('Service information'),'',info,[badge]),
     layout.panel(_('Configuration summary'),'',[
      layout.row(_('Enabled sites'),manual?_('Manual mode'):String(enabled.length)),
-     layout.row(_('Authelia sites'),manual?_('Manual mode'):String(enabled.filter(function(site){return site.auth?.mode=='authelia';}).length)),
      layout.row(_('Default verification method'),manual?_('Manual mode'):(settings.default_challenge || 'http-01').toUpperCase()),
      layout.row(_('Configuration state'),snapshot.pending?_('Pending application'):_('No pending changes')),
-     E('div',{'class':'overview-flow','aria-label':_('Domain to Caddy to your services')},[flowPart('globe',_('Domain')),E('span',{'class':'muted','aria-hidden':'true'},'→'),flowPart('shield','Caddy'),E('span',{'class':'muted','aria-hidden':'true'},'→'),flowPart('network',_('Your services'))]),
+     E('div',{'class':'overview-flow','aria-label':_('Domain to Caddy to service')},[flowPart('globe',_('Domain')),E('span',{'class':'muted','aria-hidden':'true'},'→'),flowPart('shield','Caddy'),E('span',{'class':'muted','aria-hidden':'true'},'→'),flowPart('network',_('Service'))]),
      E('details',{'class':'overview-details'},[E('summary',{},_('Configuration revisions')),layout.row(_('Saved revision'),snapshot.draft_revision),layout.row(_('Active revision'),snapshot.active_revision),snapshot.recovery_required?layout.note(_('Recovery required: start or restart Caddy')):''])
     ])
    ])
