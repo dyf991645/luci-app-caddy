@@ -42,6 +42,8 @@ return function(options) {
 		let affected_domains=[];
 		if (draft.config?.mode!='manual' && draft.config?.auth?.basic?.profile != active.config?.auth?.basic?.profile)
 			for(let site in draft.config?.sites) if(site.auth?.mode=='basic' && site.auth.source=='global') push(affected_domains,site.domain);
+		if(draft.config?.mode!='manual' && sprintf('%J',draft.config?.auth?.authelia)!=sprintf('%J',active.config?.auth?.authelia))
+			for(let site in draft.config?.sites) if(site.auth?.mode=='authelia' && site.auth.source=='global') push(affected_domains,site.domain);
 		let basic_profiles={};
 		let refs=[draft.config?.auth?.basic?.profile];
 		for (let site in draft.config?.sites) push(refs,site.auth?.profile);
@@ -61,6 +63,41 @@ return function(options) {
 		for (let key in value) if (index(allowed,key) < 0) return false;
 		return true;
 	}
+	function auth_host_valid(host) {
+		if(substr(host,0,1)=='[') {
+			let address=substr(host,1,length(host)-2), chunks=split(address,':'), compressed=split(address,'::'), count=0;
+			if(length(compressed)>2 || index(address,':::')>=0 || (length(compressed)==1 && length(chunks)!=8)) return false;
+			for(let chunk in chunks) if(chunk!='') {if(!match(chunk,/^[a-fA-F0-9]{1,4}$/)) return false;count++;}
+			return length(compressed)!=2 || count<8;
+		}
+		if(length(host)>253) return false;
+		for(let label in split(host,'.')) if(length(label)>63 || !match(label,/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$/)) return false;
+		if(match(host,/^[0-9.]+$/)) {let octets=split(host,'.');if(length(octets)!=4) return false;for(let octet in octets) if(+octet>255 || (length(octet)>1 && substr(octet,0,1)=='0')) return false;}
+		return true;
+	}
+	function authelia_check(auth) {
+		if (!known_keys(auth,['backend','uri','portal'])) return 'Configure Authelia backend, interface and login portal';
+		let backend=type(auth.backend)=='string' ? match(auth.backend,/^https?:\/\/([a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?|\[[a-fA-F0-9:]+\]):([0-9]{1,5})$/) : null;
+		if (!backend || !auth_host_valid(backend[1]) || +backend[3]<1 || +backend[3]>65535) return 'Authelia backend must be HTTP(S) host:port without credentials, path or query';
+		if(type(auth.uri)!='string' || !match(auth.uri,/^\/([a-zA-Z0-9_~-]+\/)*[a-zA-Z0-9_~-]+$/)) return 'Authelia interface must be an absolute path without query or fragment';
+		if(type(auth.portal)!='string' || !match(auth.portal,/^https?:\/\/[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?(:[0-9]{1,5})?(\/[a-zA-Z0-9_~.\/-]*)?$/) || index(auth.portal,'..')>=0) return 'Authelia portal must be an HTTP(S) URL without credentials, query or fragment';
+		let portal=match(auth.portal,/^https?:\/\/([^\/:]+)(:([0-9]+))?/);
+		if(!auth_host_valid(portal[1]) || (portal[3] && (+portal[3]<1 || +portal[3]>65535))) return 'Invalid Authelia portal host or port';
+		return null;
+	}
+	function encode_url(value) {
+		let encoded='';
+		for(let char in split(value,'')) encoded += match(char,/^[a-zA-Z0-9_.~-]$/) ? char : sprintf('%%%02X',ord(char));
+		return encoded;
+	}
+	function authelia_handlers(auth) {
+		let headers=['Remote-User','Remote-Groups','Remote-Email','Remote-Name'];
+		let copy=[];
+		for(let name in headers) push(copy,{handle:[{handler:'headers',request:{set:{[name]:['{http.reverse_proxy.header.'+name+'}']}}}],match:[{not:[{vars:{['{http.reverse_proxy.header.'+name+'}']:['']}}]}]});
+		let proxy={handler:'reverse_proxy',upstreams:[{dial:replace(auth.backend,/^https?:\/\//,'')}],rewrite:{method:'GET',uri:auth.uri+'?authelia_url='+encode_url(auth.portal)},headers:{request:{set:{'X-Forwarded-Method':['{http.request.method}'],'X-Forwarded-Uri':['{http.request.uri}']}}},handle_response:[{match:{status_code:[2]},routes:copy}]};
+		if(substr(auth.backend,0,8)=='https://') proxy.transport={protocol:'http',tls:{}};
+		return [{handler:'headers',request:{delete:headers}},proxy];
+	}
 	function check(config) {
 		if (config?.mode != null && index(['form', 'manual'], config.mode) < 0) return 'Select form or manual configuration source';
 		if (config?.manual_caddyfile != null) {
@@ -77,13 +114,31 @@ return function(options) {
 		if (!known_keys(config,['version','settings','sites','mode','manual_caddyfile','auth']) || !known_keys(g,['http_port','https_port','email','storage','default_challenge','cloudflare_credential'])) return 'Unsupported configuration field';
 		if (config.version != 2 || type(config.sites) != 'array' || length(config.sites) < 1)
 			return 'Configure at least one site using the supported schema';
-		if (config.auth != null && (!known_keys(config.auth,['basic']) || !known_keys(config.auth.basic,['profile']) || type(config.auth.basic.profile)!='string' || !match(config.auth.basic.profile,/^basic-[0-9]+-[0-9]+$/) || (config.mode!='manual' && !profile(config.auth.basic.profile)))) return 'Invalid global Basic Auth profile';
+		if(config.auth != null && !known_keys(config.auth,['basic','authelia'])) return 'Unsupported global authentication field';
+		if(config.auth?.basic != null && (!known_keys(config.auth.basic,['profile']) || type(config.auth.basic.profile)!='string' || !match(config.auth.basic.profile,/^basic-[0-9]+-[0-9]+$/) || (config.mode!='manual' && !profile(config.auth.basic.profile)))) return 'Invalid global Basic Auth profile';
+		if(config.auth?.authelia != null) {let error=authelia_check(config.auth.authelia);if(error) return error;}
 		let domains={};
 		for (let s in config.sites) {
 			if (!known_keys(s,['domain','upstreams','balance','path','strip','challenge','advanced_snippet','auth'])) return 'Unsupported configuration field';
 			if (s.auth != null) {
-				if (!known_keys(s.auth,['mode','source','profile']) || index(['none','basic'],s.auth.mode)<0 || (s.auth.source!=null && index(['global','independent'],s.auth.source)<0) || (s.auth.profile!=null && (type(s.auth.profile)!='string' || !match(s.auth.profile,/^basic-[0-9]+-[0-9]+$/)))) return 'Unsupported access authentication';
-				if (config.mode!='manual' && s.auth.mode=='basic' && (index(['global','independent'],s.auth.source)<0 || !profile(s.auth.source=='global' ? config.auth?.basic?.profile : s.auth.profile))) return 'Configure the selected Basic Auth profile first';
+				if (!known_keys(s.auth,['mode','source','profile','authelia']) || index(['none','basic','authelia'],s.auth.mode)<0) return 'Unsupported access authentication';
+				if(s.auth.source!=null && index(['global','independent'],s.auth.source)<0) return 'Unsupported authentication source';
+				if(s.auth.profile!=null && (type(s.auth.profile)!='string' || !match(s.auth.profile,/^basic-[0-9]+-[0-9]+$/))) return 'Invalid authentication profile reference';
+				if(s.auth.authelia!=null) {let error=authelia_check(s.auth.authelia);if(error) return error;}
+				if(config.mode=='manual') continue;
+				if (s.auth.mode=='basic' && (index(['global','independent'],s.auth.source)<0 || !profile(s.auth.source=='global' ? config.auth?.basic?.profile : s.auth.profile))) return 'Configure the selected Basic Auth profile first';
+				if(s.auth.mode=='authelia') {
+					if(index(['global','independent'],s.auth.source)<0) return 'Choose global or independent Authelia configuration';
+					let auth=s.auth.source=='global' ? config.auth?.authelia : s.auth.authelia;
+					let error=authelia_check(auth);if(error) return error;
+					let portal=match(auth.portal,/^https?:\/\/([^\/:]+)(:[0-9]+)?(\/.*)?$/), host=lc(portal[1]), path=portal[3] || '/';
+					for(let entry in config.sites) {
+						let same=entry.domain==host || (substr(entry.domain,0,2)=='*.' && substr(host,-length(entry.domain)+1)==substr(entry.domain,1));
+						let covers=entry.path=='' || entry.path==path || (substr(entry.path,-2)=='/*' && substr(path,0,length(entry.path)-1)==substr(entry.path,0,length(entry.path)-1));
+						if(same && covers && entry.auth?.mode && entry.auth.mode!='none') return 'Login portal must use no additional authentication to avoid a login loop; configure Authelia session cookies and access policies externally';
+					}
+				}
+
 			}
 			if (config.mode == 'manual') continue;
 			let domain = type(s.domain) == 'string' && substr(s.domain,0,2) == '*.' ? substr(s.domain,2) : s.domain;
@@ -149,7 +204,7 @@ return function(options) {
 			push(redirects,{match:[{host:[s.domain]}],handle:[{handler:'static_response',status_code:308,headers:{Location:['https://'+s.domain+(g.https_port==443?'':':'+g.https_port)+'{http.request.uri}']}}]});
 			let proxy={handler:'reverse_proxy',upstreams:map(s.upstreams,function(url) {return {dial:replace(url,/^https?:\/\//,'')};}),load_balancing:{selection_policy:{policy:s.balance}}};
 			if (substr(s.upstreams[0],0,8)=='https://') proxy.transport={protocol:'http',tls:{}};
-			let handles=[];
+			let handles=s.auth?.mode=='authelia' ? authelia_handlers(s.auth.source=='global' ? config.auth.authelia : s.auth.authelia) : [];
 			if (s.auth?.mode=='basic') {
 				let users=profile(s.auth.source=='global' ? config.auth.basic.profile : s.auth.profile);
 				push(handles,{handler:'authentication',providers:{http_basic:{hash:{algorithm:'bcrypt'},accounts:map(users,u=>({username:u.username,password:private_config ? u.hash : '[private hash]'}))}}});
@@ -210,7 +265,8 @@ return function(options) {
 					if (route.match?.[0]?.host?.[0] != site.domain || name == 'redirect') continue;
 					let scoped = route.handle[0].routes[0];
 					let proxy = scoped.handle;
-					let auth = proxy[0]?.handler == 'authentication' ? [shift(proxy)] : [];
+					let auth = [];
+					while(proxy[0]?.handler=='authentication' || proxy[0]?.handler=='headers' || (proxy[0]?.handler=='reverse_proxy' && proxy[0]?.handle_response)) push(auth,shift(proxy));
 					scoped.handle = [...auth,{handler:'subroute',routes:[...routes,{handle:proxy}]}];
 				}
 			}

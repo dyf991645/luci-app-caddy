@@ -159,6 +159,42 @@ readback through the actual RPC adapter. Installed LuCI/ubus/APK upgrade and
 browser interaction remain separate integration acceptance steps. Standalone preview never hashes passwords and retains only
 username metadata; its sensitive fields are discarded on simulated save.
 
+## Ticket08 Authelia (controlled HTTP and actual login)
+
+Copy `authelia.uc`, `authelia-update.uc`, `authelia-router.sh`, manager `config.uc`
+and executable `caddy-command` into `/tmp/luci-caddy-ticket08/` on the agreed
+router. Run `python3 tests/authelia-host.py` on the host (loopback19081 backend,
+19082 controlled authorization), bridge SSH `-R 127.0.0.1:28081:127.0.0.1:19081
+-R 127.0.0.1:28082:127.0.0.1:19082`, then run the router script. Real Caddy uses
+only loopback admin28019/HTTP28080/HTTPS28443, internal CA without trust install,
+private HOME/XDG/storage under a new0700 `/tmp` root, no autosave. Its trap stops
+Caddy. The fixture checks original method/URI/body, 2xx-only continuation,
+302/Location/401/403, absent identity headers, all four forged Remote-* fields,
+path404, invalid URLs/portal loops, dynamic global updates/independent isolation,
+affected-domain reporting before apply, and unreachable authorization502.
+
+For **actual Authelia single-factor login**, copy `tests/fixtures/authelia/*`
+into a fresh host `/tmp/luci-caddy-ticket08-host/`; they contain ONLY a public,
+disposable test identity/password (`ticket08` / `Ticket08-Isolated-Only-2026`).
+Never use these fixture secrets in a deployment. Start
+`docker run --detach --name luci-caddy-ticket08-authelia --publish
+127.0.0.1:19091:9091 --volume /tmp/luci-caddy-ticket08-host:/config
+ authelia/authelia:4.39.28`. Replace only the ticket08 auth SSH reverse forward
+with `-R 127.0.0.1:28082:127.0.0.1:19091`, add
+`-L 127.0.0.1:18443:127.0.0.1:28443`, delete old `real-ready`/`real-done` markers,
+and start the router script with `real`. After `real-ready`, run
+`python3 tests/authelia-real-client.py`, then touch router `real-done`.
+Stop/remove the disposable container and cancel the exact SSH forwards. A shared
+SSH master can retain forwards even after its initiating command exits.
+
+Actual service acceptance verifies portal200 without additional authentication,
+anonymous302, invalid login401, a real single-factor session login/cookie,
+protected200 and all four actual identity attributes overriding forged headers,
+policy403 and outside404. It does **not** verify MFA, public DNS/TLS issuance,
+external existing users/policies, production reachability or native LuCI visual
+interaction. The controlled HTTP fixture is separately identified and never
+substituted for actual Authelia login evidence.
+
 Ticket06 stored certificate evidence: copy `certificates.uc`, executable
 `certificate-command` and `certificate-log` from the manager directory plus
 `tests/{certificate-inventory,certificate-events,certificate-edge}.uc` and
