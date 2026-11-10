@@ -1,0 +1,13 @@
+'use strict';
+import {writefile} from 'fs';
+let api=loadfile(ARGV[0])()({root:ARGV[1],command:ARGV[2]});
+let config={version:2,mode:'manual',manual_caddyfile:'http://test.invalid {\n totally_invalid_PRIVATE_CANARY\n}\n',settings:{http_port:10080,https_port:10443,email:'',storage:ARGV[1]+'/data'},sites:[{}]};
+assert(api.draft_save({config,expected_revision:0}).ok,'save bad syntax as draft');
+let result=api.preview({config});
+assert(result.ok==false && result.diagnostic?.category=='caddyfile_syntax' && result.diagnostic.line==2,'bad manual syntax reports safe source line');
+assert(index(sprintf('%J',result),'PRIVATE_CANARY')<0,'syntax feedback never exposes private literal');
+writefile(ARGV[1]+'/empty-log','');
+let events=loadfile(ARGV[3])()({root:ARGV[1],logfile:ARGV[1]+'/empty-log'}).logs({level:'error'});
+assert(events.ok && length(events.entries)==1 && events.entries[0].event=='config_adapt_failed','real apply/preview error is visible through safe log API');
+assert(index(sprintf('%J',events),'PRIVATE_CANARY')<0,'application event does not copy syntax literal');
+print('PASS safe manual syntax line feedback\n');

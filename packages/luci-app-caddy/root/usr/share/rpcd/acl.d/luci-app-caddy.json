@@ -7,7 +7,9 @@
           "status",
           "draft_get",
           "credential_status",
-          "certificates"
+          "certificates",
+          "logs",
+          "diagnostics"
         ]
       }
     },
@@ -15,12 +17,14 @@
       "ubus": {
         "luci.caddy": [
           "action",
-          "basic_profile_save", "draft_edit",
+          "basic_profile_save",
+          "draft_edit",
           "draft_save",
           "config_apply",
           "config_preview",
           "credential_save",
-          "tls_save"
+          "tls_save",
+          "backend_probe"
         ]
       }
     }

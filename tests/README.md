@@ -169,3 +169,30 @@ Tests cover leaf metadata, one-label wildcard coverage, expiration boundaries,
 relative near-expiry, malformed PEM/symlinks/unsupported storage, source-derived
 issuer failure→success, replay and credential-error privacy. See
 `CERTIFICATES.md` for bounded-window and local filesystem trust limitations.
+
+## Ticket10 safe logs and diagnostics
+
+Copy manager `diagnostics.uc` and executable `diagnostic-command` to
+`/tmp/luci-caddy-ticket10/`, plus `tests/diagnostics-{logs,status,real-access}.uc`
+and `tests/diagnostics-router.sh` retaining the tests subdirectory. Run the shell
+fixture. It starts exactly one temporary Caddy bound only to127.0.0.1:30081,
+with admin disabled, automatic HTTPS disabled, no trust changes, and private
+HOME/XDG/output under that fixture; a trap stops it. Tests use real version,
+modules, APK and listeners; distinguish uhttpd80/443 from Caddy's own listener;
+check actual reachable/refused TCP, missing executable/helper/module evidence,
+unsafe permissions, explicit-only configured-target probes, safe filters/empty
+states/byte and line limits, actual access events with header/query canaries,
+and unrecognized/secret-bearing fixture records. No public ACME or installed
+service/config mutation occurs.
+
+`diagnostics-access.uc <manager> <fresh-root> <caddy-command>` verifies public
+save/preview plus real Caddy validation of optional access logs.
+`diagnostics-syntax.uc <manager> <fresh-root> <caddy-command> <diagnostics-module>`
+uses real bad Caddyfile syntax and verifies source line2, fixed error category,
+private literal omission and a safe configuration-error log event.
+`diagnostics-rpc.uc <plugin> <diagnostics-module> <fresh-root> <diagnostic-command>`
+loads a temporary copy of the real RPC adapter, redirects only its diagnostic
+module, and verifies the actual logd source, real runtime diagnostic evidence,
+and rejection of arbitrary probe/action input. It never replaces installed RPC.
+All roots must be fresh and private. Native installed APK/browser acceptance,
+public reachability and ACME remain separate integration acceptance boundaries.

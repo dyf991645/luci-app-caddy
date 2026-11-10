@@ -1,0 +1,21 @@
+#!/bin/sh
+# Fixed operations only. Private output, byte cap and manager-enforced deadline.
+umask 077
+ulimit -f 128
+case "$1" in
+ logs) exec /sbin/logread -l 256 -e 'caddy' >"$2" 2>/dev/null ;;
+ version) exec "$3" version >"$2" 2>/dev/null ;;
+ modules) exec "$3" list-modules --versions >"$2" 2>/dev/null ;;
+ architecture) { uname -m; /usr/bin/apk --print-arch; } >"$2" 2>/dev/null ;;
+ package) exec /usr/bin/apk list --installed caddy-binary >"$2" 2>/dev/null ;;
+ listeners) exec /bin/netstat -lntp >"$2" 2>/dev/null ;;
+ retention)
+  { cap=$(/sbin/uci -q get 'system.@system[0].log_buffer_size');
+    [ -n "$cap" ] || cap=$(/sbin/uci -q get 'system.@system[0].log_size');
+    echo "${cap:-128}"
+    if [ -n "$(/sbin/uci -q get 'system.@system[0].log_file')" ]; then echo file; else echo none; fi
+    if [ -n "$(/sbin/uci -q get 'system.@system[0].log_ip')" ]; then echo remote; else echo none; fi
+  } >"$2" 2>/dev/null ;;
+ probe) exec /bin/busybox nc "$2" "$3" </dev/null >/dev/null 2>&1 ;;
+ *) exit 1 ;;
+esac

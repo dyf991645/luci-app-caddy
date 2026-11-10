@@ -45,7 +45,7 @@ const demoLogs = [
   ['10:42:09','INFO','演示：Cloudflare DNS 模块已加载。'],
   ['10:42:09','INFO','演示：自动续期维护任务已启动。'],
 ];
-const titles = {overview:['概览','查看服务状态、监听端口与配置概况。'],sites:['反向代理','将域名连接到你的家庭服务，HTTPS 由 Caddy 自动管理。'],tls:['TLS 证书','设置默认验证方式，站点也可以单独覆盖。'],settings:['全局设置','管理服务监听、持久化存储和启动行为。'],config:['配置文件','查看表单生成的 Caddyfile，或切换到手动管理。'],logs:['运行日志','查看配置应用、服务启动和证书签发记录。']};
+const titles = {overview:['概览','查看服务状态、监听端口与配置概况。'],sites:['反向代理','将域名连接到你的家庭服务，HTTPS 由 Caddy 自动管理。'],tls:['TLS 证书','设置默认验证方式，站点也可以单独覆盖。'],settings:['全局设置','管理服务监听、持久化存储和启动行为。'],config:['配置文件','查看表单生成的 Caddyfile，或切换到手动管理。'],logs:['日志与诊断','查看安全事件与部署检查；预览不连接设备。']};
 function persist(){if(!unsaved)savedSnapshot=structuredClone(state);try{localStorage.setItem('caddy-preview-v1',JSON.stringify(savedSnapshot));}catch{toast('浏览器存储不可用，本次更改仅保留在当前页面。',true);} $('#nav-count').textContent=state.sites.length; $('#apply-bar').hidden=false; $('#save-draft').disabled=!unsaved; $('#apply').disabled=!unsaved&&!state.dirty; $('#draft-status').textContent=`草稿 v${state.draftRevision} · 生效 v${state.activeRevision}${state.dirty?' · 待应用':''}${unsaved?' · 尚未保存':''}`; document.body.classList.add('has-changes');}
 function change(){unsaved=false;state.draftRevision++;state.dirty=true;persist();}
 function toast(message,error=false){clearTimeout(toastTimer);const t=$('#toast');t.textContent=message;t.classList.toggle('error',error);t.hidden=false;toastTimer=setTimeout(()=>t.hidden=true,4200);}
@@ -105,9 +105,13 @@ function generate(){
   return text.trimEnd()+'\n';
 }
 function configPage(){return `<div class="config-head"><div class="segmented" aria-label="配置模式"><button data-mode="form" class="${state.mode==='form'?'selected':''}" aria-pressed="${state.mode==='form'}">表单生成</button><button data-mode="manual" class="${state.mode==='manual'?'selected':''}" aria-pressed="${state.mode==='manual'}">完整 Caddyfile</button></div><div class="actions"><button class="button" data-action="copy">${icon('copy')}复制配置</button><button class="button" data-action="download-config">${icon('download')}下载</button></div></div><div class="info-note mode-note">${icon('info')}<span>${state.mode==='form'?'当前配置由表单生成。高级指令可在站点编辑器中补充；切换为完整 Caddyfile 模式后，站点表单将停用。':'当前为手动管理模式，表单数据保留但不参与生成。切回表单模式会使用保留的表单配置，手动内容仍会保存。'}</span></div><section class="panel"><div class="panel-top"><h2 class="mono">/etc/caddy/Caddyfile</h2><span class="tag-neutral">${state.mode==='form'?'只读预览':'手动编辑'}</span></div>${state.mode==='form'?`<pre class="code-panel" tabindex="0" aria-label="生成的 Caddyfile">${esc(generate())}</pre>`:`<textarea id="manual-config" class="code-input mono" spellcheck="false" aria-label="完整 Caddyfile">${esc(state.custom)}</textarea>`}<div class="readonly-note">预览仅生成文本；真实的 caddy validate 与热重载将在 OpenWrt 服务端接入。</div></section>`;}
-function logsPage(){return `<section class="panel"><div class="panel-top"><div><h2>服务日志</h2><p>演示事件记录，不连接真实 Caddy 进程</p></div><span class="tag-neutral">${demoLogs.length} 条记录</span></div><div>${demoLogs.map(([t,l,m])=>`<div class="log-line"><time class="mono">${esc(t)}</time><span class="log-level ${l==='WARN'?'warn':''} mono">${l}</span><p class="mono">${esc(m)}</p></div>`).join('')}</div></section>`;}
+let logLevel='all';
+function filteredDemoLogs(){return demoLogs.filter(row=>logLevel==='all'||row[1]===logLevel).slice(-256);}
+function logsPage(){const rows=filteredDemoLogs();return `<section class="panel"><div class="panel-top"><div><h2>部署诊断</h2><p>未连接设备：版本、APK、模块、环境和真实监听均为未知。</p></div><button class="button" data-action="refresh-diagnostics">${icon('refresh')}刷新演示</button></div><div class="panel-body"><div class="detail-row"><span>内核 / Cloudflare 模块 / APK</span><span>未知（未连接）</span></div><div class="detail-row"><span>端口冲突 / 私有文件权限</span><span>未知（未连接）</span></div><div class="detail-row"><span>公网验证可达性</span><span>未验证</span></div><div class="info-note">HTTP-01：公网 80 → 内部 HTTP ${esc(state.settings.http)}；TLS-ALPN-01：公网 443 → 内部 HTTPS ${esc(state.settings.https)}。DNS-01 依赖 DNS API 和 TXT 传播。本机监听及 TCP 可连接不能证明公网 DNS、NAT、防火墙或 ACME 可达。</div><p>直接访问非标准端口时使用 https://域名:${esc(state.settings.https)}。若公网映射使用 443，需要配套规划公网地址与重定向。插件不修改 uhttpd、DNS、防火墙或 NAT。</p><button class="button" data-action="probe-preview">检查已配置后端（仅演示）</button><p class="muted">正式页由用户主动触发，最多探测 8 个已保存后端，每个限时 2.5 秒，仅检查 TCP；不发送认证信息。</p></div></section><section class="panel"><div class="panel-top"><div><h2>安全事件记录</h2><p>演示事件；正式页只返回允许的时间、级别、记录器、固定事件和 HTTP 状态码。</p></div><label>级别 <select id="log-level" aria-label="筛选日志级别">${['all','INFO','WARN','ERROR'].map(x=>`<option value="${x}" ${logLevel===x?'selected':''}>${x==='all'?'全部':x}</option>`).join('')}</select></label></div><div>${rows.length?rows.map(([t,l,m])=>`<div class="log-line"><time class="mono">${esc(t)}</time><span class="log-level ${l==='WARN'?'warn':''} mono">${l}</span><p class="mono">${esc(m)}</p></div>`).join(''):'<div class="empty"><strong>没有匹配的演示事件</strong>更换级别或刷新；空记录不代表操作成功。</div>'}</div><div class="readonly-note">正式页使用有界 logd RAM 窗口（最多 256 条 / 128 KiB），不保留无限文件；不导出原始消息、错误、URL、请求头、认证或通知密钥。可选访问日志在配置页开启，保存并应用后生效。</div></section>`;}
+
 function render(){page=location.hash.slice(1);if(!titles[page])page='sites';$$('[data-page]').forEach(a=>{a.classList.toggle('active',a.dataset.page===page);if(a.dataset.page===page)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});$('#main').innerHTML=heading()+({sites:sitesPage,overview:overviewPage,tls:tlsPage,settings:settingsPage,config:configPage,logs:logsPage}[page])();document.title=`${titles[page][0]} · Caddy · OpenWrt`;bindPage();persist();}
 function bindPage(){
+  $('#log-level')?.addEventListener('change',event=>{logLevel=event.target.value;render();});
   bindBasic($('#main'));
   if(state.mode==='manual'){
     $$('#main #tls-form input,#main #tls-form button,#main [data-edit],#main [data-toggle],#main [data-action=add]').forEach(el=>el.disabled=true);
@@ -182,7 +186,9 @@ document.addEventListener('click',async e=>{
   if(action==='save-manual')saveManual();
   if(action==='copy'){try{await navigator.clipboard.writeText(currentConfig());toast('配置已复制。');}catch{toast('剪贴板不可用，请使用“下载”保存配置。',true);}}
   if(action==='download-config')download('Caddyfile',currentConfig());
-  if(action==='download-logs')download('caddy-preview.log',demoLogs.map(x=>x.join(' ')).join('\n'));
+  if(action==='download-logs')download('caddy-preview-events.log',filteredDemoLogs().map(x=>x.join(' ')).join('\n'));
+  if(action==='refresh-diagnostics')toast('预览未连接设备，诊断状态仍为未知。');
+  if(action==='probe-preview')toast('仅演示入口；未连接或探测任何后端。');
 });
 function saveVisibleDraft(){if(!unsaved)return true; const form=$('#main form');if(form){if(!form.reportValidity())return false;form.requestSubmit();return !unsaved;}if($('#manual-config')){saveManual();return true;}change();return true;}
 $('#save-draft').addEventListener('click',saveVisibleDraft);

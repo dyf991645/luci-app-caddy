@@ -74,7 +74,7 @@ return function(options) {
 			}
 		}
 		let g = config?.settings;
-		if (!known_keys(config,['version','settings','sites','mode','manual_caddyfile','auth']) || !known_keys(g,['http_port','https_port','email','storage','default_challenge','cloudflare_credential'])) return 'Unsupported configuration field';
+		if (!known_keys(config,['version','settings','sites','mode','manual_caddyfile','auth']) || !known_keys(g,['http_port','https_port','email','storage','default_challenge','cloudflare_credential','access_log'])) return 'Unsupported configuration field';
 		if (config.version != 2 || type(config.sites) != 'array' || length(config.sites) < 1)
 			return 'Configure at least one site using the supported schema';
 		if (config.auth != null && (!known_keys(config.auth,['basic']) || !known_keys(config.auth.basic,['profile']) || type(config.auth.basic.profile)!='string' || !match(config.auth.basic.profile,/^basic-[0-9]+-[0-9]+$/) || (config.mode!='manual' && !profile(config.auth.basic.profile)))) return 'Invalid global Basic Auth profile';
@@ -125,6 +125,7 @@ return function(options) {
 			if (type(s.strip) != 'bool' || (s.strip && (s.path == '' || substr(s.path,-2) != '/*'))) return 'Prefix removal requires a path ending in /*';
 			if (index(['http-01', 'dns-01', 'tls-alpn-01'], s.challenge) < 0) return 'Unsupported verification method';
 		}
+		if(g.access_log!=null && type(g.access_log)!='bool') return 'Access logging must be enabled or disabled';
 		if (g.default_challenge != null && index(['http-01','dns-01','tls-alpn-01'],g.default_challenge) < 0) return 'Unsupported default verification method';
 		if (g.cloudflare_credential != null && (type(g.cloudflare_credential) != 'int' || g.cloudflare_credential < 1)) return 'Invalid credential revision';
 		if (config.mode == 'manual') return length(trim(config.manual_caddyfile || '')) ? null : 'Enter a complete Caddyfile';
@@ -163,23 +164,36 @@ return function(options) {
 		}
 		push(routes,{handle:[{handler:'static_response',status_code:404}]});
 		let generated={admin:{listen:admin,config:{persist:false}},storage:{module:'file_system',root:g.storage},apps:{http:{http_port:g.http_port,https_port:g.https_port,servers:{redirect:{listen:[(options?.bind||'')+':'+g.http_port],routes:redirects},proxy:{automatic_https:options?.disable_certificates ? {disable_redirects:true,disable_certificates:true} : {disable_redirects:true},listen:[(options?.bind||'')+':'+g.https_port],routes,tls_connection_policies:[{}]}}},tls:{automation:{policies}}}};
+		if(g.access_log)for(let name,server in generated.apps.http.servers)server.logs={};
 		if (options?.internal_tls) generated.apps.pki={certificate_authorities:{local:{install_trust:false}}};
 		return generated;
 	}
 
 
 	function command(action, name) {
-		return system([options?.command || '/usr/share/caddy-manager/caddy-command', action, root + '/' + name, admin], 30000) == 0;
+		let ok=system([options?.command || '/usr/share/caddy-manager/caddy-command', action, root + '/' + name, admin], 30000) == 0;
+		let evidence=read('operation-evidence.json',[]);if(type(evidence)!='array')evidence=[];
+		push(evidence,{ts:time(),level:ok?'info':'error',logger:'manager',kind:'runtime',event:'config_'+action+(ok?'_success':'_failed')});
+		try {write('operation-evidence.json',slice(evidence,-32));} catch(e) {}
+		return ok;
 	}
-	function adapt(text) {
+	let syntax_diagnostic=null;
+	function adapt(text, source, offset) {
+		syntax_diagnostic=null;
 		let path = root + '/source.caddyfile';
 		if (writefile(path, text) == null || !chmod(path, 0600)) die('Unable to persist private source');
-		if (!command('adapt', 'source.caddyfile')) die('Caddy rejected Caddyfile');
+		unlink(path+'.line');
+		if (!command('adapt', 'source.caddyfile')) {
+			let line=trim(readfile(path+'.line') || '');unlink(path+'.line');
+			if(match(line,/^[0-9]{1,5}$/) && +line>0 && +line<=length(split(text,'\n'))) syntax_diagnostic={category:'caddyfile_syntax',source,line:max(1,+line-(offset || 0))};
+			die('Caddy rejected Caddyfile');
+		}
 		return read('source.caddyfile.json', null);
 	}
 	function compile(config, private_config) {
+		syntax_diagnostic=null;
 		if (config.mode == 'manual') {
-			let candidate = adapt(config.manual_caddyfile);
+			let candidate = adapt(config.manual_caddyfile,'manual',0);
 			if (type(candidate) != 'object') die('Caddy rejected Caddyfile');
 			let a = candidate.admin;
 			if (a && (a.disabled || (a.listen != null && a.listen != admin) || a.remote != null || a.config?.load != null || a.config?.persist == true))
@@ -197,7 +211,7 @@ return function(options) {
 		let generated = generate(config,private_config);
 		for (let site in config.sites) {
 			if (!length(trim(site.advanced_snippet || ''))) continue;
-			let snippet = adapt('http://snippet.invalid {\n' + site.advanced_snippet + '\n}\n');
+			let snippet = adapt('http://snippet.invalid {\n' + site.advanced_snippet + '\n}\n','advanced_snippet',1);
 			if (length(keys(snippet.apps || {})) != 1 || !snippet.apps.http || length(keys(snippet.apps.http.servers || {})) != 1 || snippet.apps.http.servers.srv0.tls_connection_policies != null || snippet.apps.http.servers.srv0.automatic_https != null)
 				die('Advanced snippets support HTTP routing directives only');
 			let server = snippet.apps.http.servers.srv0;
@@ -335,7 +349,7 @@ return function(options) {
 				if (error) return {ok:false,error};
 				let candidate;
 				try { candidate = compile(current.draft,true); }
-				catch(e) { return {ok:false,error:'Caddyfile adaptation or managed admin/storage policy rejected configuration; active configuration is unchanged'}; }
+				catch(e) { return {ok:false,diagnostic:syntax_diagnostic,error:'Caddyfile adaptation or managed admin/storage policy rejected configuration; active configuration is unchanged'}; }
 				write('candidate.json', candidate);
 				if (!command('validate','candidate.json')) return {ok:false,error:'Caddy rejected the generated configuration; active configuration is unchanged'};
 				let next = {revision:current.draft_revision,config:current.draft};
@@ -370,7 +384,7 @@ return function(options) {
 					try {
 						write('preview.json', compile(config,true));
 						if (!command('validate','preview.json')) die('Validation failed');
-					} catch(e) { return {ok:false,error:'Caddy rejected configuration or managed admin/storage policy'}; }
+					} catch(e) { return {ok:false,diagnostic:syntax_diagnostic,error:'Caddy rejected configuration or managed admin/storage policy'}; }
 					return {ok:true,config:{source:config.mode || 'form',validated:true,redacted:true,admin:admin,storage:'managed filesystem'}};
 				}
 				return {ok:true,config:generate(config)};

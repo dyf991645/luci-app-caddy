@@ -48,6 +48,9 @@ return view.extend({
 		option.description=_('Additional directives inside this site and path boundary. Imports and environment expansion are unsupported.');
 		section = map.section(form.NamedSection,'settings','settings',_('Global settings'));
 		[['http_port',_('Internal HTTP port')],['https_port',_('Internal HTTPS port')]].forEach(function(field) {var o=section.option(form.Value,field[0],field[1]);o.datatype='port';o.rmempty=false;});
+		option=section.option(form.Flag,'access_log',_('Access logs'),_('Optional status-only access evidence in the bounded system RAM log. Requests, headers and URLs are omitted from this viewer.'));
+		option.cfgvalue=function(){return map.data.get('json','settings','access_log')===true ? '1':'0';};
+		option.write=function(sid,value){map.data.set('json',sid,'access_log',value==='1');};
 		option = section.option(form.Value,'email',_('ACME contact email'));
 		option.validate = function(sid,value) {return !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || _('Invalid email');};
 		option = section.option(form.Value,'storage',_('Persistent storage directory'));option.rmempty=false;
@@ -88,7 +91,7 @@ return view.extend({
 		}
 		function values() {
 			function get(section,key) {return map.data.get('json',section,key) || '';}
-			return Object.assign({},config,{mode:mode,manual_caddyfile:manual.value,version:2,settings:Object.assign({},config.settings,{http_port:+get('settings','http_port'),https_port:+get('settings','https_port'),email:get('settings','email'),storage:get('settings','storage')}),sites:map.data.sections('json','sites').map(function(site) {return {domain:site.domain || '',upstreams:site.upstreams || [],balance:site.balance || 'round_robin',path:site.path || '',strip:site.strip === true || site.strip === 'true' || site.strip === '1',challenge:site.challenge || 'http-01',advanced_snippet:site.advanced_snippet || '',auth:site.auth || {mode:'none'}};})});
+			return Object.assign({},config,{mode:mode,manual_caddyfile:manual.value,version:2,settings:Object.assign({},config.settings,{access_log:map.data.get('json','settings','access_log')===true,http_port:+get('settings','http_port'),https_port:+get('settings','https_port'),email:get('settings','email'),storage:get('settings','storage')}),sites:map.data.sections('json','sites').map(function(site) {return {domain:site.domain || '',upstreams:site.upstreams || [],balance:site.balance || 'round_robin',path:site.path || '',strip:site.strip === true || site.strip === 'true' || site.strip === '1',challenge:site.challenge || 'http-01',advanced_snippet:site.advanced_snippet || '',auth:site.auth || {mode:'none'}};})});
 		}
 		function validateConfig(data) {
 			if(data.mode=='manual')return data;
@@ -99,7 +102,7 @@ return view.extend({
 				if(site.strip && !site.path.endsWith('/*')) throw new Error(_('Prefix removal requires a path ending in /*'));
 			}); if(!data.sites.length) throw new Error(_('Configure at least one site')); return data;
 		}
-		function result(response) {if (!response.ok) throw new Error(response.error || _('Configuration operation failed'));return response;}
+		function result(response) {if (!response.ok) throw new Error((response.error || _('Configuration operation failed'))+(response.diagnostic?.line ? ' · '+(response.diagnostic.source=='advanced_snippet'?_('Advanced snippet line'):_('Caddyfile line'))+' '+response.diagnostic.line : ''));return response;}
 		function showPreview(data) {var n=++sequence;return preview(validateConfig(data)).then(result).then(function(response) {if(n==sequence) code.textContent=JSON.stringify(response.config,null,2);});}
 		function confirmImpact(){
 			if(!current.affected_domains?.length)return Promise.resolve();
@@ -132,7 +135,7 @@ return view.extend({
 			node.addEventListener('change',function(){dirty=true;update();});
 			if(initial.draft && !map.readonly) showPreview(initial.draft).catch(function(){});
 			return E('div',{},[
-				E('ul',{'class':'cbi-tabmenu'},[E('li',{},E('a',{'href':L.url('admin/services/caddy')},_('Overview'))),E('li',{'class':'cbi-tab'},E('a',{'href':L.url('admin/services/caddy/configuration')},_('Configuration'))),E('li',{},E('a',{'href':L.url('admin/services/caddy/tls')},_('TLS certificates')))]),
+				E('ul',{'class':'cbi-tabmenu'},[E('li',{},E('a',{'href':L.url('admin/services/caddy')},_('Overview'))),E('li',{'class':'cbi-tab'},E('a',{'href':L.url('admin/services/caddy/configuration')},_('Configuration'))),E('li',{},E('a',{'href':L.url('admin/services/caddy/tls')},_('TLS certificates'))), E('li',{},E('a',{'href':L.url('admin/services/caddy/diagnostics')},_('Logs and diagnostics')))]),
 				status,affected,E('div',{},[E('label',{},_('Configuration source')),E('select',{'disabled':map.readonly,'change':function(event){var selected=event.target.value;event.target.value=mode;if(busy)return;if(selected==mode)return;ui.showModal(_('Switch configuration source'),[E('p',{},selected=='manual'?_('The complete Caddyfile will become the source after Save & Apply. Form content is preserved and becomes read-only.'):_('Retained form content will become the source after Save & Apply. Manual content is preserved.')),E('div',{'class':'right'},[E('button',{'class':'cbi-button','click':ui.hideModal},_('Cancel')),' ',E('button',{'class':'cbi-button cbi-button-action','click':function(){if(accountDirty){ui.hideModal();ui.addNotification(null,E('p',{},_('Save account edits before switching configuration source.')),'warning');return;}if(mode=='form')rememberForm();mode=selected;event.target.value=mode;dirty=true;update();ui.hideModal();}},_('Switch source'))])]);}},[E('option',{'value':'form','selected':mode=='form'},_('Form configuration')),E('option',{'value':'manual','selected':mode=='manual'},_('Complete Caddyfile'))]),sourceStatus]),node,accountsNode,E('label',{},_('Separate complete Caddyfile')),manual,E('p',{},_('Privileged server configuration: only trusted administrators should edit it. Local admin and managed filesystem storage are enforced; imports and environment expansion are unsupported.')),
 				E('p',{},_('Public HTTP-01 requires Internet port 80 to reach the internal HTTP port. TLS-ALPN-01 requires Internet port 443 to reach the internal HTTPS port. This application does not configure NAT, firewall, DNS or uhttpd.')),
 				E('details',{},[E('summary',{},_('Redacted configuration preview')),code,E('button',{'class':'cbi-button','disabled':map.readonly,'click':function(){return (mode=='manual'?Promise.resolve():map.parse()).then(function(){return showPreview(values());}).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');});}},_('Refresh preview'))]),

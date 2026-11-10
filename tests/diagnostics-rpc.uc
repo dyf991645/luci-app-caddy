@@ -1,0 +1,13 @@
+'use strict';
+import {readfile,writefile,mkdir,chmod} from 'fs';
+let root=ARGV[2];mkdir(root,0700);chmod(root,0700);
+writefile(root+'/wrapper.uc','return function(){return loadfile('+sprintf('%J',ARGV[1])+')()({root:'+sprintf('%J',root)+',command:'+sprintf('%J',ARGV[3])+'});};');
+writefile(root+'/rpc.uc',replace(readfile(ARGV[0]),'/usr/share/caddy-manager/diagnostics.uc',root+'/wrapper.uc'));
+let rpc=loadfile(root+'/rpc.uc')()['luci.caddy'];
+let result=rpc.logs.call({args:{level:'all',kind:'all'}});
+assert(result.ok && result.source=='bounded_logd_window','real RPC reads actual fixed logd source');
+let status=rpc.diagnostics.call({args:{}});
+assert(status.ok && status.binary.installed && status.public_reachability=='unverified','read RPC returns actual diagnostics without public claims');
+assert(rpc.backend_probe.call({args:{confirm:true,url:'http://arbitrary.invalid:80'}}).ok==false,'RPC refuses arbitrary probe targets');
+assert(rpc.action.call({args:{action:'restart; touch /tmp/luci-caddy-ticket10/injection'}}).ok==false,'diagnostic read methods do not expand fixed service actions');
+print('PASS actual RPC diagnostics/logs and restricted probe/action boundaries\n');
