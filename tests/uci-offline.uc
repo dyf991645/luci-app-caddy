@@ -1,0 +1,12 @@
+import {readfile} from 'fs';
+let root=ARGV[0],modules=ARGV[1];
+let store=loadfile(modules+'/uci-store.uc')()({root,confdir:root+'/config',savedir:root+'/session-offline'});
+let manager=loadfile(modules+'/config.uc')()({root,store,offline:true,admin:'127.0.0.1:26019',bind:'127.0.0.1',internal_tls:true,command:'/usr/share/caddy-manager/caddy-command'});
+let before=manager.draft_edit(),config=before.draft;
+config.sites[0].upstreams=['http://127.0.0.1:26082'];
+let saved=manager.draft_save({config,expected_revision:before.draft_revision});assert(saved.ok,'stopped service can stage changes');
+assert(manager.apply({expected_revision:saved.draft_revision}).ok,'stopped service validates and persists UCI configuration without starting Caddy');
+let evidence=json(readfile(root+'/operation-evidence.json'));
+assert(evidence[-1].event=='config_validate_success','offline Apply does not call Caddy reload');
+assert(!manager.draft_get().pending,'offline Apply marks disk configuration active for next start');
+print('PASS stopped service UCI Apply validates and persists without start/reload\n');

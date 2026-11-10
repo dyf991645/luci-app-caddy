@@ -14,6 +14,7 @@ return function(options) {
 		return text == null ? fallback : json(text);
 	}
 	function write(name, value) {
+		if(name=='draft.json' && options?.store) {options.store.write(value);return;}
 		let path = root + '/' + name;
 		if (writefile(path + '.tmp', sprintf('%J', value)) == null || !chmod(path + '.tmp', 0600) || !rename(path + '.tmp', path))
 			die('Unable to persist configuration');
@@ -31,7 +32,7 @@ return function(options) {
 		return type(ref)=='string' && match(ref,/^basic-[0-9]+-[0-9]+$/) ? read('basic-profiles/'+ref+'.json',null) : null;
 	}
 	function state(private) {
-		let draft = read('draft.json', { revision: 0, config: null });
+		let draft = options?.store ? options.store.read() : read('draft.json', { revision: 0, config: null });
 		let active = read('active-state.json', { revision: 0, config: null });
 		draft.config = migrate(draft.config);
 		let public_config = draft.config == null ? null : json(sprintf('%J', draft.config));
@@ -394,7 +395,7 @@ return function(options) {
 		},
 		apply: function(request) {
 			return locked(function() {
-				let recovered = recover(true);
+				let recovered = recover(!options?.offline);
 				if (!recovered.ok) return recovered;
 				let current = state(true);
 				if (request.expected_revision != current.draft_revision) return {ok:false,error:'Draft changed; reload before applying'};
@@ -408,7 +409,7 @@ return function(options) {
 				let next = {revision:current.draft_revision,config:current.draft};
 				let previous = read('active-state.json',{revision:0,config:null});
 				write('transaction.json',{previous,next,next_json:candidate});
-				if (!command('reload','candidate.json')) {
+				if (!options?.offline && !command('reload','candidate.json')) {
 					// A timeout can happen after Caddy accepted /load. Explicitly
 					// compensate instead of assuming a failed CLI means no change.
 					let restored = command('reload','active.json');
@@ -422,9 +423,10 @@ return function(options) {
 				} catch (e) {
 					// Recovery follows whichever active.json survived the failed
 					// disk commit, then makes the running admin state agree.
-					recover(true);
+					recover(!options?.offline);
 					return {ok:false,error:'Configuration commit interrupted; recovery required'};
 				}
+				if(options?.store && !options.store.commit()) return {ok:false,error:'Configuration loaded but UCI commit failed; saved changes retained'};
 				return state();
 			});
 		},

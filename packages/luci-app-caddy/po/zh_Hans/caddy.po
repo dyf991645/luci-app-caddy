@@ -1074,3 +1074,12 @@ msgstr "重载"
 
 msgid "Certificate verification"
 msgstr "证书验证"
+
+msgid "Add backend"
+msgstr "添加后端"
+
+msgid "Remove backend"
+msgstr "删除后端"
+
+msgid "Configure at least one backend"
+msgstr "至少配置一个后端"

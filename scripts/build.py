@@ -71,7 +71,7 @@ def build(args):
             raise ValueError('Feed commit mismatch: ' + name)
         pins[name]['checked_out_commit'] = actual
     run(['./scripts/feeds', 'install', 'luci-base', 'rpcd-mod-ucode',
-         'ucode-mod-fs', 'ucode-mod-ubus', 'curl', 'openssl-util', 'logd'], cwd=sdk)
+         'ucode-mod-fs', 'ucode-mod-ubus', 'ucode-mod-uci', 'curl', 'openssl-util', 'logd'], cwd=sdk)
     for name in ['caddy-binary', 'luci-app-caddy']:
         shutil.copytree(ROOT / 'packages' / name, sdk / 'package' / name)
     dl = sdk / 'dl'

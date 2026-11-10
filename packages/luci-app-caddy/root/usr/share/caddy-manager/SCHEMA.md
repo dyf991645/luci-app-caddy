@@ -67,15 +67,22 @@ RPC methods (object `luci.caddy`):
 - `config_preview({config})` returns `{ok,config}` with generated managed JSON.
 - `config_apply({expected_revision})` validates the saved draft with real Caddy,
   loads it through the loopback admin endpoint, then promotes durable active
-  JSON and metadata. Service must already be running; it never silently starts
-  a deliberately stopped service. Success means loaded, not certificate issued.
+  JSON and metadata. When stopped, the RPC validates and promotes disk state without loading or
+  starting the service. With a UCI store, successful Apply commits only caddy. Success means loaded, not certificate issued.
 
 Local manager methods also include `active_reload()` and `recover({load})`.
 Errors return `{ok:false,error}` with fixed safe text; raw CLI/provider errors
 can contain credentials and never enter RPC responses. An indeterminate load
 or failed compensation additionally returns `recovery_required:true`.
 
-`draft.json` is separate from `active.json` (the procd startup authority).
+With the production UCI store, `/etc/config/caddy` manager section `config`
+option `revision` references a private immutable `config-versions/<revision>.json`
+snapshot. Writes stage a real UCI delta in the rpcd caller session; native
+commit/revert and rollback control the source. A config.change trigger synchronizes
+the committed snapshot. Secrets never appear in the UCI delta. Legacy `draft.json`
+is retained for migration and isolated manager fixtures, and is no longer a
+second writable authority. Snapshot allocation is serialized by the manager lock.
+`active.json` remains the procd startup authority.
 `active-state.json` records the last committed public model/revision.
 `candidate.json` and `transaction.json` are private, mode0600, inside the
 mode0700 manager root. Before loading, a durable journal records previous and

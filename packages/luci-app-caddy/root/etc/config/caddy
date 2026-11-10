@@ -1,0 +1,2 @@
+config manager 'config'
+	option revision 'legacy'

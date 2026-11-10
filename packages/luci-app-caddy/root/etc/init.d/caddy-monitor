@@ -11,3 +11,11 @@ start_service() {
  procd_set_param stderr 0
  procd_close_instance
 }
+
+# Native LuCI apply and rollback emit config.change after committing caddy UCI.
+service_triggers() {
+ procd_add_reload_trigger caddy
+}
+reload_service() {
+ /usr/bin/ucode /usr/share/caddy-manager/uci-apply.uc
+}

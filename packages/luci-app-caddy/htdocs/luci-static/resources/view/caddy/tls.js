@@ -46,7 +46,7 @@ return view.extend({
 				.then(function(){if(!token.value)return;var value=token.value;token.value='';return saveCredential(value,current.draft_revision).then(checked).then(function(saved){current=saved;});})
 				.then(function(){dirty=false;return wantApply?caddyApply.confirmImpact(current).then(function(){return apply(current.draft_revision);}).then(checked).then(function(saved){current=saved;}):null;})
 				.catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');})
-				.finally(function(){return Promise.all([getDraft(),getCredentials()]).then(function(data){current=data[0];credentials=data[1];busy=false;update();});});
+				.finally(function(){return Promise.all([getDraft(),getCredentials()]).then(function(data){current=data[0];credentials=data[1];busy=false;update();caddyApply.refreshChanges();});});
 		}
 		token.addEventListener('input',function(){dirty=true;update();});
 		window.addEventListener('beforeunload',function(event){if(dirty){event.preventDefault();event.returnValue='';}});

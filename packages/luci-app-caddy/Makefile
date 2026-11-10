@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-caddy
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=17
+PKG_RELEASE:=18
 PKG_LICENSE:=Apache-2.0
 PKG_BUILD_DEPENDS:=luci-base/host
 
@@ -13,8 +13,12 @@ define Package/luci-app-caddy
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
   TITLE:=Caddy service management
-  DEPENDS:=+luci-base +caddy-binary +rpcd-mod-ucode +ucode-mod-fs +ucode-mod-ubus +openssl-util +logd +curl
+  DEPENDS:=+luci-base +caddy-binary +rpcd-mod-ucode +ucode-mod-fs +ucode-mod-ubus +ucode-mod-uci +openssl-util +logd +curl
   PKGARCH:=all
+endef
+
+define Package/luci-app-caddy/conffiles
+/etc/config/caddy
 endef
 
 define Build/Compile

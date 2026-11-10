@@ -4,7 +4,7 @@ const resources=new URL('../packages/luci-app-caddy/htdocs/luci-static/resources
 // Executes the shipped LuCI views. DOM, JSONMap and RPC are host adapters only;
 // clicks, asynchronous save responses and the confirmation gate are real view code.
 function harness(page, affected=['basic.example.test','authelia.example.test'], fixture={}) {
- const nodes=[]; let modal=null; const calls=[],notifications=[],clipboard=[];
+ const nodes=[]; let modal=null,changeRefreshes=0; const calls=[],notifications=[],clipboard=[];
  function E(tag,attrs={},children=[]) {
   const node={tag,attrs,children:[],value:attrs.value || '',disabled:attrs.disabled || false,textContent:typeof children==='string'?children:'',events:{},
    addEventListener(name,fn){this.events[name]=fn;},appendChild(n){this.children.push(n);Object.defineProperty(n,'parentNode',{value:this,writable:true,configurable:true});},replaceChildren(...n){this.children=n;},
@@ -15,7 +15,7 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
  const config={version:2,settings:{http_port:10080,https_port:10443,email:'',storage:'/etc/caddy/data'},sites:[{domain:'app.example.test',upstreams:['http://localhost:8080'],balance:'round_robin',path:'',strip:false,challenge:'http-01'}]};
  Object.assign(config,fixture.config || {});
  let state={ok:true,basic_profiles:fixture.basic_profiles || {},draft:config,draft_revision:4,active_revision:3,pending:true,affected_domains:affected};
- const ui={showModal(title,body){modal=E('modal',{title},body);},hideModal(){modal=null;},addNotification(...args){notifications.push(args);}};
+ const ui={changes:{init(){changeRefreshes++;return Promise.resolve();}},showModal(title,body){modal=E('modal',{title},body);},hideModal(){modal=null;},addNotification(...args){notifications.push(args);}};
  const rpc={declare({method}){return async (...args)=>{calls.push({method,args});if(fixture.fail===method)return {ok:false,error:'Revision conflict'};if(method==='status')return {installed:true,running:false,enabled:false};if(method==='credential_status')return {ok:true};if(method==='config_preview')return {ok:true,config:fixture.preview || {}};if(method==='config_apply'){state={...state,active_revision:state.draft_revision,pending:false,affected_domains:[]};return state;}if(method==='basic_profile_save'||method==='draft_save')state={...state,draft:args[method==='basic_profile_save'?1:0]};if(['tls_save','credential_save','draft_save','basic_profile_save'].includes(method))state={...state,draft_revision:state.draft_revision+1,affected_domains:['latest.example.test']};return state;};}};
  let rootMap,activeMap;
  const form={JSONMap:class {
@@ -24,7 +24,7 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
   parse(){return Promise.resolve();} render(){return Promise.resolve(E('form'));} load(){return Promise.resolve();}reset(){return Promise.resolve();}
  }};
 
- const values={navigator:{clipboard:{writeText:async text=>{clipboard.push(text);}}},dom:{findClassInstance:node=>node.instance},poll:{add(){}},E,_:s=>s,ui,rpc,view:{extend:x=>x},form,L:{hasViewPermission:()=>true,url:x=>x,resource:x=>x,env:{dispatchpath:['admin','services','caddy',fixture.route || 'configuration']}},window:{addEventListener(){}},document:{createTextNode:s=>({textContent:s}),addEventListener(){},querySelector(){return null;},head:{appendChild(){}}},location:{href:''},baseclass:{extend:x=>x}};
+ const values={backendList:class {},navigator:{clipboard:{writeText:async text=>{clipboard.push(text);}}},dom:{findClassInstance:node=>node.instance},poll:{add(){}},E,_:s=>s,ui,rpc,view:{extend:x=>x},form,L:{hasViewPermission:()=>true,url:x=>x,resource:x=>x,env:{dispatchpath:['admin','services','caddy',fixture.route || 'configuration']}},window:{addEventListener(){}},document:{createTextNode:s=>({textContent:s}),addEventListener(){},querySelector(){return null;},head:{appendChild(){}}},location:{href:''},baseclass:{extend:x=>x}};
  const helper=new URL('caddy/apply.js',resources);
  if(existsSync(helper))values.caddyApply=evaluate(helper);
  values.layout=evaluate(new URL('caddy/layout.js',resources));
@@ -40,11 +40,11 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
    const body=[];
    for(const o of section.children){
     o.active=()=>!o.dependencies.length||o.dependencies.some(dep=>Object.entries(dep).every(([key,val])=>section.children.find(other=>other.option===key)?.input?.value===val));
-    if(o.renderWidget)body.push(o.renderWidget());else {o.input=E('input',{'aria-label':o.title,value:o.cfgvalue?o.cfgvalue('0'):rootMap.data.get('json','0',o.option)??o.default??''});body.push(o.input);}
+    if(o.renderWidget && o.option!=='upstreams')body.push(o.renderWidget());else {o.input=E('input',{'aria-label':o.title,value:o.cfgvalue?o.cfgvalue('0'):rootMap.data.get('json','0',o.option)??o.default??''});body.push(o.input);}
    }
    ui.showModal('Edit site',body);
    return {validate(name,value){return section.children.find(o=>o.option===name).validate('0',value);},field(name){return section.children.find(o=>o.option===name).input;},visible(name){return section.children.find(o=>o.option===name).active();},button(label){return all(modal).find(n=>n.tag==='button'&&n.textContent===label);},inputs(){return all(modal).filter(n=>n.tag==='input');},save(){return grid.handleModalSave(activeMap);},cancel(){grid.handleModalCancel(activeMap);}};
-  },async render(){await view.render(page==='tls'?[state,{ok:true}]:page==='overview'?[{installed:true,running:false,enabled:false},state]:state);},button(label){return nodes.find(n=>n.tag==='button'&&n.textContent===label);},get modal(){return modal;},modalButton(label){return all(modal).find(n=>n.tag==='button'&&n.textContent===label);},nodes,calls,notifications,clipboard};
+  },async render(){await view.render(page==='tls'?[state,{ok:true}]:page==='overview'?[{installed:true,running:false,enabled:false},state]:state);},button(label){return nodes.find(n=>n.tag==='button'&&n.textContent===label);},get modal(){return modal;},modalButton(label){return all(modal).find(n=>n.tag==='button'&&n.textContent===label);},nodes,calls,notifications,clipboard,get changeRefreshes(){return changeRefreshes;}};
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 test('TLS pending Apply lists shared authentication impact and cancellation sends no apply',async()=>{
@@ -177,9 +177,9 @@ test('configuration copy exports the server protected preview, never raw manual 
  const h=harness('configuration',[],{route:'config',config:{mode:'manual',manual_caddyfile:'private-token-canary'},preview:{source:'manual',redacted:true}});await h.render();await h.button('Copy preview').click();expect(h.clipboard).toEqual(['{\n  "source": "manual",\n  "redacted": true\n}']);expect(h.clipboard[0]).not.toContain('private-token-canary');
 });
 
-test('backend add input may stay empty while explicit addresses remain validated',async()=>{
+test('backend rows require explicit valid addresses',async()=>{
  const h=harness('configuration',[]);await h.render();const editor=await h.openSite();
- expect(editor.validate('upstreams','')).toBe(true);
+ expect(editor.validate('upstreams','')).not.toBe(true);
  for(const address of ['http://127.0.0.1:80','https://router.home:443','http://[::1]:8080'])expect(editor.validate('upstreams',address)).toBe(true);
  for(const address of ['invalid','http://router.home','http://router.home:0','http://router.home:65536','http://router.home:80/path'])expect(editor.validate('upstreams',address)).not.toBe(true);
  await editor.save();expect(h.calls.find(c=>c.method==='draft_save').args[0].sites[0].upstreams).toEqual(['http://localhost:8080']);
@@ -187,4 +187,9 @@ test('backend add input may stay empty while explicit addresses remain validated
 test('removing every backend still prevents saving a site',async()=>{
  const h=harness('configuration',[]);await h.render();const editor=await h.openSite();editor.field('upstreams').value=[];
  await editor.save();expect(h.calls.some(c=>c.method==='draft_save')).toBe(false);expect(h.notifications.length).toBeGreaterThan(0);
+});
+
+test('site and TLS saves refresh the native LuCI UCI change indicator',async()=>{
+ const h=harness('configuration',[]);await h.render();const editor=await h.openSite();await editor.save();expect(h.changeRefreshes).toBeGreaterThan(0);
+ const tls=harness('tls',[]);await tls.render();tls.nodes.find(n=>n.tag==='input'&&n.attrs.type==='radio').events.change();await tls.button('Save').click();expect(tls.changeRefreshes).toBeGreaterThan(0);
 });

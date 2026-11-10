@@ -4,6 +4,7 @@
 
 // Shared by every page that can apply the complete saved draft.
 return baseclass.extend({
+	refreshChanges:function(){return ui.changes.init();},
 	confirmImpact: function(current) {
 		if (!current.affected_domains?.length) return Promise.resolve();
 		return new Promise(function(resolve, reject) {

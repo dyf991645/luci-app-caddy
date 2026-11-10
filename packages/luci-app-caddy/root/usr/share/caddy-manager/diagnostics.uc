@@ -74,7 +74,7 @@ return function(options) {
     let owner=match(m[3],/^[0-9]+\/caddy$/)?'caddy':match(m[3],/^[0-9]+\/uhttpd$/)?'uhttpd':m[3]=='-'?'unknown':'other';
     push(listeners,{address:m[1],port:+m[2],owner});
    }
-   let draft=stored('draft.json')?.config,active=stored('active.json'),ports=[];
+   let draft=(options?.store ? options.store.read() : stored('draft.json'))?.config,active=stored('active.json'),ports=[];
    if(draft?.mode!='manual')for(let field in ['http_port','https_port']) {
     let port=draft?.settings?.[field];if(type(port)!='int' || port<1 || port>65535)continue;
     let found=filter(listeners,l=>l.port==port);
@@ -102,7 +102,7 @@ return function(options) {
  }
  function probe(request) {
   if(type(request)!='object' || request.confirm!==true || length(keys(request))!=1)return {ok:false,error:'Explicit configured-backend probe confirmation is required'};
-  let draft=stored('draft.json')?.config;
+  let draft=(options?.store ? options.store.read() : stored('draft.json'))?.config;
   if(!draft || draft.mode=='manual')return {ok:false,error:'Configured form backends are unavailable in this source'};
   let lock=open(root+'/diagnostics-probe.lock','a',0600);
   if(!lock || !lock.lock('xn')){lock?.close();return {ok:false,error:'Backend probe is busy'};}

@@ -12,7 +12,10 @@
           "logs",
           "diagnostics"
         ]
-      }
+      },
+      "uci": [
+        "caddy"
+      ]
     },
     "write": {
       "ubus": {
@@ -28,7 +31,10 @@
           "notification_save",
           "backend_probe"
         ]
-      }
+      },
+      "uci": [
+        "caddy"
+      ]
     }
   }
 }

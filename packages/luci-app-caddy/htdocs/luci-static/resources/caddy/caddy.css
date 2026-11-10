@@ -274,3 +274,10 @@
  .caddy-app[data-page=configuration] .toolbar > select { width:120px; max-width:120px; }
  .caddy-app[data-page=configuration] .toolbar .count { grid-column:1 / -1; }
 }
+
+.caddy-site-editor .caddy-backend-rows { display:grid; gap:10px; margin-bottom:10px; }
+.caddy-site-editor .caddy-backend-row { display:grid; grid-template-columns:minmax(0,1fr) 36px; gap:8px; align-items:start; }
+.caddy-app.caddy-site-editor .caddy-backend-row :is(input,button) { box-sizing:border-box; margin:0; height:36px; min-height:36px; }
+.caddy-site-editor .caddy-backend-row > button { padding:0; }
+
+.caddy-site-editor .caddy-backend-row > div { width:100%; min-width:0; }

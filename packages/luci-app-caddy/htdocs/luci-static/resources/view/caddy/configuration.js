@@ -5,6 +5,7 @@
 'require ui';
 'require dom';
 'require caddy.apply as caddyApply';
+'require caddy.backends as backendList';
 'require caddy.layout as layout';
 'require caddy.service as service';
 
@@ -77,9 +78,9 @@ return view.extend({
 		option.validate = function(sid,value) {return /^(?=.{1,253}$)(?:\*\.)?[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(value) && value.split('.').every(function(label) {return label.length <= 63;}) || _('Enter a valid domain; wildcards require DNS-01');};
 		option = section.option(form.DynamicList,'upstreams',_('Backends'),_('Use explicit ports. All backends in a site must use the same protocol. HTTPS certificates are verified.'));
 		option.rmempty = false; option.default = 'http://127.0.0.1:8080';
+		option.renderWidget=function(sid,index,value){return new backendList(value!=null?value:[this.default],{id:this.cbid(sid),validate:this.getValidator(sid),disabled:this.readonly!=null?this.readonly:this.map.readonly}).render();};
 		option.textvalue=function(sid){var backends=this.map.data.get('json',sid,'upstreams') || [];return E('div',{},[E('span',{},backends[0] || ''),E('small',{'class':'hint'},backends.length+' '+_('Backends')+' · '+({round_robin:_('Round robin'),least_conn:_('Least connections'),random:_('Random')}[this.map.data.get('json',sid,'balance') || 'round_robin']))]);};
-		// DynamicList validates its empty add-item input too; list emptiness is checked on save.
-		option.validate = function(sid,value) {if(value==='')return true;try {new URL(value);} catch(e) {return _('Invalid backend address');} return /^https?:\/\/(?:[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?|\[[a-fA-F0-9:]+\]):[0-9]{1,5}$/.test(value) && +value.split(':').pop() > 0 && +value.split(':').pop() < 65536 || _('Use http(s)://host:port without credentials or paths');};
+		option.validate = function(sid,value) {try {new URL(value);} catch(e) {return _('Invalid backend address');} return /^https?:\/\/(?:[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?|\[[a-fA-F0-9:]+\]):[0-9]{1,5}$/.test(value) && +value.split(':').pop() > 0 && +value.split(':').pop() < 65536 || _('Use http(s)://host:port without credentials or paths');};
 		option = section.option(form.ListValue,'balance',_('Load balancing')); option.default='round_robin';
 		option.value('round_robin',_('Round robin')); option.value('least_conn',_('Least connections')); option.value('random',_('Random'));
 		option = section.option(form.Value,'path',_('Optional path'),_('Exact path or a trailing /*. /media/* matches /media/ and descendants, excludes /media and /mediaX. Other paths return 404.'));
@@ -167,7 +168,7 @@ return view.extend({
 				current=saved;config=Object.assign(values(),saved.draft,{manual_caddyfile:manual.value});syncAuth();dirty=false;
 				return map.load().then(function(){return map.reset();}).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');}).then(function(){return siteSection.handleModalCancel(modalMap,ev,true);});
 			}).catch(function(error) {dirty=true;ui.addNotification(null,E('p',{},error.message),'error');})
-			.finally(function(){controls.forEach(function(entry){entry[0].disabled=entry[1];});busy=false;update();});
+			.finally(function(){controls.forEach(function(entry){entry[0].disabled=entry[1];});busy=false;update();caddyApply.refreshChanges();});
 		};
 		['handleAdd','handleRemove'].forEach(function(name) {var original=siteSection[name];siteSection[name]=function() {dirty=true;update();return Promise.resolve(original.apply(this,arguments)).then(function(result){update();return result;});};});
 		var status = E('p',{'role':'status','aria-live':'polite'});
@@ -199,7 +200,7 @@ return view.extend({
 		}
 		function loadAccounts(){accountRows.replaceChildren();var selected=scope.value;var ref=selected=='global' ? config.auth?.basic?.profile : config.sites.find(function(site){return site.domain==selected;})?.auth?.profile;(current.basic_profiles?.[ref] || []).forEach(accountRow);if(!accountRows.children.length)accountRow();}
 		accountRows.addEventListener('input',function(){accountDirty=true;dirty=true;update();});loadAccounts();
-		accountsNode=E('div',{'class':'caddy-app form-section'},[E('h3',{},_('Basic Auth accounts')),E('p',{},_('Passwords are hashed on the router. Existing passwords and hashes are never read back. Remove an account row to delete it. Save accounts updates the draft; apply activates the change.')),accountRows,E('button',{'class':'cbi-button','click':function(){accountRow();accountDirty=true;dirty=true;update();}},_('Add account')),' ',E('button',{'class':'button primary cbi-button cbi-button-save','click':function(){busy=true;update();return map.parse().then(function(){return saveBasic(scope.value,values(),Array.from(accountRows.children).map(function(row){return row.account();}),current.draft_revision);}).then(result).then(function(saved){current=saved;config=Object.assign(values(),saved.draft,{manual_caddyfile:manual.value});config.sites.forEach(function(site){map.data.sections('json','sites').forEach(function(buffer){if(buffer.domain==site.domain)map.data.set('json',buffer['.name'],'auth',site.auth);});});dirty=false;accountDirty=false;loadAccounts();}).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');}).finally(function(){busy=false;update();});}},_('Save accounts to draft'))]);
+		accountsNode=E('div',{'class':'caddy-app form-section'},[E('h3',{},_('Basic Auth accounts')),E('p',{},_('Passwords are hashed on the router. Existing passwords and hashes are never read back. Remove an account row to delete it. Save accounts updates the draft; apply activates the change.')),accountRows,E('button',{'class':'cbi-button','click':function(){accountRow();accountDirty=true;dirty=true;update();}},_('Add account')),' ',E('button',{'class':'button primary cbi-button cbi-button-save','click':function(){busy=true;update();return map.parse().then(function(){return saveBasic(scope.value,values(),Array.from(accountRows.children).map(function(row){return row.account();}),current.draft_revision);}).then(result).then(function(saved){current=saved;config=Object.assign(values(),saved.draft,{manual_caddyfile:manual.value});config.sites.forEach(function(site){map.data.sections('json','sites').forEach(function(buffer){if(buffer.domain==site.domain)map.data.set('json',buffer['.name'],'auth',site.auth);});});dirty=false;accountDirty=false;loadAccounts();}).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');}).finally(function(){busy=false;update();caddyApply.refreshChanges();});}},_('Save accounts to draft'))]);
 		function update() {
 			if(serviceStrip)serviceStrip.updateSnapshot(current);
 			filterSites();
@@ -256,7 +257,7 @@ return view.extend({
 			}).then(function() {return wantApply ? caddyApply.confirmImpact(current).then(function(){return apply(current.draft_revision);}).then(result).then(function(active) {current=active;}) : null;})
 				.then(function() {return showPreview(values());})
 				.catch(function(error) {ui.addNotification(null,E('p',{},error.message),'error');return getDraft().then(function(saved) {current=saved;});})
-				.finally(function() {busy=false;update();}).then(function() {return !dirty;});
+				.finally(function() {busy=false;update();caddyApply.refreshChanges();}).then(function() {return !dirty;});
 		}
 		saveButton=E('button',{'class':'button primary cbi-button cbi-button-save','click':function(){return perform(false);}},_('Save'));
 		applyButton=E('button',{'class':'button primary cbi-button cbi-button-apply','click':function(){return perform(true);}},_('Save & Apply'));
