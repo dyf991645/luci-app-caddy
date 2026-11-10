@@ -266,7 +266,7 @@ return function(options) {
 					let scoped = route.handle[0].routes[0];
 					let proxy = scoped.handle;
 					let auth = [];
-			while(proxy[0]?.handler=='authentication' || proxy[0]?.handler=='headers' || (proxy[0]?.handler=='reverse_proxy' && proxy[0]?.handle_response)) push(auth,shift(proxy));
+					while(proxy[0]?.handler=='authentication' || proxy[0]?.handler=='headers' || (proxy[0]?.handler=='reverse_proxy' && proxy[0]?.handle_response)) push(auth,shift(proxy));
 					scoped.handle = [...auth,{handler:'subroute',routes:[...routes,{handle:proxy}]}];
 				}
 			}

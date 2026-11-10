@@ -4,7 +4,7 @@ let global={backend:'http://127.0.0.1:28082',uri:'/api/authz/forward-auth',porta
 let site={domain:'app.example.test',upstreams:['http://127.0.0.1:28081'],balance:'round_robin',path:'/media/*',strip:true,challenge:'http-01',auth:{mode:'authelia',source:'global'}};
 let independent={...site,domain:'independent.example.test',auth:{mode:'authelia',source:'independent',authelia:{...global,uri:'/independent'}}};
 let portal={...site,domain:'auth.example.test',path:'',strip:false,upstreams:['http://127.0.0.1:28082'],auth:{mode:'none'}};
-let config={version:2,settings:{http_port:28080,https_port:28443,email:'',storage:ARGV[1]+'/data'},auth:{authelia:global},sites:[site,independent,portal]};
+let config={version:2,settings:{http_port:28080,https_port:28443,email:'',storage:ARGV[1]+'/data'},auth:{authelia:global},sites:[site,independent,portal,{...independent,domain:'snippet.example.test',advanced_snippet:'respond "snippet-only"'}]};
 assert(manager.draft_save({config,expected_revision:0}).ok,'global and independent Authelia configurations save through manager');
 assert(manager.apply({expected_revision:1}).ok,'real Caddy validates and applies Authelia routes');
 print('PASS global and independent Authelia save/apply\n');

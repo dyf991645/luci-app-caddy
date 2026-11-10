@@ -40,3 +40,8 @@ ucode -e 'import {readfile} from "fs"; assert(json(readfile(ARGV[0])).identity["
 ucode "$base/authelia-update.uc" "$base/config.uc" "$root" "$base/caddy-command" down
 [ "$(request -o /dev/null -w '%{http_code}' "$url/media/")" = 502 ]
 echo 'PASS original authorization method/URI metadata, dynamic global update, independent isolation and unreachable auth fails closed502'
+
+# In an independent site a terminating snippet still runs only after auth.
+[ "$(curl -ks --noproxy '*' --resolve snippet.example.test:28443:127.0.0.1 -H 'X-Test-Auth: 401' -o /dev/null -w '%{http_code}' https://snippet.example.test:28443/media/)" = 401 ]
+[ "$(curl -ks --noproxy '*' --resolve snippet.example.test:28443:127.0.0.1 https://snippet.example.test:28443/media/)" = snippet-only ]
+echo 'PASS Authelia authorization precedes terminating advanced snippet'
