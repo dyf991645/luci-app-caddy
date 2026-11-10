@@ -16,7 +16,7 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
  Object.assign(config,fixture.config || {});
  let state={ok:true,basic_profiles:fixture.basic_profiles || {},draft:config,draft_revision:4,active_revision:3,pending:true,affected_domains:affected};
  const ui={showModal(title,body){modal=E('modal',{title},body);},hideModal(){modal=null;},addNotification(...args){notifications.push(args);}};
- const rpc={declare({method}){return async (...args)=>{calls.push({method,args});if(fixture.fail===method)return {ok:false,error:'Revision conflict'};if(method==='credential_status')return {ok:true};if(method==='config_preview')return {ok:true,config:{}};if(method==='config_apply'){state={...state,active_revision:state.draft_revision,pending:false,affected_domains:[]};return state;}if(method==='basic_profile_save'||method==='draft_save')state={...state,draft:args[method==='basic_profile_save'?1:0]};if(['tls_save','credential_save','draft_save','basic_profile_save'].includes(method))state={...state,draft_revision:state.draft_revision+1,affected_domains:['latest.example.test']};return state;};}};
+ const rpc={declare({method}){return async (...args)=>{calls.push({method,args});if(fixture.fail===method)return {ok:false,error:'Revision conflict'};if(method==='status')return {installed:true,running:false,enabled:false};if(method==='credential_status')return {ok:true};if(method==='config_preview')return {ok:true,config:{}};if(method==='config_apply'){state={...state,active_revision:state.draft_revision,pending:false,affected_domains:[]};return state;}if(method==='basic_profile_save'||method==='draft_save')state={...state,draft:args[method==='basic_profile_save'?1:0]};if(['tls_save','credential_save','draft_save','basic_profile_save'].includes(method))state={...state,draft_revision:state.draft_revision+1,affected_domains:['latest.example.test']};return state;};}};
  let rootMap,activeMap;
  const form={JSONMap:class {
   constructor(data){this.buffer=data;this.children=[];rootMap=this;this.data={get:(_,sid,key)=>key==null?this.buffer[sid]:this.buffer[sid]?.[key],set:(_,sid,key,v)=>{this.buffer[sid][key]=v;},sections:()=>this.buffer.sites.map((s,i)=>({...s,'.name':String(i)}))};this.buffer.sites.forEach((s,i)=>this.buffer[String(i)]=s);}
@@ -24,10 +24,11 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
   parse(){return Promise.resolve();} render(){return Promise.resolve(E('form'));} load(){return Promise.resolve();}reset(){return Promise.resolve();}
  }};
 
- const values={dom:{findClassInstance:node=>node.instance},poll:{add(){}},E,_:s=>s,ui,rpc,view:{extend:x=>x},form,L:{hasViewPermission:()=>true,url:x=>x,resource:x=>x,env:{dispatchpath:['admin','services','caddy','configuration']}},window:{addEventListener(){}},document:{addEventListener(){},querySelector(){return null;},head:{appendChild(){}}},location:{href:''},baseclass:{extend:x=>x}};
+ const values={dom:{findClassInstance:node=>node.instance},poll:{add(){}},E,_:s=>s,ui,rpc,view:{extend:x=>x},form,L:{hasViewPermission:()=>true,url:x=>x,resource:x=>x,env:{dispatchpath:['admin','services','caddy',fixture.route || 'configuration']}},window:{addEventListener(){}},document:{createTextNode:s=>({textContent:s}),addEventListener(){},querySelector(){return null;},head:{appendChild(){}}},location:{href:''},baseclass:{extend:x=>x}};
  const helper=new URL('caddy/apply.js',resources);
  if(existsSync(helper))values.caddyApply=evaluate(helper);
  values.layout=evaluate(new URL('caddy/layout.js',resources));
+ values.service=evaluate(new URL('caddy/service.js',resources));
  function evaluate(file){return new Function(...Object.keys(values),readFileSync(file,'utf8'))(...Object.values(values));}
  const view=evaluate(new URL(`view/caddy/${page}.js`,resources));
  return {async openSite(){
@@ -43,7 +44,7 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
    }
    ui.showModal('Edit site',body);
    return {field(name){return section.children.find(o=>o.option===name).input;},visible(name){return section.children.find(o=>o.option===name).active();},button(label){return all(modal).find(n=>n.tag==='button'&&n.textContent===label);},inputs(){return all(modal).filter(n=>n.tag==='input');},save(){return grid.handleModalSave(activeMap);},cancel(){grid.handleModalCancel(activeMap);}};
-  },async render(){await view.render(page==='tls'?[state,{ok:true}]:state);},button(label){return nodes.find(n=>n.tag==='button'&&n.textContent===label);},get modal(){return modal;},modalButton(label){return all(modal).find(n=>n.tag==='button'&&n.textContent===label);},nodes,calls,notifications};
+  },async render(){await view.render(page==='tls'?[state,{ok:true}]:page==='overview'?[{installed:true,running:false,enabled:false},state]:state);},button(label){return nodes.find(n=>n.tag==='button'&&n.textContent===label);},get modal(){return modal;},modalButton(label){return all(modal).find(n=>n.tag==='button'&&n.textContent===label);},nodes,calls,notifications};
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 test('TLS pending Apply lists shared authentication impact and cancellation sends no apply',async()=>{
@@ -151,4 +152,12 @@ test('cancel after a rejected account save restores the original site buffer',as
 
 test('inline accounts preserve the optional write-only advanced hash entry',async()=>{
  const h=harness('configuration',[]);await h.render();const editor=await h.openSite();editor.field('authMode').value='basic';editor.field('authSource').value='independent';editor.inputs().find(n=>n.attrs['aria-label']==='Username').value='alice';const hash=editor.inputs().find(n=>n.attrs['aria-label']==='Existing bcrypt hash');expect(hash.attrs.type).toBe('password');expect(hash.value).toBe('');hash.value='$2b$fixture-only';await editor.save();expect(h.calls.find(c=>c.method==='basic_profile_save').args[2]).toEqual([{username:'alice',hash:'$2b$fixture-only'}]);
+});
+
+
+test('overview contains no cross-page links or boot and start/stop controls',async()=>{
+ const h=harness('overview');await h.render();expect(h.nodes.filter(n=>n.tag==='a')).toHaveLength(0);expect(h.nodes.filter(n=>n.attrs.type==='checkbox')).toHaveLength(0);expect(h.button('Start')).toBeUndefined();expect(h.button('Stop')).toBeUndefined();expect(h.button('Restart')).toBeDefined();expect(h.button('Reload active configuration')).toBeDefined();
+});
+test('global service controls remain usable in manual mode without making the configuration draft dirty',async()=>{
+ const h=harness('configuration',[],{route:'settings',config:{mode:'manual'}});await h.render();const run=h.nodes.find(n=>n.attrs['aria-label']==='Run Caddy');expect(run.disabled).toBe(false);run.checked=true;run.events.change();expect(h.button('Apply service settings').disabled).toBe(false);expect(h.button('Save').disabled).toBe(true);expect(h.calls.filter(c=>c.method==='action')).toHaveLength(0);
 });

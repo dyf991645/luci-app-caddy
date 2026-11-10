@@ -6,6 +6,7 @@
 'require dom';
 'require caddy.apply as caddyApply';
 'require caddy.layout as layout';
+'require caddy.service as service';
 
 var saveBasic = rpc.declare({object:'luci.caddy',method:'basic_profile_save',params:['scope','config','users','expected_revision'],expect:{'':{}}});
 var getDraft = rpc.declare({object:'luci.caddy',method:'draft_edit',expect:{'':{}}});
@@ -187,7 +188,7 @@ return view.extend({
 		accountsNode=E('div',{'class':'caddy-app form-section'},[E('h3',{},_('Basic Auth accounts')),E('p',{},_('Passwords are hashed on the router. Existing passwords and hashes are never read back. Remove an account row to delete it. Save accounts updates the draft; apply activates the change.')),accountRows,E('button',{'class':'cbi-button','click':function(){accountRow();accountDirty=true;dirty=true;update();}},_('Add account')),' ',E('button',{'class':'button primary cbi-button cbi-button-save','click':function(){busy=true;update();return map.parse().then(function(){return saveBasic(scope.value,values(),Array.from(accountRows.children).map(function(row){return row.account();}),current.draft_revision);}).then(result).then(function(saved){current=saved;config=Object.assign(values(),saved.draft,{manual_caddyfile:manual.value});config.sites.forEach(function(site){map.data.sections('json','sites').forEach(function(buffer){if(buffer.domain==site.domain)map.data.set('json',buffer['.name'],'auth',site.auth);});});dirty=false;accountDirty=false;loadAccounts();}).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');}).finally(function(){busy=false;update();});}},_('Save accounts to draft'))]);
 		function update() {
 			if(serviceStrip)serviceStrip.updateSnapshot(current);
-			sourceStatus.textContent = mode == 'manual' ? _('Draft source: complete Caddyfile. Retained form settings are read-only and do not participate. Service and autostart remain available on Overview.') : _('Draft source: form configuration. The separate manual Caddyfile is preserved.');
+			sourceStatus.textContent = mode == 'manual' ? _('Draft source: complete Caddyfile. Retained form settings are read-only and do not participate. Service and autostart remain available in Global settings.') : _('Draft source: form configuration. The separate manual Caddyfile is preserved.');
 			affected.textContent=current.affected_domains?.length ? _('Applying global authentication changes affects:')+' '+current.affected_domains.join(', ') : '';
 			if(accountsNode) accountsNode.querySelectorAll('input,select,button').forEach(function(field){field.disabled=busy || map.readonly || mode=='manual';});
 			if(page=='config') {
@@ -241,7 +242,8 @@ return view.extend({
 			ui.showModal(_('Unsaved edits'),[E('p',{},_('Save this draft before leaving, or discard unsaved edits?')),E('div',{'class':'right'},[E('button',{'class':'cbi-button','click':ui.hideModal},_('Cancel')),' ',E('button',{'class':'cbi-button','click':function(){dirty=false;ui.hideModal();location.href=link.href;}},_('Discard and leave')),' ',E('button',{'class':'button primary cbi-button cbi-button-save','click':function(){ui.hideModal();perform(false).then(function(saved){if(saved)location.href=link.href;});}},_('Save and leave'))])]);
 		});
 		update();
-		return map.render().then(function(node) {
+		return Promise.all([map.render(),page=='settings' ? service.controls() : Promise.resolve(null)]).then(function(rendered) {
+			var node=rendered[0],serviceControls=rendered[1];
 			formNode=node;update();
 			manual.addEventListener('input',function(){dirty=true;update();});
 			node.addEventListener('input',function(){dirty=true;update();});
@@ -249,7 +251,7 @@ return view.extend({
 			if(initial.draft && !map.readonly) showPreview(initial.draft).catch(function(){});
 			var content;
 			if(page == 'settings') {
-				content = [E('div',{'class':'info-note','hidden':mode!='manual'}, [sourceStatus]), layout.panel(_('Service settings'), _('Manage listening ports, persistent storage and shared authentication.'), [node, accountsNode]),
+				content = [serviceControls,E('div',{'class':'info-note','hidden':mode!='manual'}, [sourceStatus]), layout.panel(_('Service settings'), _('Manage listening ports, persistent storage and shared authentication.'), [node, accountsNode]),
 					E('p',{'class':'info-note'},_('Public HTTP-01 requires Internet port 80 to reach the internal HTTP port. TLS-ALPN-01 requires Internet port 443 to reach the internal HTTPS port. This application does not configure NAT, firewall, DNS or uhttpd.'))];
 			}
 			else if(page == 'config') {

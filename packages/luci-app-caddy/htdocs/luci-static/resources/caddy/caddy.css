@@ -211,3 +211,5 @@
 .caddy-app .account-row { align-items:end; }
 .caddy-app .account-row .field { margin:0; }
 .caddy-app .account-row .field-label { font-size:12px; }
+
+.caddy-app .field label.inline-check { display:flex; gap:12px; margin-bottom:0; font-weight:400; }

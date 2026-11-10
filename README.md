@@ -74,3 +74,5 @@ Authelia 需要显式端口的可达 HTTP(S) 后端、`/api/authz/forward-auth` 
 [构建说明](scripts/README.md) 描述锁定 SDK / feed、SHA256、Actions 附件与发布流程；[测试说明](tests/README.md) 记录真实 RPC、Caddy、认证和受控 Webhook 边界。LuCI 包通过 `luci-base/host` 声明 po2lmo，将 `po/zh_Hans/caddy.po` 编译安装为原生 `caddy.zh-cn.lmo`。构建器核对 APK 内目录与源文件对应，不额外修改用户语言 / 主题。
 
 当前为本地集成验收阶段，未推送、未触发远端 Actions、未打标签或发布 Release。真实 r2 安装已验证；最终版本的安装 / 升级结果须另附实际记录，不能把构建通过当作已安装。升级前测试夹具仅有未应用草稿与自有存储 sentinel；没有真实 ACME 账户 / 公网证书，因此 sentinel 保留不能当作真实账户、证书迁移保留验收。浏览器因管理员政策阻止，Bootstrap 浅 / 深色、手机、键盘、保存入口及原生交互验收待完成。公网 HTTP-01 / TLS-ALPN-01 / DNS-01、真实 Cloudflare Token、生产续期、设备断电及真实外发通知仍待最终受控验收，不以预览或本地内部 CA 替代。
+
+全局设置中的“服务控制”提供“运行 Caddy”“开机启动”复选框，勾选只修改本页选择，点击“应用服务设置”后调用系统服务操作并持久化开机启动状态；运行状态由进程决定。它们与配置草稿的“保存/保存并应用”分开，手动模式同样可用。概览只展示状态、配置概况及重载/重启操作，不再放置跨页跳转按钮。

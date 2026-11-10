@@ -208,8 +208,8 @@ msgstr "草稿端口检查"
 msgid "Draft revision"
 msgstr "草稿修订"
 
-msgid "Draft source: complete Caddyfile. Retained form settings are read-only and do not participate. Service and autostart remain available on Overview."
-msgstr "草稿来源：完整 Caddyfile。保留的表单配置只读且不参与生成。概览页仍可操作服务和开机启动。"
+msgid "Draft source: complete Caddyfile. Retained form settings are read-only and do not participate. Service and autostart remain available in Global settings."
+msgstr "草稿来源：完整 Caddyfile。保留的表单设置只读且不参与配置。服务运行与开机启动仍可在全局设置中操作。"
 
 msgid "Draft source: form configuration. The separate manual Caddyfile is preserved."
 msgstr "草稿来源：表单配置。独立的手动 Caddyfile 已保留。"
@@ -903,3 +903,24 @@ msgstr "TLS 与认证"
 
 msgid "Sites using the global default follow this setting after Apply. Explicit site methods remain unchanged. Wildcard domains require DNS-01."
 msgstr "选择“使用全局默认”的站点在应用后跟随此设置；显式指定方式的站点保持不变。通配符域名必须使用 DNS-01。"
+
+msgid "Run Caddy"
+msgstr "运行 Caddy"
+
+msgid "Apply service settings"
+msgstr "应用服务设置"
+
+msgid "Service changes not applied"
+msgstr "服务设置尚未应用"
+
+msgid "Service settings applied"
+msgstr "服务设置已应用"
+
+msgid "Service control"
+msgstr "服务控制"
+
+msgid "Select the service state, then apply. Starting uses the last applied configuration. These controls also work in manual mode."
+msgstr "勾选所需状态后，点击“应用服务设置”生效。启动使用当前已应用的配置；手动模式也可操作。"
+
+msgid "Unable to read service state"
+msgstr "无法读取服务状态"
