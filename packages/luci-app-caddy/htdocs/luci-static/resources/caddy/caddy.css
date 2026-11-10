@@ -1,0 +1,136 @@
+/* Shared Caddy content layout. The surrounding navigation and colors belong to
+ * LuCI Bootstrap. Scope every rule: other LuCI applications must remain intact. */
+.caddy-app {
+ --ink:var(--text-color-high,#404040); --muted:var(--text-color-medium,#626262);
+ --surface:var(--background-color-high,#fff); --subtle:var(--background-color-medium,#f7f7f7);
+ --line:var(--border-color-medium,#ddd); --control-border:var(--border-color-high,#b5b5b5);
+ --brand:var(--primary-color-medium,#1564c0); --brand-hover:var(--primary-color-low,#0d46a1);
+ --brand-soft:color-mix(in srgb,var(--brand) 9%,var(--surface));
+ color:var(--ink); font-size:13px; line-height:1.6; min-width:0; padding-bottom:20px;
+}
+.caddy-app *, .caddy-app *::before, .caddy-app *::after { box-sizing:border-box; }
+.caddy-app h1,.caddy-app h2,.caddy-app h3,.caddy-app p { margin:0; padding:0; border:0; }
+.caddy-app h1 { font-size:25px; font-weight:400; line-height:1.35; }
+.caddy-app h2 { font-size:16px; font-weight:500; line-height:1.5; }
+.caddy-app h3 { font-size:14px; font-weight:600; margin-bottom:14px; }
+.caddy-app p + p { margin-top:10px; }
+.caddy-app a { color:var(--brand); }
+.caddy-app .heading { display:flex; align-items:center; justify-content:space-between; gap:20px; margin:20px 0 22px; }
+.caddy-app .heading-title { display:flex; align-items:center; gap:12px; }
+.caddy-app .heading-title::before { content:'Caddy /'; font-size:25px; color:var(--muted); font-weight:300; }
+.caddy-app .heading p { font-size:12px; color:var(--muted); margin-top:6px; }
+.caddy-app .actions,.caddy-app .heading-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.caddy-app .two-column { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:20px; align-items:start; }
+.caddy-app .panel { background:var(--surface); border:1px solid var(--line); border-radius:3px; margin:0 0 20px; min-width:0; overflow:hidden; }
+.caddy-app .panel-top { background:var(--subtle); padding:14px 18px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.caddy-app .panel-top p { font-size:11px; color:var(--muted); margin-top:3px; }
+.caddy-app .panel-body { padding:22px; min-width:0; }
+.caddy-app .panel-body:empty { display:none; }
+.caddy-app .panel-body > p { font-size:12px; }
+.caddy-app .detail-row { display:flex; justify-content:space-between; align-items:start; gap:20px; padding:12px 0; border-bottom:1px solid var(--line); font-size:12px; }
+.caddy-app .detail-row:last-child { border-bottom:0; }
+.caddy-app .detail-row > :first-child { color:var(--muted); flex-shrink:0; }
+.caddy-app .detail-row > :last-child { overflow-wrap:anywhere; min-width:0; text-align:right; }
+.caddy-app .muted,.caddy-app .hint { color:var(--muted); }
+.caddy-app .mono,.caddy-app code,.caddy-app pre { font-family:var(--font-mono,ui-monospace,monospace); }
+.caddy-app .info-note { border:1px solid var(--line); border-left:3px solid var(--brand); background:var(--brand-soft); padding:14px 17px; border-radius:3px; font-size:12px; margin-bottom:20px; overflow-wrap:anywhere; }
+.caddy-app .overview-note { background:var(--brand-soft); border-left:3px solid var(--brand); padding:18px 20px; margin-bottom:24px; }
+.caddy-app .overview-note strong { display:block; margin-bottom:4px; }
+.caddy-app .status-strip { display:flex; align-items:center; gap:0; background:var(--subtle); border:1px solid var(--line); border-radius:3px; margin-bottom:22px; padding:16px 18px; }
+.caddy-app .status-service { display:flex; align-items:center; gap:13px; min-width:180px; }
+.caddy-app .status-service strong { font-size:13px; }
+.caddy-app .status-service small { display:block; color:var(--muted); font-size:11px; margin-top:2px; }
+.caddy-app .status-emblem { display:grid; place-items:center; width:38px; height:38px; border-radius:50%; color:var(--brand); background:var(--brand-soft); font-size:19px; }
+.caddy-app .status-metric { padding:0 24px; border-left:1px solid var(--line); flex:1; }
+.caddy-app .status-metric small { display:block; color:var(--muted); font-size:11px; }
+.caddy-app .status-metric strong { display:block; font-size:14px; font-weight:550; margin-top:3px; }
+.caddy-app .status-actions { margin-left:auto; }
+.caddy-app .pill,.caddy-app .tag-neutral,.caddy-app .method { display:inline-flex; align-items:center; gap:6px; font-size:11px; padding:3px 8px; border-radius:3px; color:var(--brand); background:var(--brand-soft); white-space:nowrap; }
+.caddy-app .pill::before { content:''; width:5px; height:5px; border-radius:50%; background:currentColor; }
+.caddy-app .pill.gray,.caddy-app .tag-neutral,.caddy-app .method { color:var(--muted); background:var(--subtle); }
+.caddy-app .pill.amber { color:var(--text-color-high); border:1px solid var(--warn-color-medium,#c79437); background:var(--subtle); }
+.caddy-app .button,.caddy-app .cbi-button { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:32px; padding:5px 12px; margin:0; border:1px solid var(--control-border); border-radius:3px; background:var(--surface); color:var(--ink); font:inherit; font-size:12px; font-weight:400; line-height:20px; cursor:pointer; text-decoration:none; white-space:nowrap; }
+.caddy-app .button:hover,.caddy-app .cbi-button:hover { background:var(--subtle); }
+.caddy-app .button.primary,.caddy-app .cbi-button-save,.caddy-app .cbi-button-apply { background:var(--brand); color:#fff; border-color:var(--brand); }
+.caddy-app .button.primary:hover,.caddy-app .cbi-button-save:hover,.caddy-app .cbi-button-apply:hover { background:var(--brand-hover); }
+.caddy-app button:disabled { opacity:.55; cursor:default; }
+.caddy-app :is(button,a,input,select,textarea,summary):focus-visible { outline:2px solid var(--brand); outline-offset:3px; }
+.caddy-app :is(input:not([type=checkbox]):not([type=radio]),select,textarea) { width:100%; max-width:100%; min-height:32px; border:1px solid var(--control-border); border-radius:3px; padding:7px 10px; background:var(--surface); color:var(--ink); font-size:13px; box-shadow:none; }
+.caddy-app input[type=checkbox],.caddy-app input[type=radio] { accent-color:var(--brand); }
+.caddy-app textarea { min-height:110px; resize:vertical; }
+.caddy-app .field { margin-bottom:20px; }
+.caddy-app .field label,.caddy-app .field-label { display:block; font-size:12px; font-weight:600; margin-bottom:7px; }
+.caddy-app .field small,.caddy-app .hint { display:block; font-size:11px; margin-top:6px; line-height:1.7; }
+.caddy-app .field-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:17px; }
+.caddy-app .form-width { max-width:680px; }
+.caddy-app .form-section { padding:22px; border-bottom:1px solid var(--line); }
+.caddy-app .form-actions { padding:16px 22px; display:flex; justify-content:flex-end; gap:8px; background:var(--subtle); }
+.caddy-app .inline-check { display:flex; align-items:center; gap:9px; font-size:12px; }
+.caddy-app .choice-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.caddy-app .choice { display:block; border:1px solid var(--control-border); border-radius:3px; padding:13px 12px; cursor:pointer; font-size:12px; }
+.caddy-app .choice:has(input:checked) { border-color:var(--brand); background:var(--brand-soft); box-shadow:inset 0 0 0 1px var(--brand); }
+.caddy-app .choice div { display:flex; align-items:center; gap:7px; }
+.caddy-app .choice small { display:block; font-size:11px; color:var(--muted); margin-top:5px; }
+.caddy-app .choice input { margin:0; }
+.caddy-app .challenge-help { padding:13px 15px; background:var(--subtle); border-radius:3px; font-size:12px; margin-top:12px; }
+.caddy-app .challenge-help strong { display:block; margin-bottom:3px; }
+.caddy-app .toolbar { display:flex; align-items:center; gap:12px; padding:13px 18px; border-bottom:1px solid var(--line); }
+.caddy-app .toolbar input { max-width:325px; }
+.caddy-app .toolbar select { width:auto; }
+.caddy-app .toolbar .count { margin-left:auto; font-size:12px; color:var(--muted); }
+.caddy-app .table-wrap { overflow-x:auto; }
+.caddy-app table { width:100%; border-collapse:collapse; text-align:left; }
+.caddy-app :is(th,td) { text-align:left; padding:14px 18px; border-bottom:1px solid var(--line); font-size:12px; vertical-align:middle; }
+.caddy-app th { font-size:11px; font-weight:550; background:var(--subtle); color:var(--muted); }
+.caddy-app tbody tr:last-child td { border-bottom:0; }
+.caddy-app .site-name { display:block; font-weight:600; font-size:12px; }
+.caddy-app .domain,.caddy-app .subtext { display:block; font-size:11px; color:var(--muted); margin-top:3px; }
+.caddy-app .backend { font-size:11px; overflow-wrap:anywhere; }
+.caddy-app .table-bottom { padding:13px 18px; font-size:11px; color:var(--muted); background:var(--subtle); border-top:1px solid var(--line); }
+.caddy-app .empty { padding:40px 20px; text-align:center; color:var(--muted); }
+.caddy-app .code-panel,.caddy-app .code-input { background:var(--subtle); color:var(--ink); font-family:var(--font-mono,ui-monospace,monospace); padding:22px; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.9; font-size:12px; border:0; margin:0; width:100%; min-height:280px; }
+.caddy-app .apply-bar { position:sticky; bottom:12px; z-index:5; display:flex; align-items:center; justify-content:space-between; gap:15px; padding:13px 18px; background:var(--surface); border:1px solid var(--control-border); border-radius:3px; box-shadow:0 3px 15px #0001; margin-top:20px; }
+.caddy-app .apply-bar p,.caddy-app .apply-bar [role=status] { font-size:11px; color:var(--muted); }
+.caddy-app details { margin-block:12px; }
+.caddy-app summary { cursor:pointer; font-size:12px; }
+.caddy-app pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+.caddy-app .cbi-map { margin:0; padding:0; border:0; }
+.caddy-app .cbi-section { background:none; border:0; padding:0; margin:0 0 20px; }
+.caddy-app .cbi-map > h2,.caddy-app .cbi-map > .cbi-map-descr { display:none; }
+.caddy-app .cbi-section > h3 { margin:0; padding:14px 18px; background:var(--subtle); border-bottom:1px solid var(--line); }
+.caddy-app .cbi-section-descr { padding:12px 18px; font-size:12px; }
+.caddy-app .cbi-section-table { border:0; margin:0; width:100%; }
+.caddy-app .cbi-section-table .tr { border-bottom:1px solid var(--line); }
+.caddy-app .cbi-section-table .td,.caddy-app .cbi-section-table .th { padding:14px 18px; text-align:left; }
+.caddy-app .cbi-section-table .th { background:var(--subtle); color:var(--muted); font-size:11px; }
+.caddy-app .cbi-section-create { padding:14px 18px; margin:0; }
+.caddy-app .cbi-value { padding:12px 0; border:0; }
+.caddy-app .cbi-value-title { font-size:12px; }
+.caddy-app .cbi-value-description { color:var(--muted); font-size:11px; margin-top:6px; }
+.caddy-app .account-row { display:grid; grid-template-columns:1fr 1fr 1fr auto; align-items:center; gap:8px; margin-bottom:10px; }
+@media (max-width:900px) {
+ .caddy-app .two-column { grid-template-columns:1fr; gap:0; }
+ .caddy-app .status-strip { flex-wrap:wrap; gap:16px; }
+ .caddy-app .status-service { flex:1; }
+ .caddy-app .status-metric { flex:0 0 auto; padding-inline:15px; }
+ .caddy-app .account-row { grid-template-columns:1fr 1fr; }
+}
+@media (max-width:650px) {
+ .caddy-app .heading { flex-wrap:wrap; gap:12px; }
+ .caddy-app .heading-title::before,.caddy-app h1 { font-size:22px; }
+ .caddy-app .heading-actions { margin-left:auto; }
+ .caddy-app .status-strip { padding:16px; }
+ .caddy-app .status-actions { width:100%; border-top:1px solid var(--line); padding-top:12px; margin:0; }
+ .caddy-app .status-metric { padding-inline:12px; }
+ .caddy-app .panel-body,.caddy-app .form-section { padding:16px; }
+ .caddy-app .field-row { grid-template-columns:1fr; gap:0; }
+ .caddy-app .choice-grid { grid-template-columns:1fr; }
+ .caddy-app .choice { min-height:44px; }
+ .caddy-app .detail-row { flex-wrap:wrap; gap:5px; }
+ .caddy-app .detail-row > :last-child { text-align:left; }
+ .caddy-app .apply-bar { bottom:8px; flex-wrap:wrap; padding:12px; }
+ .caddy-app .apply-bar .actions { margin-left:auto; }
+ .caddy-app .button,.caddy-app .cbi-button { min-height:40px; }
+ .caddy-app .account-row { grid-template-columns:1fr; }
+ .caddy-app .toolbar { flex-wrap:wrap; }
+}
