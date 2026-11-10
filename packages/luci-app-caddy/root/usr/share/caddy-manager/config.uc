@@ -115,14 +115,17 @@ return function(options) {
 		if (config.version != 2 || type(config.sites) != 'array' || length(config.sites) < 1)
 			return 'Configure at least one site using the supported schema';
 		if(config.auth != null && !known_keys(config.auth,['basic','authelia'])) return 'Unsupported global authentication field';
-		if(config.auth?.basic != null && (!known_keys(config.auth.basic,['profile']) || !profile(config.auth.basic.profile))) return 'Invalid global Basic Auth profile';
+		if(config.auth?.basic != null && (!known_keys(config.auth.basic,['profile']) || type(config.auth.basic.profile)!='string' || !match(config.auth.basic.profile,/^basic-[0-9]+-[0-9]+$/) || (config.mode!='manual' && !profile(config.auth.basic.profile)))) return 'Invalid global Basic Auth profile';
 		if(config.auth?.authelia != null) {let error=authelia_check(config.auth.authelia);if(error) return error;}
 		let domains={};
 		for (let s in config.sites) {
 			if (!known_keys(s,['domain','upstreams','balance','path','strip','challenge','advanced_snippet','auth'])) return 'Unsupported configuration field';
-			if (config.mode == 'manual') continue;
 			if (s.auth != null) {
 				if (!known_keys(s.auth,['mode','source','profile','authelia']) || index(['none','basic','authelia'],s.auth.mode)<0) return 'Unsupported access authentication';
+				if(s.auth.source!=null && index(['global','independent'],s.auth.source)<0) return 'Unsupported authentication source';
+				if(s.auth.profile!=null && (type(s.auth.profile)!='string' || !match(s.auth.profile,/^basic-[0-9]+-[0-9]+$/))) return 'Invalid authentication profile reference';
+				if(s.auth.authelia!=null) {let error=authelia_check(s.auth.authelia);if(error) return error;}
+				if(config.mode=='manual') continue;
 				if (s.auth.mode=='basic' && (index(['global','independent'],s.auth.source)<0 || !profile(s.auth.source=='global' ? config.auth?.basic?.profile : s.auth.profile))) return 'Configure the selected Basic Auth profile first';
 				if(s.auth.mode=='authelia') {
 					if(index(['global','independent'],s.auth.source)<0) return 'Choose global or independent Authelia configuration';

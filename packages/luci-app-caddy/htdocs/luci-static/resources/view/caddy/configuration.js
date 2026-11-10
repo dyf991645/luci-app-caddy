@@ -112,7 +112,7 @@ return view.extend({
 		function showPreview(data) {var n=++sequence;return preview(validateConfig(data)).then(result).then(function(response) {if(n==sequence) code.textContent=JSON.stringify(response.config,null,2);});}
 		function confirmImpact(){
 			if(!current.affected_domains?.length)return Promise.resolve();
-			update();return new Promise(function(resolve,reject){ui.showModal(_('Apply global authentication change'),[E('p',{},_('The following domains will use the updated accounts:')),E('ul',{},current.affected_domains.map(function(domain){return E('li',{},domain);})),E('div',{'class':'right'},[E('button',{'class':'cbi-button','click':function(){ui.hideModal();reject(new Error(_('Application cancelled; draft retained')));}},_('Cancel')),' ',E('button',{'class':'cbi-button cbi-button-apply','click':function(){ui.hideModal();resolve();}},_('Apply'))])]);});
+			update();return new Promise(function(resolve,reject){ui.showModal(_('Apply global authentication change'),[E('p',{},_('The following domains reference the updated global authentication configuration:')),E('ul',{},current.affected_domains.map(function(domain){return E('li',{},domain);})),E('div',{'class':'right'},[E('button',{'class':'cbi-button','click':function(){ui.hideModal();reject(new Error(_('Application cancelled; draft retained')));}},_('Cancel')),' ',E('button',{'class':'cbi-button cbi-button-apply','click':function(){ui.hideModal();resolve();}},_('Apply'))])]);});
 		}
 		function syncAuth(){config.sites.forEach(function(site){map.data.sections('json','sites').forEach(function(buffer){if(buffer.domain==site.domain)map.data.set('json',buffer['.name'],'auth',site.auth);});});}
 		function perform(wantApply) {

@@ -18,3 +18,4 @@ for(let invalid in [
 ]) assert(!manager.draft_save({config:{...config,auth:{authelia:invalid}},expected_revision:1}).ok,'unsafe Authelia endpoint rejected without draft mutation');
 assert(!manager.draft_save({config:{...config,sites:[site,independent,{...portal,auth:{mode:'authelia',source:'global'}}]},expected_revision:1}).ok,'self-protected portal rejected with setup guidance');
 assert(manager.draft_get().draft_revision==1,'rejected endpoints preserve saved draft');
+assert(!manager.draft_save({config:{...config,mode:'manual',manual_caddyfile:'http://localhost { respond "ok" }',sites:[{...site,auth:{mode:'authelia',source:'global',token:'must-not-be-accepted'}}]},expected_revision:1}).ok,'manual source still rejects unknown auth metadata');
