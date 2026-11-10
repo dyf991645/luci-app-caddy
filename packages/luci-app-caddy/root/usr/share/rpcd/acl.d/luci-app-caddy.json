@@ -5,7 +5,9 @@
       "ubus": {
         "luci.caddy": [
           "status",
-          "draft_get"
+          "draft_get",
+          "credential_status",
+          "certificates"
         ]
       }
     },
@@ -16,7 +18,9 @@
           "basic_profile_save", "draft_edit",
           "draft_save",
           "config_apply",
-          "config_preview"
+          "config_preview",
+          "credential_save",
+          "tls_save"
         ]
       }
     }

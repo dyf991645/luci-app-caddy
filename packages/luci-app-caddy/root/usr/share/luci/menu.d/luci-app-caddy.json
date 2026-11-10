@@ -24,5 +24,31 @@
         "luci-app-caddy"
       ]
     }
+  },
+  "admin/services/caddy/tls": {
+    "title": "TLS certificates",
+    "order": 30,
+    "action": {
+      "type": "view",
+      "path": "caddy/tls"
+    },
+    "depends": {
+      "acl": [
+        "luci-app-caddy"
+      ]
+    }
+  },
+  "admin/services/caddy/certificates": {
+    "title": "Stored certificates",
+    "order": 35,
+    "action": {
+      "type": "view",
+      "path": "caddy/certificates"
+    },
+    "depends": {
+      "acl": [
+        "luci-app-caddy"
+      ]
+    }
   }
 }

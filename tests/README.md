@@ -61,6 +61,24 @@ remain the deployment fixture's responsibility; local tests cannot replace them.
 
 ## APK build boundary
 
+Ticket05: copy `dns.uc`, `dns-rotation.uc`, `dns-rpc.uc`, `dns-router.sh`, the
+manager `config.uc` and executable `caddy-command` into `/tmp/luci-caddy-ticket05`.
+Run `ucode dns.uc config.uc <fresh-private-root> caddy-command` in that directory,
+then `sh dns-router.sh`. The latter creates one short-lived loopback Caddy on
+25019/25080/25443, disables certificate automation (not provider provision),
+hot loads two private credential versions, rejects a malformed third version,
+checks last-active reload, unchanged process PID, private file permissions and
+absence of rejected-token daemon log leakage. The RPC test uses a temporary
+plugin copy redirected to the same temporary manager and a fresh state root.
+No installed plugin/service is changed. Public ACME issuance, Cloudflare token
+acceptance/actual DNS mutations, renewal and native visual acceptance remain
+explicitly deferred until final controlled public acceptance.
+
+`tls-settings.uc` additionally exercises scoped default/credential writes after
+the manual-source integration: both private sources survive, save responses
+remain redacted, existing DNS sites retain their method, and manual mode refuses
+both mutation methods. Run with the manager module and a fresh temporary root.
+
 Run `python3 tests/build_test.py` on the host. It submits a changed upstream
 artifact to the real build entry point and requires failure before SDK creation.
 The success path uses the official SDK, not mocked make output:
@@ -137,3 +155,14 @@ and failed on real ucode; the green test uses the same public manager boundary.
 Installed LuCI/ubus/APK upgrade and browser interaction are separate integration
 acceptance steps. Standalone preview never hashes passwords and retains only
 username metadata; its sensitive fields are discarded on simulated save.
+
+Ticket06 stored certificate evidence: copy `certificates.uc`, executable
+`certificate-command` and `certificate-log` from the manager directory plus
+`tests/{certificate-inventory,certificate-events,certificate-edge}.uc` and
+`tests/certificates-router.sh` to `/tmp/luci-caddy-ticket06/` on the authorized
+router. Run `sh /tmp/luci-caddy-ticket06/certificates-router.sh`. This generates
+self-signed short-cycle SAN fixtures only; no Caddy process or public ACME.
+Tests cover leaf metadata, one-label wildcard coverage, expiration boundaries,
+relative near-expiry, malformed PEM/symlinks/unsupported storage, source-derived
+issuer failure→success, replay and credential-error privacy. See
+`CERTIFICATES.md` for bounded-window and local filesystem trust limitations.
