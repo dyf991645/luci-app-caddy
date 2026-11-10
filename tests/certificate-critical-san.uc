@@ -1,0 +1,13 @@
+let root=ARGV[1];
+let manager=loadfile(ARGV[0])()({root,command:ARGV[2],logfile:root+'/events'});
+let result=manager.scan();
+assert(result.ok && result.complete && length(result.certificates)==1,'critical SAN leaf is a complete stored inventory');
+let cert=result.certificates[0];
+assert(length(cert.domains)==1 && cert.domains[0]=='upgrade-running.example.test','empty-subject leaf uses its critical DNS SAN');
+assert(cert.issuer==(ARGV[3] || 'CN=Caddy Local Authority - ECC Intermediate'),'actual certificate issuer');
+assert(cert.not_after>cert.not_before && length(cert.fingerprint)==95,'actual dates and SHA256 fingerprint');
+assert(length(cert.sites)==1 && cert.sites[0]=='upgrade-running.example.test','critical SAN maps to active site');
+assert(cert.validity=='valid' && result.sites[0].state=='stored_valid','stored-valid state follows real covering leaf');
+let serialized=sprintf('%J',result);
+assert(index(serialized,'PRIVATE KEY')<0 && index(serialized,'BEGIN CERTIFICATE')<0 && index(serialized,root)<0,'metadata response excludes PEM, private keys and source paths');
+print('PASS empty-subject leaf critical SAN, metadata, site state and privacy\n');

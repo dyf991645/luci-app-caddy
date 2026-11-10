@@ -47,7 +47,7 @@ return function(options) {
   for(let line in split(text,'\n')) {
    let m=match(line,/^(issuer|notBefore|notAfter|sha256 Fingerprint)=(.*)$/);
    if(m) {if(fields[m[1]]!=null) return null; fields[m[1]]=m[2]; inSan=false; continue;}
-   if(trim(line)=='X509v3 Subject Alternative Name:') {inSan=true;continue;}
+   if(match(trim(line),/^X509v3 Subject Alternative Name:( critical)?$/)) {inSan=true;continue;}
    if(inSan && length(trim(line))) {
     for(let part in split(trim(line),', ')) {
      let value=match(part,/^DNS:(.+)$/);
