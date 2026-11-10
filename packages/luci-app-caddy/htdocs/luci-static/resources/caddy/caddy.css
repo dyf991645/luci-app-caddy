@@ -148,3 +148,53 @@
 .caddy-app .site-table .tr[data-sid]:hover { background:var(--subtle); }
 .caddy-app .site-table .td { overflow-wrap:anywhere; }
 .caddy-app .site-table .cbi-section { margin-bottom:0; }
+
+/* Native Bootstrap uses horizontal flex rows and a wide cbi-modal. Site editing
+ * intentionally uses stacked labels and a bounded, independently scrolling body. */
+#modal_overlay > .modal.cbi-modal:has(.caddy-site-editor) {
+ width:calc(100% - 32px); max-width:720px; max-height:90dvh; margin:5dvh auto;
+ padding:0; display:flex; flex-direction:column; overflow:hidden;
+}
+#modal_overlay > .modal.cbi-modal:has(.caddy-site-editor) > h4 {
+ flex:none; margin:0; padding:18px 22px; border-bottom:1px solid var(--border-color-medium,#ddd);
+}
+#modal_overlay > .modal.cbi-modal:has(.caddy-site-editor) > .caddy-site-editor {
+ flex:1 1 auto; min-height:0; overflow:auto; margin:0; padding:18px 22px;
+}
+#modal_overlay > .modal.cbi-modal:has(.caddy-site-editor) > .button-row {
+ flex:none; margin:0; padding:14px 22px; border-top:1px solid var(--border-color-medium,#ddd);
+ background:var(--background-color-medium,#f7f7f7); gap:8px;
+}
+.caddy-app.caddy-site-editor .cbi-value {
+ display:block; margin:0 0 20px; padding:0; min-width:0;
+}
+.caddy-app.caddy-site-editor .cbi-value label.cbi-value-title {
+ display:block; float:none; width:auto; flex:none; text-align:left;
+ padding:0; margin:0 0 7px; font-size:12px; font-weight:600;
+}
+.caddy-app.caddy-site-editor .cbi-value-field {
+ display:block; width:100%; margin:0; flex:none; min-width:0;
+}
+.caddy-app.caddy-site-editor .cbi-value-description { line-height:1.6; }
+.caddy-app.caddy-site-editor .cbi-dynlist { width:100%; max-width:100%; }
+.caddy-app.caddy-site-editor .cbi-dynlist > .add-item { display:flex; gap:8px; }
+.caddy-app.caddy-site-editor .cbi-dynlist > .add-item > input { width:auto; flex:1; min-width:0; }
+.caddy-app.caddy-site-editor .cbi-dynlist > .add-item > button { flex:none; }
+.caddy-app .actions { margin:0; padding:0; border:0; background:transparent; box-shadow:none; text-align:initial; }
+.caddy-app .apply-bar > .actions:last-child { margin-left:auto; }
+.caddy-site-editor .cbi-tabmenu { margin:0 0 20px; padding:0; }
+.caddy-site-editor .cbi-tabmenu > li > a { padding:8px 12px; }
+.caddy-site-editor .cbi-section-node { padding:0; }
+.caddy-site-editor .cbi-section-node > .cbi-tabcontainer { margin:0; }
+.caddy-site-editor .caddy-account-list { display:grid; gap:12px; }
+.caddy-site-editor .caddy-account-row {
+ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; gap:10px;
+ padding:14px; border:1px solid var(--line); border-radius:3px; align-items:end;
+}
+.caddy-site-editor .caddy-account-row .field { margin:0; }
+@media (max-width:650px) {
+ #modal_overlay > .modal.cbi-modal:has(.caddy-site-editor) { width:calc(100% - 16px); max-height:96dvh; margin:2dvh auto; }
+ #modal_overlay > .modal.cbi-modal:has(.caddy-site-editor) > :is(h4,.caddy-site-editor,.button-row) { padding-inline:16px; }
+ .caddy-site-editor .caddy-account-row { grid-template-columns:1fr; }
+ .caddy-site-editor .cbi-tabmenu { display:flex; flex-wrap:wrap; }
+}
