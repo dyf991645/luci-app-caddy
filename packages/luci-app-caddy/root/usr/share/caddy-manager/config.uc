@@ -75,15 +75,15 @@ return function(options) {
 		if (!known_keys(config,['version','settings','sites','mode','manual_caddyfile','auth']) || !known_keys(g,['http_port','https_port','email','storage'])) return 'Unsupported configuration field';
 		if (config.version != 2 || type(config.sites) != 'array' || length(config.sites) < 1)
 			return 'Configure at least one site using the supported schema';
-		if (config.auth != null && (!known_keys(config.auth,['basic']) || !known_keys(config.auth.basic,['profile']) || !profile(config.auth.basic.profile))) return 'Invalid global Basic Auth profile';
+		if (config.mode!='manual' && config.auth != null && (!known_keys(config.auth,['basic']) || !known_keys(config.auth.basic,['profile']) || !profile(config.auth.basic.profile))) return 'Invalid global Basic Auth profile';
 		let domains={};
 		for (let s in config.sites) {
 			if (!known_keys(s,['domain','upstreams','balance','path','strip','challenge','advanced_snippet','auth'])) return 'Unsupported configuration field';
+			if (config.mode == 'manual') continue;
 			if (s.auth != null) {
 				if (!known_keys(s.auth,['mode','source','profile']) || index(['none','basic'],s.auth.mode)<0) return 'Unsupported access authentication';
 				if (s.auth.mode=='basic' && (index(['global','independent'],s.auth.source)<0 || !profile(s.auth.source=='global' ? config.auth?.basic?.profile : s.auth.profile))) return 'Configure the selected Basic Auth profile first';
 			}
-			if (config.mode == 'manual') continue;
 			if (type(s.domain) != 'string' || length(s.domain) > 253 || !match(s.domain, /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/)) return 'Enter a valid non-wildcard domain';
 			for (let label in split(s.domain, '.')) if (length(label) > 63) return 'Domain labels must not exceed 63 characters';
 			if (domains[s.domain]) return 'Each domain must have exactly one site';

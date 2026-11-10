@@ -111,3 +111,29 @@ preservation, actual WebSocket101 and bidirectional frames, and closure of an
 open socket after a changed configuration reload. All storage/HOME/XDG remain
 in `/tmp`; public ACME and external notifications are never attempted. Native
 form visual/browser acceptance and public certificate issuance remain separate.
+
+## Ticket07 multi-account Basic Auth
+
+Copy `tests/basic-auth.uc`, `basic-auth-command`, `basic-auth-router.sh` and manager
+`config.uc`/`caddy-command` to `/tmp/luci-caddy-ticket07/`. Make both command
+helpers executable; run `sh /tmp/luci-caddy-ticket07/basic-auth-router.sh`.
+The test helper adds controlled candidate-reload rejection and HTTP requests;
+all hashing, adaptation, validation, real reload and HTTPS serving use actual
+installed Caddy. Ports27019/27080/27443/27081 bind only loopback. HOME/XDG,
+private profile revisions and internal CA storage stay under the fixture root;
+CA trust installation and autosave are disabled.
+
+Covers multiple global users, wrong/missing credentials401, valid200, unmatched
+path404, an unauthenticated site, global dynamic updates across two domains,
+independent stability, add/delete/retain accounts, advanced CLI-generated hash
+input, save-only semantics, failed-load compensation and last-active reload,
+authentication before terminating advanced snippets, manual-mode refusal,
+username-only readback, no password/hash in preview/RPC, plaintext password
+canary scans and private file permissions. It does not alter installed config,
+RPC, services, firewall, DNS, trust, or exercise public ACME.
+
+The original red test called the missing `basic_profile_save` manager operation
+and failed on real ucode; the green test uses the same public manager boundary.
+Installed LuCI/ubus/APK upgrade and browser interaction are separate integration
+acceptance steps. Standalone preview never hashes passwords and retains only
+username metadata; its sensitive fields are discarded on simulated save.
