@@ -15,6 +15,7 @@ function manager() { return loadfile('/usr/share/caddy-manager/config.uc')()(); 
 
 return {
 	'luci.caddy': {
+		certificates: {call:function() {return loadfile('/usr/share/caddy-manager/certificates.uc')()().status();}},
 		tls_save: {args:{default_challenge:'',expected_revision:0},call:function(request) {return manager().tls_save(request.args);}},
 		credential_status: {call:function() {return manager().credential_status();}},
 		credential_save: {args:{token:'',expected_revision:0},call:function(request) {return manager().credential_save(request.args);}},

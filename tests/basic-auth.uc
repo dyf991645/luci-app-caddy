@@ -56,6 +56,10 @@ response('second.example.test','/index.html','bob:basic-password-canary-BOB','40
 response('second.example.test','/index.html','charlie:advanced-fixture-password','200');
 response('independent.example.test','/index.html','solo:basic-password-canary-SOLO','200');
 response('open.example.test','/index.html',null,'200');
+for(let password in [sprintf('%073d',0),'line\nbreak','nul\u0000value']) {
+ let invalid=manager.basic_profile_save({scope:'global',users:[{username:'invalid',password}],expected_revision:3});
+ assert(!invalid.ok && index(sprintf('%J',invalid),password)<0,'invalid password bounds rejected with safe response');
+}
 let revision=manager.draft_get().draft_revision;
 assert(!manager.basic_profile_save({scope:'global',users:[{username:'bad',hash:'bad-secret-canary'}],expected_revision:revision}).ok,'invalid hashes rejected');
 assert(!manager.basic_profile_save({scope:'global',users:[{username:'alice',retain:true},{username:'alice',retain:true}],expected_revision:revision}).ok,'duplicate usernames rejected');
@@ -76,3 +80,11 @@ assert(readfile(ARGV[1]+'/body')=='authenticated snippet','authenticated snippet
 response('global.example.test','/outside',null,'404');
 assert(!manager.basic_profile_save({scope:'global',config:{...config,mode:'manual'},users:[{username:'alice',retain:true}],expected_revision:revision+1}).ok,'manual source refuses account form mutations');
 print('PASS public site unauthenticated, snippet cannot bypass authentication, manual account forms read-only\n');
+
+config=manager.draft_edit().draft;revision=manager.draft_get().draft_revision;
+for(let auth in [{mode:'none',profile:{password:'not-public'}},{mode:'none',source:{password:'not-public'}},{mode:'basic',source:'global',profile:'not-public'}]) {
+ let invalid={...config,sites:[{...config.sites[0],auth},...filter(config.sites,(site,index)=>index>0)]};
+ assert(!manager.draft_save({config:invalid,expected_revision:revision}).ok,'auth fields only accept canonical references, never arbitrary secret-bearing objects');
+ assert(!manager.draft_save({config:{...invalid,mode:'manual',manual_caddyfile:'http://127.0.0.1:27080 {\n respond ok\n}'},expected_revision:revision}).ok,'inactive auth metadata remains canonical in manual mode');
+}
+print('PASS canonical auth metadata rejects arbitrary nested fields\n');

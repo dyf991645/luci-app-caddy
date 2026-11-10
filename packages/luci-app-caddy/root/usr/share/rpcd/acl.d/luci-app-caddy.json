@@ -6,7 +6,8 @@
         "luci.caddy": [
           "status",
           "draft_get",
-          "credential_status"
+          "credential_status",
+          "certificates"
         ]
       }
     },

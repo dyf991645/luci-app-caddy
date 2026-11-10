@@ -12,7 +12,7 @@ define Package/luci-app-caddy
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
   TITLE:=Caddy service management
-  DEPENDS:=+luci-base +caddy-binary +rpcd-mod-ucode +ucode-mod-fs +ucode-mod-ubus
+  DEPENDS:=+luci-base +caddy-binary +rpcd-mod-ucode +ucode-mod-fs +ucode-mod-ubus +openssl-util +logd
   PKGARCH:=all
 endef
 

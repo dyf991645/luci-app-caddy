@@ -152,8 +152,11 @@ RPC, services, firewall, DNS, trust, or exercise public ACME.
 
 The original red test called the missing `basic_profile_save` manager operation
 and failed on real ucode; the green test uses the same public manager boundary.
-Installed LuCI/ubus/APK upgrade and browser interaction are separate integration
-acceptance steps. Standalone preview never hashes passwords and retains only
+`basic-auth-rpc.uc` loads a temporary copy of the real rpcd plugin redirected
+to this fixture manager/root, without registering or replacing the installed
+plugin. It verifies mutation args, hash/save, stale revisions and private
+readback through the actual RPC adapter. Installed LuCI/ubus/APK upgrade and
+browser interaction remain separate integration acceptance steps. Standalone preview never hashes passwords and retains only
 username metadata; its sensitive fields are discarded on simulated save.
 
 ## Ticket08 Authelia (controlled HTTP and actual login)
@@ -191,3 +194,14 @@ policy403 and outside404. It does **not** verify MFA, public DNS/TLS issuance,
 external existing users/policies, production reachability or native LuCI visual
 interaction. The controlled HTTP fixture is separately identified and never
 substituted for actual Authelia login evidence.
+
+Ticket06 stored certificate evidence: copy `certificates.uc`, executable
+`certificate-command` and `certificate-log` from the manager directory plus
+`tests/{certificate-inventory,certificate-events,certificate-edge}.uc` and
+`tests/certificates-router.sh` to `/tmp/luci-caddy-ticket06/` on the authorized
+router. Run `sh /tmp/luci-caddy-ticket06/certificates-router.sh`. This generates
+self-signed short-cycle SAN fixtures only; no Caddy process or public ACME.
+Tests cover leaf metadata, one-label wildcard coverage, expiration boundaries,
+relative near-expiry, malformed PEM/symlinks/unsupported storage, source-derived
+issuer failure→success, replay and credential-error privacy. See
+`CERTIFICATES.md` for bounded-window and local filesystem trust limitations.
