@@ -61,6 +61,21 @@ remain the deployment fixture's responsibility; local tests cannot replace them.
 
 ## APK build boundary
 
+`package-lifecycle.py` 在临时目录执行目标设备的实际 `rc.common` 和
+`functions.sh`，仅重定向文件路径并以可观察的适配器替代 procd。将这两个
+只读脚本保存到同一宿主目录后运行：
+
+```sh
+python3 tests/package-lifecycle.py /tmp/luci-caddy-upgrade-platform
+```
+
+覆盖首次安装不启动 / 不启用、升级前运行 / 停止与开机启用 / 禁用的独立
+保留、停止状态无瞬时启动、运行状态替换前停服后恢复、用户显式启动及
+残留标记处理。hook 来自包 Makefile；调用顺序依据 SDK 生成的 wrapper：
+pre-upgrade → 文件替换 → default_postinst → custom postinst。
+此测试不执行 APK 安装，不证明实际 APK 已包含这些 hook；须配合完整 SDK
+构建、实际 APK 脚本检查及授权设备升级验收。不会操作已安装服务或配置。
+
 Ticket05: copy `dns.uc`, `dns-rotation.uc`, `dns-rpc.uc`, `dns-router.sh`, the
 manager `config.uc` and executable `caddy-command` into `/tmp/luci-caddy-ticket05`.
 Run `ucode dns.uc config.uc <fresh-private-root> caddy-command` in that directory,

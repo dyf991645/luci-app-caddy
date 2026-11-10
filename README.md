@@ -25,7 +25,9 @@ apk add --allow-untrusted --no-network /tmp/caddy-install/caddy-binary-*.apk /tm
 
 模拟结果应只安装或升级这两个包；有额外变更或缺依赖时先停止并检查。`--allow-untrusted` 仅用于明确审查过、尚未建立可信签名分发的本地 APK，不替代校验和兼容性检查。各版本附件放在独立目录，避免通配符选中多个版本。首次缺少依赖时需从匹配固件的可信来源补齐，不能通过忽略依赖强行安装。
 
-安装后刷新 LuCI，等待 rpcd 异步重新注册，再检查 `ubus call luci.caddy status`、`apk info -v caddy-binary luci-app-caddy` 和日志诊断页。首次配置无代理监听；Caddy 管理端仅 `127.0.0.1:2019`，不向 LAN/WAN 开放。证书监控服务自动启动，外部通知默认关闭。Caddy 服务由用户在概览页启用 / 启动；应用不会自动启动已停止的 Caddy。
+安装后刷新 LuCI，等待 rpcd 异步重新注册，再检查 `ubus call luci.caddy status`、`apk info -v caddy-binary luci-app-caddy` 和日志诊断页。首次配置无代理监听；Caddy 管理端仅 `127.0.0.1:2019`，不向 LAN/WAN 开放。证书监控服务自动启用并启动，外部通知默认关闭。首次安装不启动 Caddy，也不启用其开机启动，由用户在概览页操作。
+
+从 r4 起，APK 升级在替换文件前记录 Caddy 是否运行并停服；只有升级前正在运行时才在升级后读取最近生效配置恢复运行，期间有服务中断，应安排维护窗口。升级前停止的服务始终保持停止，不会短暂启动；开机启用 / 禁用独立保留，不由运行状态推导。包安装脚本使用 `/var/run/caddy-package-running` 临时标记，正常完成即删除，不写入草稿、凭据或生效配置；升级中断或设备重启后需检查并按原运行状态恢复服务。此行为依赖目标 OpenWrt APK 平台的升级 hook，不扩展为其他固件的兼容保证。
 
 ## 保存、生效与回退
 
