@@ -1,0 +1,7 @@
+users:
+  ticket08:
+    disabled: false
+    displayname: Ticket Eight
+    password: '$argon2id$v=19$m=65536,t=3,p=4$8bFuLEK0fwEIKwZ18buZ9Q$kV/vJHUfQuCqACuCyMtG6WopXoQfc3QbLK8T8V3nIh8'
+    email: ticket08@example.test
+    groups: [testers]
