@@ -2,6 +2,7 @@
 # Called only by the local manager with fixed operation names and private files.
 # Caddy errors can contain credentials; never forward stdout/stderr to rpcd.
 case "$1" in
+ hash) umask 077; /usr/bin/caddy hash-password --algorithm bcrypt >"$2" 2>/dev/null ;;
  adapt) umask 077; /usr/bin/caddy adapt --adapter caddyfile --config "$2" >"$2.json" 2>/dev/null ;;
  validate) exec /usr/bin/caddy validate --config "$2" >/dev/null 2>&1 ;;
  reload) exec /usr/bin/caddy reload --config "$2" --address "$3" >/dev/null 2>&1 ;;
