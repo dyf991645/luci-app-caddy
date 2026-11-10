@@ -18,6 +18,8 @@ return {
 		logs: {args:{level:'',kind:''},call:function(request) {return loadfile('/usr/share/caddy-manager/diagnostics.uc')()().logs({level:request.args.level || 'all',kind:request.args.kind || 'all'});}},
 		diagnostics: {call:function() {return loadfile('/usr/share/caddy-manager/diagnostics.uc')()().status();}},
 		backend_probe: {args:{confirm:false},call:function(request) {return loadfile('/usr/share/caddy-manager/diagnostics.uc')()().probe(request.args);}},
+		notification_status: {call:function() {return loadfile('/usr/share/caddy-manager/notifications.uc')()().status();}},
+		notification_save: {args:{enabled:false,url:'',headers:{}},call:function(request) {return loadfile('/usr/share/caddy-manager/notifications.uc')()().save(request.args);}},
 		basic_profile_save: {args:{scope:'',config:{},users:[],expected_revision:0},call:function(request) {return manager().basic_profile_save(request.args);}},
 		tls_save: {args:{default_challenge:'',expected_revision:0},call:function(request) {return manager().tls_save(request.args);}},
 		credential_status: {call:function() {return manager().credential_status();}},

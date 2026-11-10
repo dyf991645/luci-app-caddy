@@ -1,0 +1,32 @@
+server:
+  address: tcp4://0.0.0.0:9091/
+log:
+  level: info
+identity_validation:
+  reset_password:
+    jwt_secret: isolated-ticket08-jwt-secret-not-a-real-deployment-2026
+authentication_backend:
+  file:
+    path: /config/users.yml
+access_control:
+  default_policy: deny
+  rules:
+    - domain: app.example.test
+      resources: ['^/media/denied']
+      policy: deny
+    - domain: app.example.test
+      policy: one_factor
+session:
+  secret: isolated-ticket08-session-secret-not-a-real-deployment
+  cookies:
+    - domain: example.test
+      authelia_url: https://auth.example.test:28443/
+storage:
+  encryption_key: isolated-ticket08-storage-key-not-a-real-deployment
+  local:
+    path: /config/db.sqlite3
+notifier:
+  filesystem:
+    filename: /config/notification.txt
+ntp:
+  disable_startup_check: true

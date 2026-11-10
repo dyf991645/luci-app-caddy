@@ -19,7 +19,7 @@ return view.extend({
 		var manual = E('textarea',{'class':'cbi-input-textarea','rows':18,'spellcheck':'false','aria-label':_('Complete Caddyfile')},config.manual_caddyfile || '');
 		var sourceStatus = E('p',{'role':'status'});
 		var formNode;
-		var map = new form.JSONMap({settings:Object.assign({},config.settings),sites:config.sites.map(function(site) {return Object.assign({},site);})}, _('HTTPS sites'), _('Saving changes only updates the draft. Applying validates and hot loads Caddy; certificate issuance continues asynchronously.'));
+		var map = new form.JSONMap({authelia:Object.assign({backend:'',uri:'/api/authz/forward-auth',portal:''},config.auth?.authelia),settings:Object.assign({},config.settings),sites:config.sites.map(function(site) {return Object.assign({},site);})}, _('HTTPS sites'), _('Saving changes only updates the draft. Applying validates and hot loads Caddy; certificate issuance continues asynchronously.'));
 		map.readonly = !L.hasViewPermission();
 		var section = map.section(form.TypedSection,'sites',_('Sites'));
 		section.anonymous = true; section.addremove = true;
@@ -38,12 +38,17 @@ return view.extend({
 		option.write = function(sid,value) {map.data.set('json',sid,'strip',value==='1');};
 		option = section.option(form.ListValue,'challenge',_('Verification method'));
 		option.value('dns-01','DNS-01'); option.value('http-01','HTTP-01'); option.default=config.settings.default_challenge || 'http-01'; option.value('tls-alpn-01','TLS-ALPN-01');
-		option = section.option(form.ListValue,'authMode',_('Access authentication'));option.value('none',_('No additional authentication'));option.value('basic','Basic Auth');
+		option = section.option(form.ListValue,'authMode',_('Access authentication'));option.value('none',_('No additional authentication'));option.value('basic','Basic Auth');option.value('authelia','Authelia');
 		option.cfgvalue=function(sid){return map.data.get('json',sid,'auth')?.mode || 'none';};
 		option.write=function(sid,value){var auth=map.data.get('json',sid,'auth') || {};map.data.set('json',sid,'auth',Object.assign({},auth,{mode:value,source:auth.source || 'global'}));};
-		option = section.option(form.ListValue,'authSource',_('Basic Auth configuration'));option.depends('authMode','basic');option.value('global',_('Global reference'));option.value('independent',_('Independent accounts'));
+		option = section.option(form.ListValue,'authSource',_('Authentication configuration'));option.depends('authMode','basic');option.depends('authMode','authelia');option.value('global',_('Global reference'));option.value('independent',_('Independent configuration'));
 		option.cfgvalue=function(sid){return map.data.get('json',sid,'auth')?.source || 'global';};
 		option.write=function(sid,value){map.data.set('json',sid,'auth',Object.assign({},map.data.get('json',sid,'auth'),{source:value}));};
+		[['backend',_('Independent Authelia backend')],['uri',_('Independent authorization interface')],['portal',_('Independent login portal')]].forEach(function(field) {
+			var o=section.option(form.Value,'authelia_'+field[0],field[1]);o.depends({authMode:'authelia',authSource:'independent'});o.rmempty=false;
+			o.cfgvalue=function(sid){return map.data.get('json',sid,'auth')?.authelia?.[field[0]] || (field[0]=='uri'?'/api/authz/forward-auth':'');};
+			o.write=function(sid,value){var auth=map.data.get('json',sid,'auth') || {};map.data.set('json',sid,'auth',Object.assign({},auth,{authelia:Object.assign({},auth.authelia,{[field[0]]:value})}));};
+		});
 		option = section.option(form.TextValue,'advanced_snippet',_('Advanced HTTP routing snippet'));option.rows=5;
 		option.description=_('Additional directives inside this site and path boundary. Imports and environment expansion are unsupported.');
 		section = map.section(form.NamedSection,'settings','settings',_('Global settings'));
@@ -55,6 +60,9 @@ return view.extend({
 		option.validate = function(sid,value) {return !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || _('Invalid email');};
 		option = section.option(form.Value,'storage',_('Persistent storage directory'));option.rmempty=false;
 		option.validate = function(sid,value) {return /^\/[a-zA-Z0-9_\/-]+$/.test(value) && !value.includes('..') && value != '/' || _('Use an absolute directory without parent segments');};
+		section=map.section(form.NamedSection,'authelia','authelia',_('Global Authelia configuration'));
+		section.description=_('Use a router-reachable HTTP(S) backend with an explicit port, /api/authz/forward-auth, and an HTTP(S) login portal URL. The portal site must use no additional authentication. Configure users, MFA, session cookie domain/authelia_url, and access policies in external Authelia. An unreachable service fails closed.');
+		[['backend',_('Authelia backend')],['uri',_('Authorization interface')],['portal',_('Login portal URL')]].forEach(function(field){var o=section.option(form.Value,field[0],field[1]);o.rmempty=true;});
 		var accountDirty = false;
 		var dirty = false, busy = false, sequence = 0;
 		var siteSection=map.children[0];
@@ -77,7 +85,7 @@ return view.extend({
 		accountsNode=E('fieldset',{},[E('legend',{},_('Basic Auth accounts')),E('p',{},_('Enter global for shared accounts, or the exact site domain for independent accounts.')),E('p',{},_('Passwords are hashed on the router. Existing passwords and hashes are never read back. Remove an account row to delete it. Save accounts updates the draft; apply activates the change.')),scope,accountRows,E('button',{'class':'cbi-button','click':function(){accountRow();accountDirty=true;dirty=true;update();}},_('Add account')),' ',E('button',{'class':'cbi-button cbi-button-save','click':function(){busy=true;update();return map.parse().then(function(){return saveBasic(scope.value,values(),Array.from(accountRows.children).map(function(row){return row.account();}),current.draft_revision);}).then(result).then(function(saved){current=saved;config=Object.assign(values(),saved.draft,{manual_caddyfile:manual.value});config.sites.forEach(function(site){map.data.sections('json','sites').forEach(function(buffer){if(buffer.domain==site.domain)map.data.set('json',buffer['.name'],'auth',site.auth);});});dirty=false;accountDirty=false;loadAccounts();}).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');}).finally(function(){busy=false;update();});}},_('Save accounts to draft'))]);
 		function update() {
 			sourceStatus.textContent = mode == 'manual' ? _('Draft source: complete Caddyfile. Retained form settings are read-only and do not participate. Service and autostart remain available on Overview.') : _('Draft source: form configuration. The separate manual Caddyfile is preserved.');
-			affected.textContent=current.affected_domains?.length ? _('Applying the global Basic Auth change affects:')+' '+current.affected_domains.join(', ') : '';
+			affected.textContent=current.affected_domains?.length ? _('Applying global authentication changes affects:')+' '+current.affected_domains.join(', ') : '';
 			if(accountsNode) accountsNode.querySelectorAll('input,select,button').forEach(function(field){field.disabled=busy || map.readonly || mode=='manual';});
 			manual.disabled = busy || map.readonly || mode != 'manual';
 			if(formNode) formNode.querySelectorAll('input,select,textarea,button').forEach(function(field) {field.disabled = busy || map.readonly || mode == 'manual';});
@@ -91,7 +99,8 @@ return view.extend({
 		}
 		function values() {
 			function get(section,key) {return map.data.get('json',section,key) || '';}
-			return Object.assign({},config,{mode:mode,manual_caddyfile:manual.value,version:2,settings:Object.assign({},config.settings,{access_log:map.data.get('json','settings','access_log')===true,http_port:+get('settings','http_port'),https_port:+get('settings','https_port'),email:get('settings','email'),storage:get('settings','storage')}),sites:map.data.sections('json','sites').map(function(site) {return {domain:site.domain || '',upstreams:site.upstreams || [],balance:site.balance || 'round_robin',path:site.path || '',strip:site.strip === true || site.strip === 'true' || site.strip === '1',challenge:site.challenge || 'http-01',advanced_snippet:site.advanced_snippet || '',auth:site.auth || {mode:'none'}};})});
+			var auth=Object.assign({},config.auth);if(get('authelia','backend') || get('authelia','portal'))auth.authelia={backend:get('authelia','backend'),uri:get('authelia','uri') || '/api/authz/forward-auth',portal:get('authelia','portal')};else delete auth.authelia;
+			return Object.assign({},config,{auth:auth,mode:mode,manual_caddyfile:manual.value,version:2,settings:Object.assign({},config.settings,{access_log:map.data.get('json','settings','access_log')===true,http_port:+get('settings','http_port'),https_port:+get('settings','https_port'),email:get('settings','email'),storage:get('settings','storage')}),sites:map.data.sections('json','sites').map(function(site) {return {domain:site.domain || '',upstreams:site.upstreams || [],balance:site.balance || 'round_robin',path:site.path || '',strip:site.strip === true || site.strip === 'true' || site.strip === '1',challenge:site.challenge || 'http-01',advanced_snippet:site.advanced_snippet || '',auth:site.auth || {mode:'none'}};})});
 		}
 		function validateConfig(data) {
 			if(data.mode=='manual')return data;
@@ -106,7 +115,7 @@ return view.extend({
 		function showPreview(data) {var n=++sequence;return preview(validateConfig(data)).then(result).then(function(response) {if(n==sequence) code.textContent=JSON.stringify(response.config,null,2);});}
 		function confirmImpact(){
 			if(!current.affected_domains?.length)return Promise.resolve();
-			update();return new Promise(function(resolve,reject){ui.showModal(_('Apply global authentication change'),[E('p',{},_('The following domains will use the updated accounts:')),E('ul',{},current.affected_domains.map(function(domain){return E('li',{},domain);})),E('div',{'class':'right'},[E('button',{'class':'cbi-button','click':function(){ui.hideModal();reject(new Error(_('Application cancelled; draft retained')));}},_('Cancel')),' ',E('button',{'class':'cbi-button cbi-button-apply','click':function(){ui.hideModal();resolve();}},_('Apply'))])]);});
+			update();return new Promise(function(resolve,reject){ui.showModal(_('Apply global authentication change'),[E('p',{},_('The following domains reference the updated global authentication configuration:')),E('ul',{},current.affected_domains.map(function(domain){return E('li',{},domain);})),E('div',{'class':'right'},[E('button',{'class':'cbi-button','click':function(){ui.hideModal();reject(new Error(_('Application cancelled; draft retained')));}},_('Cancel')),' ',E('button',{'class':'cbi-button cbi-button-apply','click':function(){ui.hideModal();resolve();}},_('Apply'))])]);});
 		}
 		function syncAuth(){config.sites.forEach(function(site){map.data.sections('json','sites').forEach(function(buffer){if(buffer.domain==site.domain)map.data.set('json',buffer['.name'],'auth',site.auth);});});}
 		function perform(wantApply) {

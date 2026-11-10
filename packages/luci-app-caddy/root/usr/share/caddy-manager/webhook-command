@@ -1,0 +1,10 @@
+#!/bin/sh
+# Fixed private file arguments only. No URL, headers or response body in argv/logs.
+set -eu
+umask 077
+[ "$#" -eq 3 ] || exit 2
+ulimit -f 8
+exec /usr/bin/curl --disable --silent --proto '=http,https' --proto-redir '=http,https' \
+ --noproxy '*' --connect-timeout 3 --max-time 8 --max-filesize 65536 \
+ --output /dev/null --write-out '%{http_code}' --header 'Content-Type: application/json' \
+ --config "$1" --data-binary "@$2" >"$3" 2>/dev/null

@@ -51,6 +51,19 @@
       ]
     }
   },
+  "admin/services/caddy/notifications": {
+    "title": "Certificate alerts",
+    "order": 36,
+    "action": {
+      "type": "view",
+      "path": "caddy/notifications"
+    },
+    "depends": {
+      "acl": [
+        "luci-app-caddy"
+      ]
+    }
+  },
   "admin/services/caddy/diagnostics": {
     "title": "Logs and diagnostics",
     "order": 40,

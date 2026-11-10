@@ -8,6 +8,7 @@
           "draft_get",
           "credential_status",
           "certificates",
+          "notification_status",
           "logs",
           "diagnostics"
         ]
@@ -24,6 +25,7 @@
           "config_preview",
           "credential_save",
           "tls_save",
+          "notification_save",
           "backend_probe"
         ]
       }

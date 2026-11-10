@@ -159,6 +159,42 @@ readback through the actual RPC adapter. Installed LuCI/ubus/APK upgrade and
 browser interaction remain separate integration acceptance steps. Standalone preview never hashes passwords and retains only
 username metadata; its sensitive fields are discarded on simulated save.
 
+## Ticket08 Authelia (controlled HTTP and actual login)
+
+Copy `authelia.uc`, `authelia-update.uc`, `authelia-router.sh`, manager `config.uc`
+and executable `caddy-command` into `/tmp/luci-caddy-ticket08/` on the agreed
+router. Run `python3 tests/authelia-host.py` on the host (loopback19081 backend,
+19082 controlled authorization), bridge SSH `-R 127.0.0.1:28081:127.0.0.1:19081
+-R 127.0.0.1:28082:127.0.0.1:19082`, then run the router script. Real Caddy uses
+only loopback admin28019/HTTP28080/HTTPS28443, internal CA without trust install,
+private HOME/XDG/storage under a new0700 `/tmp` root, no autosave. Its trap stops
+Caddy. The fixture checks original method/URI/body, 2xx-only continuation,
+302/Location/401/403, absent identity headers, all four forged Remote-* fields,
+path404, invalid URLs/portal loops, dynamic global updates/independent isolation,
+affected-domain reporting before apply, and unreachable authorization502.
+
+For **actual Authelia single-factor login**, copy `tests/fixtures/authelia/*`
+into a fresh host `/tmp/luci-caddy-ticket08-host/`; they contain ONLY a public,
+disposable test identity/password (`ticket08` / `Ticket08-Isolated-Only-2026`).
+Never use these fixture secrets in a deployment. Start
+`docker run --detach --name luci-caddy-ticket08-authelia --publish
+127.0.0.1:19091:9091 --volume /tmp/luci-caddy-ticket08-host:/config
+ authelia/authelia:4.39.28`. Replace only the ticket08 auth SSH reverse forward
+with `-R 127.0.0.1:28082:127.0.0.1:19091`, add
+`-L 127.0.0.1:18443:127.0.0.1:28443`, delete old `real-ready`/`real-done` markers,
+and start the router script with `real`. After `real-ready`, run
+`python3 tests/authelia-real-client.py`, then touch router `real-done`.
+Stop/remove the disposable container and cancel the exact SSH forwards. A shared
+SSH master can retain forwards even after its initiating command exits.
+
+Actual service acceptance verifies portal200 without additional authentication,
+anonymous302, invalid login401, a real single-factor session login/cookie,
+protected200 and all four actual identity attributes overriding forged headers,
+policy403 and outside404. It does **not** verify MFA, public DNS/TLS issuance,
+external existing users/policies, production reachability or native LuCI visual
+interaction. The controlled HTTP fixture is separately identified and never
+substituted for actual Authelia login evidence.
+
 Ticket06 stored certificate evidence: copy `certificates.uc`, executable
 `certificate-command` and `certificate-log` from the manager directory plus
 `tests/{certificate-inventory,certificate-events,certificate-edge}.uc` and
@@ -196,3 +232,30 @@ module, and verifies the actual logd source, real runtime diagnostic evidence,
 and rejection of arbitrary probe/action input. It never replaces installed RPC.
 All roots must be fresh and private. Native installed APK/browser acceptance,
 public reachability and ACME remain separate integration acceptance boundaries.
+
+Ticket09: copy manager `notifications.uc`, `notification-worker.uc`,
+`certificates.uc`, executable `certificate-command` and `webhook-command` to
+`/tmp/luci-caddy-ticket09/`; copy `tests/notifications.uc` as
+`notifications.uc.test`, plus `notification-evidence.uc`,
+`notification-delivery.uc`, `notification-argv.uc`, `notification-rpc.uc`, `notifications-router.sh`.
+Copy the current RPC `luci.caddy` plugin too; the `rpc` fixture rewrites only
+its notification module constructor to use a private test root.
+Run `sh /tmp/luci-caddy-ticket09/notifications-router.sh`, then the same command
+with `evidence`, `threshold90`, `threshold1`, `worker` and `rpc`. These generate PEMs exclusively under `/tmp` and
+never need a Caddy or LuCI process. The worker fixture executes the actual
+continuous worker with a local fixture-options file and a short check interval.
+
+For explicitly authorized controlled notifications, run
+`python3 tests/webhook-receiver.py /tmp/luci-caddy-ticket09-received.jsonl` on
+the host and establish only `ssh -N -R 29082:127.0.0.1:29082 router.home`.
+Run the router fixture with `delivery ok`, `delivery redirect`, `delivery error`
+and `delivery slow`; `delivery recover` additionally checks actual covering
+PEM replacement delivery and recovery deduplication. Verify receiver records: exactly1/3/3/3 requests,
+respectively, no `/canary` redirect request, stable IDs within each episode,
+and only allowlisted payload fields. The slow fixture takes about24seconds
+for three bounded8-second attempts with simulated clock backoff. During it,
+`ucode /tmp/luci-caddy-ticket09/notification-argv.uc` verifies the real curl
+argv excludes URL/query/header canaries without printing any argv. Shut down
+the host receiver and explicitly cancel `ssh -O cancel -R 29082:127.0.0.1:29082
+router.home` afterward; multiplexed forwarding can outlive the initiating SSH.
+No arbitrary real notification target or public ACME endpoint is exercised.

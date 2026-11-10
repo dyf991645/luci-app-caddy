@@ -64,14 +64,14 @@ def build(args):
             raise ValueError('SDK contains an unpinned feed: ' + line)
         pins[name] = {'url': url, 'commit': commit}
     # Only feeds needed by these packages; the SDK's own commit pins are authoritative.
-    for name in ['base', 'luci']:
+    for name in ['base', 'luci', 'packages']:
         run(['./scripts/feeds', 'update', name], cwd=sdk)
         actual = run(['git', '-C', sdk / 'feeds' / name, 'rev-parse', 'HEAD'], capture=True).strip()
         if actual != pins[name]['commit']:
             raise ValueError('Feed commit mismatch: ' + name)
         pins[name]['checked_out_commit'] = actual
     run(['./scripts/feeds', 'install', 'luci-base', 'rpcd-mod-ucode',
-         'ucode-mod-fs', 'ucode-mod-ubus'], cwd=sdk)
+         'ucode-mod-fs', 'ucode-mod-ubus', 'curl', 'openssl-util', 'logd'], cwd=sdk)
     for name in ['caddy-binary', 'luci-app-caddy']:
         shutil.copytree(ROOT / 'packages' / name, sdk / 'package' / name)
     dl = sdk / 'dl'
