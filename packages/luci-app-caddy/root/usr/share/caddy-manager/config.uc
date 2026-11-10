@@ -98,6 +98,9 @@ return function(options) {
 		if(substr(auth.backend,0,8)=='https://') proxy.transport={protocol:'http',tls:{}};
 		return [{handler:'headers',request:{delete:headers}},proxy];
 	}
+	function effective_challenge(site, settings) {
+		return site.challenge == 'global' ? (settings.default_challenge || 'http-01') : site.challenge;
+	}
 	function check(config) {
 		if (config?.mode != null && index(['form', 'manual'], config.mode) < 0) return 'Select form or manual configuration source';
 		if (config?.manual_caddyfile != null) {
@@ -144,7 +147,7 @@ return function(options) {
 			let domain = type(s.domain) == 'string' && substr(s.domain,0,2) == '*.' ? substr(s.domain,2) : s.domain;
 			if (type(domain) != 'string' || length(s.domain) > 253 || !match(domain, /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/))
 				return 'Enter a valid domain or leading wildcard domain';
-			if (domain != s.domain && s.challenge != 'dns-01') return 'Wildcard domains require DNS-01';
+			if (domain != s.domain && effective_challenge(s,g) != 'dns-01') return 'Wildcard domains require DNS-01';
 			for (let label in split(domain, '.'))
 				if (length(label) > 63) return 'Domain labels must not exceed 63 characters';
 			if (domains[s.domain]) return 'Each domain must have exactly one site';
@@ -164,7 +167,7 @@ return function(options) {
 			if (index(['round_robin','least_conn','random'],s.balance) < 0) return 'Unsupported load balancing strategy';
 			if (type(s.path) != 'string' || (s.path != '' && !match(s.path,/^\/([a-zA-Z0-9_~.-]+\/)*([a-zA-Z0-9_~.-]+|\*)?$/)) || index(split(s.path,'/'),'..') >= 0 || index(split(s.path,'/'),'.') >= 0) return 'Path must be exact or end in /*, without query, encoding or parent segments';
 			if (type(s.strip) != 'bool' || (s.strip && (s.path == '' || substr(s.path,-2) != '/*'))) return 'Prefix removal requires a path ending in /*';
-			if (index(['http-01', 'dns-01', 'tls-alpn-01'], s.challenge) < 0) return 'Unsupported verification method';
+			if (index(['global', 'http-01', 'dns-01', 'tls-alpn-01'], s.challenge) < 0) return 'Unsupported verification method';
 		}
 		if(g.access_log!=null && type(g.access_log)!='bool') return 'Access logging must be enabled or disabled';
 		if (g.default_challenge != null && index(['http-01','dns-01','tls-alpn-01'],g.default_challenge) < 0) return 'Unsupported default verification method';
@@ -180,8 +183,9 @@ return function(options) {
 	function generate(config, private_config) {
 		let g=config.settings, routes=[], redirects=[], policies=[];
 		for (let s in config.sites) {
-			let issuer={module:'acme',email:g.email,challenges:{http:{disabled:s.challenge!='http-01'},'tls-alpn':{disabled:s.challenge!='tls-alpn-01'}}};
-			if (s.challenge == 'dns-01') {
+			let challenge=effective_challenge(s,g);
+			let issuer={module:'acme',email:g.email,challenges:{http:{disabled:challenge!='http-01'},'tls-alpn':{disabled:challenge!='tls-alpn-01'}}};
+			if (challenge == 'dns-01') {
 				let credential = private_config ? read('credentials/' + g.cloudflare_credential + '.json',null) : null;
 				if (private_config && !credential) die('Missing Cloudflare credential');
 				issuer.challenges.dns = {provider:{name:'cloudflare',api_token:credential ? credential.token : '[REDACTED: Cloudflare credential]'}};
@@ -351,6 +355,8 @@ return function(options) {
 				if (current.draft.mode == 'manual') return {ok:false,error:'TLS forms are read-only in complete Caddyfile mode'};
 				if (index(['http-01','dns-01','tls-alpn-01'],request.default_challenge) < 0) return {ok:false,error:'Unsupported default verification method'};
 				current.draft.settings.default_challenge = request.default_challenge;
+				let error=check(current.draft);
+				if (error) return {ok:false,error};
 				write('draft.json',{revision:current.draft_revision+1,config:current.draft});
 				return state();
 			});

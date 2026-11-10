@@ -97,9 +97,14 @@ contract. Save/apply use the same OS lock across rpcd and CLI invocations.
 
 Settings additionally accept `default_challenge` (`http-01`, `dns-01`,
 `tls-alpn-01`) and `cloudflare_credential` (positive integer private version
-reference). Sites accept `dns-01` and a leading `*.` wildcard; wildcard sites
-must use DNS-01. Specific domains can use any of the three methods. The default
-only initializes new sites; it never rewrites existing site methods.
+reference). Site `challenge` accepts `global`, `http-01`, `dns-01` or
+`tls-alpn-01`. `global` is a persistent reference to the current draft's
+`settings.default_challenge`, falling back to `http-01` when unset. Explicit
+site methods remain independent, including existing and migrated version1
+sites; they are never converted into references. Leading `*.` wildcard sites
+must resolve to DNS-01; specific domains support all three effective methods.
+Validation, generated issuer selectors and private DNS credential resolution
+use the same effective method.
 
 `credential_status()` is read-only and returns `configured`, `draft_revision`
 and `active_revision` for credential references, never token bytes.
@@ -116,6 +121,12 @@ bulk credential export or deletion RPC.
 credential staging, it edits the private full draft internally and returns only
 the read-safe state. This preserves retained manual content and scoped snippets
 without requiring the TLS page to fetch or resubmit unrelated private sources.
+It validates the complete updated draft before persisting. For example, changing
+the default from DNS-01 to HTTP-01 is rejected when an inherited wildcard site
+would become invalid; the prior draft content and revision remain intact.
+Changing a default only stages a draft: inherited sites change their generated
+policy after successful Apply, while explicit overrides and last-active JSON
+remain unchanged until their own applicable edits are successfully applied.
 Both TLS/default and credential mutations are refused in complete Caddyfile
 mode; the controls remain visible and read-only. Manual provider literals are
 never rewritten by form credential references.
