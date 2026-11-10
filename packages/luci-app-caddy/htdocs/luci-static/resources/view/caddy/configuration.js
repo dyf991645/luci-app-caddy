@@ -3,6 +3,7 @@
 'require form';
 'require rpc';
 'require ui';
+'require dom';
 'require caddy.apply as caddyApply';
 'require caddy.layout as layout';
 
@@ -18,7 +19,7 @@ return view.extend({
 		var route = L.env && L.env.dispatchpath || [];
 		var page = route.indexOf('settings') >= 0 ? 'settings' : route.indexOf('config') >= 0 ? 'config' : 'configuration';
 		var current = initial;
-		var config = initial.draft || {version:2,settings:{http_port:10080,https_port:10443,email:'',storage:'/etc/caddy/data'},sites:[{domain:'',upstreams:['http://127.0.0.1:8080'],balance:'round_robin',path:'',strip:false,challenge:'http-01'}]};
+		var config = initial.draft || {version:2,settings:{http_port:10080,https_port:10443,email:'',storage:'/etc/caddy/data'},sites:[{domain:'',upstreams:['http://127.0.0.1:8080'],balance:'round_robin',path:'',strip:false,challenge:'global'}]};
 		var mode = config.mode || 'form';
 		var manual = E('textarea',{'class':'cbi-input-textarea','rows':18,'spellcheck':'false','aria-label':_('Complete Caddyfile')},config.manual_caddyfile || '');
 		var sourceStatus = E('p',{'role':'status'});
@@ -30,15 +31,38 @@ return view.extend({
 		section.addbtntitle = _('Add site');
 		section.modaltitle = _('Edit site');
 		section.nodescriptions = true;
-		section.addModalOptions = function(modalSection) {
-			modalSection.map.readonly = map.readonly || busy || mode == 'manual';
-			var render = modalSection.map.render;
-			modalSection.map.render = function() {
-				return render.apply(this, arguments).then(function(node) {
-					node.classList.add('caddy-app', 'caddy-site-editor');
-					return node;
-				});
+		section.addModalOptions = function(modalSection, sid) {
+			var modalMap=modalSection.map;
+			modalMap.originalSite=JSON.parse(JSON.stringify(map.data.get('json',sid)));
+			modalMap.dirtyBefore=dirty;
+			modalMap.readonly = map.readonly || busy || mode == 'manual';
+			modalSection.tab('connection',_('Connection'));
+			modalSection.tab('security',_('TLS and authentication'));
+			modalSection.tab('advanced',_('Advanced'));
+			modalSection.children.forEach(function(field) {
+				// Grid-only presentation flags must not hide dependency sources in the dialog.
+				field.modalonly = false;
+				field.retain = true;
+				field.tab = field.option=='advanced_snippet' ? 'advanced' : /^(challenge|auth|authelia_)/.test(field.option) ? 'security' : 'connection';
+				modalSection.tabs[field.tab].children.push(field);
+			});
+			var reference=modalSection.taboption('security',form.DummyValue,'global_auth_reference',_('Global authentication'));
+			reference.depends({authMode:'basic',authSource:'global'});reference.depends({authMode:'authelia',authSource:'global'});
+			reference.renderWidget=function(){return E('a',{'href':L.url('admin/services/caddy/settings')},_('Manage shared authentication in Global settings'));};
+			var editor;
+			var accounts=modalSection.taboption('security',form.DummyValue,'basic_accounts',_('Basic Auth accounts'));
+			accounts.depends({authMode:'basic',authSource:'independent'});
+			accounts.renderWidget=function() {
+				var profile=map.data.get('json',sid,'auth')?.profile;
+				editor=createAccountEditor(current.basic_profiles?.[profile] || [],modalMap.readonly);
+				modalMap.accountEditor=editor;
+				return editor.node;
 			};
+			var render=modalMap.render;
+			modalMap.render=function() {return render.apply(this,arguments).then(function(node) {
+				node.classList.add('caddy-app','caddy-site-editor');
+				return node;
+			});};
 		};
 		var option = section.option(form.Value,'domain',_('Domain'));
 		option.rmempty = false;
@@ -54,17 +78,20 @@ return view.extend({
 		option.cfgvalue = function(sid) {return [true,'true','1'].indexOf(map.data.get('json',sid,'strip')) >= 0 ? '1':'0';};
 		option.write = function(sid,value) {map.data.set('json',sid,'strip',value==='1');};
 		option = section.option(form.ListValue,'challenge',_('Verification method'));
-		option.value('dns-01','DNS-01'); option.value('http-01','HTTP-01'); option.default=config.settings.default_challenge || 'http-01'; option.value('tls-alpn-01','TLS-ALPN-01');
+		option.value('global',_('Global default')); option.value('dns-01','DNS-01'); option.value('http-01','HTTP-01'); option.default='global'; option.value('tls-alpn-01','TLS-ALPN-01');
 		option = section.option(form.ListValue,'authMode',_('Access authentication'));option.value('none',_('No additional authentication'));option.value('basic','Basic Auth');option.value('authelia','Authelia');
-		option.cfgvalue=function(sid){return map.data.get('json',sid,'auth')?.mode || 'none';};
-		option.write=function(sid,value){var auth=map.data.get('json',sid,'auth') || {};map.data.set('json',sid,'auth',Object.assign({},auth,{mode:value,source:auth.source || 'global'}));};
+		option.forcewrite=true;
+		option.cfgvalue=function(sid){return this.map.data.get('json',sid,'auth')?.mode || 'none';};
+		option.write=function(sid,value){var auth=this.map.data.get('json',sid,'auth') || {};this.map.data.set('json',sid,'auth',Object.assign({},auth,{mode:value,source:auth.source || 'global'}));};
 		option = section.option(form.ListValue,'authSource',_('Authentication configuration'));option.depends('authMode','basic');option.depends('authMode','authelia');option.value('global',_('Global reference'));option.value('independent',_('Independent configuration'));
-		option.cfgvalue=function(sid){return map.data.get('json',sid,'auth')?.source || 'global';};
-		option.write=function(sid,value){map.data.set('json',sid,'auth',Object.assign({},map.data.get('json',sid,'auth'),{source:value}));};
+		option.forcewrite=true;
+		option.cfgvalue=function(sid){return this.map.data.get('json',sid,'auth')?.source || 'global';};
+		option.write=function(sid,value){this.map.data.set('json',sid,'auth',Object.assign({},this.map.data.get('json',sid,'auth'),{source:value}));};
 		[['backend',_('Independent Authelia backend')],['uri',_('Independent authorization interface')],['portal',_('Independent login portal')]].forEach(function(field) {
 			var o=section.option(form.Value,'authelia_'+field[0],field[1]);o.depends({authMode:'authelia',authSource:'independent'});o.rmempty=false;
-			o.cfgvalue=function(sid){return map.data.get('json',sid,'auth')?.authelia?.[field[0]] || (field[0]=='uri'?'/api/authz/forward-auth':'');};
-			o.write=function(sid,value){var auth=map.data.get('json',sid,'auth') || {};map.data.set('json',sid,'auth',Object.assign({},auth,{authelia:Object.assign({},auth.authelia,{[field[0]]:value})}));};
+			o.forcewrite=true;o.retain=true;
+			o.cfgvalue=function(sid){return this.map.data.get('json',sid,'auth')?.authelia?.[field[0]] || (field[0]=='uri'?'/api/authz/forward-auth':'');};
+			o.write=function(sid,value){var auth=this.map.data.get('json',sid,'auth') || {};this.map.data.set('json',sid,'auth',Object.assign({},auth,{authelia:Object.assign({},auth.authelia,{[field[0]]:value})}));};
 		});
 		option = section.option(form.TextValue,'advanced_snippet',_('Advanced HTTP routing snippet'));option.rows=5;
 		option.description=_('Additional directives inside this site and path boundary. Imports and environment expansion are unsupported.');
@@ -87,16 +114,65 @@ return view.extend({
 		var dirty = false, busy = false, sequence = 0;
 		var siteSection=map.children[0];
 		map.children = page == 'configuration' ? [siteSection] : page == 'settings' ? map.children.slice(1) : [];
-		var modalSave = siteSection.handleModalSave;
-		siteSection.handleModalSave = function() {
-			return Promise.resolve(modalSave.apply(this, arguments)).then(function(value) {dirty=true;update();return value;});
+		var renderSiteModal=siteSection.renderMoreOptionsModal;
+		siteSection.renderMoreOptionsModal=function() {if(accountDirty){ui.addNotification(null,E('p',{},_('Save account edits before editing a site.')),'warning');return Promise.resolve();}return Promise.resolve(renderSiteModal.apply(this,arguments)).then(function() {
+			var node=siteSection.getActiveModalMap();
+			var button=node && dom.findClassInstance(node).parent===map ? node.parentNode.querySelector('div.button-row > button:last-child') : null;
+			if(button) button.textContent=_('Save site to draft');
+		});};
+		var cancelSiteModal=siteSection.handleModalCancel;
+		siteSection.handleModalCancel=function(modalMap,ev,isSaving) {
+			if(busy && !isSaving)return Promise.resolve();
+			if(!isSaving && modalMap.originalSite) {
+				var buffer=map.data.get('json',modalMap.section);
+				Object.keys(buffer).forEach(function(key){delete buffer[key];});
+				Object.assign(buffer,modalMap.originalSite);
+				dirty=modalMap.dirtyBefore;
+			}
+			var cancelled=cancelSiteModal.apply(this,arguments);
+			update();return cancelled;
+		};
+
+		siteSection.handleModalSave = function(modalMap,ev) {
+			if(busy || accountDirty || map.readonly || mode=='manual')return Promise.resolve();
+			var modalNode=this.getActiveModalMap();
+			var activeMap=dom.findClassInstance(modalNode);
+			var sid=activeMap.section;
+			// Parse table edits before parsing the modal; the modal owns the final site values.
+			busy=true;update();
+			activeMap.checkDepends();
+			var controls=Array.from(modalNode.parentNode.querySelectorAll('input,select,textarea,button')).map(function(field){var previous=field.disabled;field.disabled=true;return [field,previous];});
+			return map.parse().then(function(){return activeMap.parse();}).then(function() {
+				var data=validateConfig(values()),auth=map.data.get('json',sid,'auth');
+				return (auth?.mode=='basic' && auth.source=='independent'
+					? saveBasic(map.data.get('json',sid,'domain'),data,activeMap.accountEditor.users(),current.draft_revision)
+					: saveDraft(data,current.draft_revision)).then(result);
+			}).then(function(saved) {
+				current=saved;config=Object.assign(values(),saved.draft,{manual_caddyfile:manual.value});syncAuth();dirty=false;
+				return map.load().then(function(){return map.reset();}).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');}).then(function(){return siteSection.handleModalCancel(modalMap,ev,true);});
+			}).catch(function(error) {dirty=true;ui.addNotification(null,E('p',{},error.message),'error');})
+			.finally(function(){controls.forEach(function(entry){entry[0].disabled=entry[1];});busy=false;update();});
 		};
 		['handleAdd','handleRemove'].forEach(function(name) {var original=siteSection[name];siteSection[name]=function() {dirty=true;update();return original.apply(this,arguments);};});
 		var status = E('p',{'role':'status','aria-live':'polite'});
 		var code = E('pre',{'style':'white-space:pre-wrap;overflow-wrap:anywhere'},_('Save or preview to generate configuration.'));
 		var saveButton, applyButton;
 		var affected=E('p',{'role':'status'});
-		var accountsNode, accountRows=E('div'), scope=E('input',{'aria-label':_('Account configuration: global or site domain'),'value':'global','placeholder':_('global or site domain')});
+		var accountsNode, accountRows=E('div'), scope={value:'global'};
+
+		function createAccountEditor(users,readonly) {
+			var rows=E('div',{'class':'caddy-account-list'});
+			function add(user) {
+				var username=E('input',{'class':'cbi-input-text','placeholder':_('Username'),'aria-label':_('Username'),'value':user?.username || '',disabled:readonly,'autocomplete':'off'});
+				var password=E('input',{'class':'cbi-input-text','type':'password','placeholder':user ? _('Keep existing password') : _('New password'),'aria-label':_('New password'),'autocomplete':'new-password',disabled:readonly});
+				var hash=E('input',{'class':'cbi-input-text','type':'password','placeholder':_('Advanced: existing bcrypt hash'),'aria-label':_('Existing bcrypt hash'),'autocomplete':'new-password',disabled:readonly});
+				var row=E('div',{'class':'caddy-account-row'},[E('div',{'class':'field'},[E('label',{},_('Username')),username]),E('div',{'class':'field'},[E('label',{},_('New password')),password]),E('button',{'type':'button','class':'cbi-button','disabled':readonly,'click':function(){row.remove();}},_('Remove account')),E('details',{},[E('summary',{},_('Advanced: existing bcrypt hash')),hash])]);
+				row.account=function(){if(password.value && hash.value)return {username:username.value,password:password.value,hash:hash.value};return Object.assign({username:username.value},password.value ? {password:password.value} : hash.value ? {hash:hash.value} : {retain:true});};
+				rows.appendChild(row);
+			}
+			users.forEach(add);if(!users.length)add();
+			return {node:E('div',{},[E('p',{},_('Passwords are hashed on the router. Leave an existing password blank to keep it. Saving this site updates the draft; apply activates it.')),rows,E('button',{'type':'button','class':'cbi-button','disabled':readonly,'click':function(){add();}},_('Add account'))]),users:function(){return Array.from(rows.children).map(function(row){return row.account();});}};
+		}
 
 		function accountRow(user) {
 			var username=E('input',{'placeholder':_('Username'),'aria-label':_('Username'),'value':user?.username || ''});
@@ -106,8 +182,8 @@ return view.extend({
 			row.account=function(){if(password.value && hash.value)return {username:username.value,password:password.value,hash:hash.value};return Object.assign({username:username.value},password.value ? {password:password.value} : hash.value ? {hash:hash.value} : {retain:true});};accountRows.appendChild(row);
 		}
 		function loadAccounts(){accountRows.replaceChildren();var selected=scope.value;var ref=selected=='global' ? config.auth?.basic?.profile : config.sites.find(function(site){return site.domain==selected;})?.auth?.profile;(current.basic_profiles?.[ref] || []).forEach(accountRow);if(!accountRows.children.length)accountRow();}
-		scope.addEventListener('change',loadAccounts);accountRows.addEventListener('input',function(){accountDirty=true;dirty=true;update();});loadAccounts();
-		accountsNode=E('div',{'class':'caddy-app form-section'},[E('h3',{},_('Basic Auth accounts')),E('p',{},_('Enter global for shared accounts, or the exact site domain for independent accounts.')),E('p',{},_('Passwords are hashed on the router. Existing passwords and hashes are never read back. Remove an account row to delete it. Save accounts updates the draft; apply activates the change.')),scope,accountRows,E('button',{'class':'cbi-button','click':function(){accountRow();accountDirty=true;dirty=true;update();}},_('Add account')),' ',E('button',{'class':'button primary cbi-button cbi-button-save','click':function(){busy=true;update();return map.parse().then(function(){return saveBasic(scope.value,values(),Array.from(accountRows.children).map(function(row){return row.account();}),current.draft_revision);}).then(result).then(function(saved){current=saved;config=Object.assign(values(),saved.draft,{manual_caddyfile:manual.value});config.sites.forEach(function(site){map.data.sections('json','sites').forEach(function(buffer){if(buffer.domain==site.domain)map.data.set('json',buffer['.name'],'auth',site.auth);});});dirty=false;accountDirty=false;loadAccounts();}).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');}).finally(function(){busy=false;update();});}},_('Save accounts to draft'))]);
+		accountRows.addEventListener('input',function(){accountDirty=true;dirty=true;update();});loadAccounts();
+		accountsNode=E('div',{'class':'caddy-app form-section'},[E('h3',{},_('Basic Auth accounts')),E('p',{},_('Passwords are hashed on the router. Existing passwords and hashes are never read back. Remove an account row to delete it. Save accounts updates the draft; apply activates the change.')),accountRows,E('button',{'class':'cbi-button','click':function(){accountRow();accountDirty=true;dirty=true;update();}},_('Add account')),' ',E('button',{'class':'button primary cbi-button cbi-button-save','click':function(){busy=true;update();return map.parse().then(function(){return saveBasic(scope.value,values(),Array.from(accountRows.children).map(function(row){return row.account();}),current.draft_revision);}).then(result).then(function(saved){current=saved;config=Object.assign(values(),saved.draft,{manual_caddyfile:manual.value});config.sites.forEach(function(site){map.data.sections('json','sites').forEach(function(buffer){if(buffer.domain==site.domain)map.data.set('json',buffer['.name'],'auth',site.auth);});});dirty=false;accountDirty=false;loadAccounts();}).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');}).finally(function(){busy=false;update();});}},_('Save accounts to draft'))]);
 		function update() {
 			if(serviceStrip)serviceStrip.updateSnapshot(current);
 			sourceStatus.textContent = mode == 'manual' ? _('Draft source: complete Caddyfile. Retained form settings are read-only and do not participate. Service and autostart remain available on Overview.') : _('Draft source: form configuration. The separate manual Caddyfile is preserved.');
@@ -131,19 +207,19 @@ return view.extend({
 		function values() {
 			function get(section,key) {return map.data.get('json',section,key) || '';}
 			var auth=Object.assign({},config.auth);if(get('authelia','backend') || get('authelia','portal'))auth.authelia={backend:get('authelia','backend'),uri:get('authelia','uri') || '/api/authz/forward-auth',portal:get('authelia','portal')};else delete auth.authelia;
-			return Object.assign({},config,{auth:auth,mode:mode,manual_caddyfile:manual.value,version:2,settings:Object.assign({},config.settings,{access_log:map.data.get('json','settings','access_log')===true,http_port:+get('settings','http_port'),https_port:+get('settings','https_port'),email:get('settings','email'),storage:get('settings','storage')}),sites:map.data.sections('json','sites').map(function(site) {return {domain:site.domain || '',upstreams:site.upstreams || [],balance:site.balance || 'round_robin',path:site.path || '',strip:site.strip === true || site.strip === 'true' || site.strip === '1',challenge:site.challenge || 'http-01',advanced_snippet:site.advanced_snippet || '',auth:site.auth || {mode:'none'}};})});
+			return Object.assign({},config,{auth:auth,mode:mode,manual_caddyfile:manual.value,version:2,settings:Object.assign({},config.settings,{access_log:map.data.get('json','settings','access_log')===true,http_port:+get('settings','http_port'),https_port:+get('settings','https_port'),email:get('settings','email'),storage:get('settings','storage')}),sites:map.data.sections('json','sites').map(function(site) {return {domain:site.domain || '',upstreams:site.upstreams || [],balance:site.balance || 'round_robin',path:site.path || '',strip:site.strip === true || site.strip === 'true' || site.strip === '1',challenge:site.challenge || 'global',advanced_snippet:site.advanced_snippet || '',auth:site.auth || {mode:'none'}};})});
 		}
 		function validateConfig(data) {
 			if(data.mode=='manual')return data;
 			var domains={}; data.sites.forEach(function(site) {
-				if(site.domain.startsWith('*.') && site.challenge!='dns-01') throw new Error(_('Wildcard domains require DNS-01'));
+				if(site.domain.startsWith('*.') && (site.challenge=='global' ? data.settings.default_challenge || 'http-01' : site.challenge)!='dns-01') throw new Error(_('Wildcard domains require DNS-01'));
 				if(domains[site.domain]) throw new Error(_('Each domain must have exactly one site')); domains[site.domain]=true;
 				if(!site.upstreams.length || site.upstreams.some(function(url){return url.split(':')[0] !== site.upstreams[0].split(':')[0];})) throw new Error(_('Backends must use the same protocol'));
 				if(site.strip && !site.path.endsWith('/*')) throw new Error(_('Prefix removal requires a path ending in /*'));
 			}); if(!data.sites.length) throw new Error(_('Configure at least one site')); return data;
 		}
 		function result(response) {if (!response.ok) throw new Error((response.error || _('Configuration operation failed'))+(response.diagnostic?.line ? ' · '+(response.diagnostic.source=='advanced_snippet'?_('Advanced snippet line'):_('Caddyfile line'))+' '+response.diagnostic.line : ''));return response;}
-		function showPreview(data) {var n=++sequence;return preview(validateConfig(data)).then(result).then(function(response) {if(n==sequence) code.textContent=JSON.stringify(response.config,null,2);});}
+		function showPreview(data) {var n=++sequence;return Promise.resolve().then(function(){return preview(validateConfig(data));}).then(result).then(function(response) {if(n==sequence) code.textContent=JSON.stringify(response.config,null,2);});}
 		function syncAuth(){config.sites.forEach(function(site){map.data.sections('json','sites').forEach(function(buffer){if(buffer.domain==site.domain)map.data.set('json',buffer['.name'],'auth',site.auth);});});}
 		function perform(wantApply) {
 			busy=true;update();
@@ -192,7 +268,7 @@ return view.extend({
 						}})]),
 						E('div',{'class':'site-table'},[node]),
 						E('p',{'class':'readonly-note'},_('Certificates are issued and renewed automatically by Caddy. WebSocket upgrades are supported.'))
-					], [E('button',{'class':'button','disabled':map.readonly,'click':function(){ui.showModal(_('Basic Auth accounts'),[accountsNode,E('div',{'class':'actions'},[E('button',{'class':'button','click':ui.hideModal},_('Close'))])]);}},_('Basic Auth accounts'))])];
+					])];
 			}
 			var title = page == 'settings' ? _('Global settings') : page == 'config' ? _('Configuration file') : _('Reverse proxies');
 			var description = page == 'configuration' ? _('Connect domains to your services; Caddy manages HTTPS automatically.') : _('Saving changes updates the draft. Applying validates and hot loads Caddy.');
