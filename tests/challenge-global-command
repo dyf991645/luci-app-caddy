@@ -1,0 +1,9 @@
+#!/bin/sh
+# Isolated manager fixture. Never reload/start Caddy or contact an ACME service.
+# Tests disable certificate management in generated configurations, so validation
+# provisions DNS modules locally without requesting a certificate or calling APIs.
+case "$1" in
+ validate) exec /usr/bin/caddy validate --config "$2" >/dev/null 2>&1 ;;
+ reload) exit 0 ;;
+ *) exit 1 ;;
+esac
