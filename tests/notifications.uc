@@ -7,6 +7,7 @@ let id=r.alerts[0].episode_id;
 assert(loadfile(ARGV[0])()({root,certificate_module:ARGV[3],certificate_options:{root,now:time()+8*86400,command:ARGV[2],logfile:root+'/events'},now:time()+8*86400}).check().alerts[0].episode_id==id,'restart preserves episode');
 assert(m.status().webhook.enabled==false,'external notification default off');
 assert(!m.save({enabled:true,url:'http://user:pass@127.0.0.1/'}).ok,'userinfo rejected');
+assert(!m.save({enabled:true,url:'http://127.0.0.1/a b'}).ok,'URL whitespace rejected');
 assert(m.save({enabled:true,url:'http://127.0.0.1:29082/ok?token=URL_CANARY',headers:{Authorization:'Bearer HEADER_CANARY'}}).ok,'explicit HTTP loopback setting accepted');
 assert(index(sprintf('%J',m.status()),'CANARY')<0,'read status has no webhook secrets');
 print('PASS background expiry, restart dedup and write-only configuration\n');

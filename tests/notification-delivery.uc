@@ -5,8 +5,9 @@ function manager(offset) {return loadfile(ARGV[0])()({...opts,now:now+offset});}
 let m=manager(0);
 assert(m.save({enabled:true,url:'http://127.0.0.1:29082/'+mode+'?token=URL_CANARY',headers:{Authorization:'Bearer HEADER_CANARY', 'X-Quoted':'a"b\\c'}}).ok,'configure controlled receiver');
 assert((lstat(root+'/notifications.json').mode & 0077)==0,'private config permissions');
+if(mode=='retarget')assert(m.save({enabled:true,url:'http://127.0.0.1:29082/retarget?changed=true',headers:{}}).ok,'retarget without retaining previous authorization');
 let r=m.check(),id=r.deliveries[0].event_id;
-if(mode=='ok' || mode=='recover')assert(r.deliveries[0].delivery=='sent' && r.deliveries[0].attempts==1,'HTTP 2xx delivery succeeds');
+if(mode=='ok' || mode=='recover' || mode=='retarget')assert(r.deliveries[0].delivery=='sent' && r.deliveries[0].attempts==1,'HTTP 2xx delivery succeeds');
 else {
  assert(r.deliveries[0].delivery=='pending','3xx, 5xx and timeout fail delivery');
  manager(400).check();manager(800).check();r=manager(1200).check();

@@ -40,7 +40,8 @@ Completed delivery history is evicted first; active pending events are retained.
 `enabled` defaults false. Both user-chosen HTTP and HTTPS URLs, including LAN
 receivers, are supported. Userinfo, fragments, whitespace/control characters and
 backslashes are rejected. URL query and up to8 private headers are write-only;
-status exposes only enabled/configured metadata. Blank inputs retain secrets.
+status exposes only enabled/configured metadata. Blank inputs retain secrets; changing the URL clears old headers unless new
+headers are supplied, so retargeting does not silently forward old credentials.
 Headers cannot override transport framing, Host or JSON Content-Type. Notification
 settings are independent of save/apply and available in complete Caddyfile mode.
 
@@ -67,3 +68,8 @@ All actual tests use generated self-signed PEMs and controlled loopback HTTP;
 public ACME, arbitrary external URLs and browser visual acceptance remain final
 separate checks. Installing/enabling the production service is an integration
 step, not part of the isolated `/tmp` fixtures.
+
+The production monitor can be managed separately with
+`/etc/init.d/caddy-monitor start|stop|enable|disable`. Package removal stops
+and disables this monitor; it does not stop the separately packaged Caddy
+service. Webhooks stay disabled until explicitly configured and enabled.

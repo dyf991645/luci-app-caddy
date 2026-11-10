@@ -31,6 +31,15 @@ fi
 exit 0
 endef
 
+define Package/luci-app-caddy/prerm
+#!/bin/sh
+if [ -z "$${IPKG_INSTROOT}" ]; then
+	/etc/init.d/caddy-monitor stop
+	/etc/init.d/caddy-monitor disable
+fi
+exit 0
+endef
+
 define Package/luci-app-caddy/install
 	$(CP) ./root/* $(1)/
 	$(INSTALL_DIR) $(1)/www

@@ -26,7 +26,7 @@ return function(options) {
  function publicState(s,c) {return {ok:true,webhook:{enabled:c.enabled,configured:length(c.url)>0},last_check:read(runtime,{last_check:s.last_check}).last_check,history:'partial_bounded_logd_window',alerts:values(s.episodes),deliveries:map(s.events,e=>({event_id:e.event_id,type:e.type,attempts:e.attempts,delivery:e.delivery,next_due:e.next_due})),interval:s.interval||300};}
  function save(args) {return locked(function() {
   if(type(args)!='object' || length(filter(keys(args),k=>index(['enabled','url','headers'],k)<0)) || type(args.enabled)!='bool') return {ok:false,error:'Invalid notification settings'};
-  let old=settings(),url=length(args.url||'')?args.url:old.url,headers=args.headers && length(keys(args.headers))?args.headers:old.headers;
+  let old=settings(),url=length(args.url||'')?args.url:old.url,headers=args.headers && length(keys(args.headers))?args.headers:(url!=old.url?{}:old.headers);
   if(type(url)!='string' || length(url)>2048 || (length(url) && (!match(url,/^https?:\/\/[^[:space:]\/@?#]+(\/[^[:space:]#]*)?(\?[^[:space:]#]*)?$/) || match(url,/[[:cntrl:][:space:]\\]/))) || args.enabled && !length(url)) return {ok:false,error:'Use one HTTP or HTTPS URL without userinfo or fragment'};
   if(type(headers)!='object' || length(keys(headers))>8) return {ok:false,error:'Invalid webhook headers'};
   for(let k,v in headers) if(!match(k,/^[A-Za-z0-9-]{1,64}$/) || index(['host','content-length','transfer-encoding','connection','content-type'],lc(k))>=0 || type(v)!='string' || length(v)>2048 || match(v,/[[:cntrl:]]/)) return {ok:false,error:'Invalid webhook headers'};
