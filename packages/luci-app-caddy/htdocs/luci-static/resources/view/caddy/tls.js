@@ -71,7 +71,7 @@ return view.extend({
 			!current.draft?layout.note(_('Save a site configuration before adding credentials.')):'',
 			layout.panel(_('Stored certificates'),'',certificateBody,E('a',{'class':'button','href':L.url('admin/services/caddy/certificates')},_('Stored certificates'))),
 			layout.panel(_('Certificate alerts and webhook'),'',notificationBody,E('a',{'class':'button','href':L.url('admin/services/caddy/notifications')},_('Certificate alerts and webhook'))),
-			layout.panel(_('Default verification method'),_('Used for new sites only. Existing sites retain their verification method. Wildcard domains require DNS-01.'),[choices]),
+			layout.panel(_('Default verification method'),_('Sites using the global default follow this setting after Apply. Explicit site methods remain unchanged. Wildcard domains require DNS-01.'),[choices]),
 			layout.panel(_('Cloudflare DNS credentials'),'',[
 				credentialStatus,E('div',{'class':'field'},[E('label',{'for':'caddy-cf-token'},_('Cloudflare API Token')),token]),
 				layout.note(_('Grant Zone DNS Edit and Zone Read only for the required zones. Tokens are write-only and never shown in previews or exports. Saving stages a private revision; successful Apply hot loads it. The active revision remains available after a failed apply. Changing the default verification method never removes credentials.')),
