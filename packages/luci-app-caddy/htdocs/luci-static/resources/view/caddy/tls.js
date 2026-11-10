@@ -2,6 +2,7 @@
 'require view';
 'require rpc';
 'require ui';
+'require caddy.apply as caddyApply';
 
 var getDraft=rpc.declare({object:'luci.caddy',method:'draft_get',expect:{'':{}}});
 var getCredentials=rpc.declare({object:'luci.caddy',method:'credential_status',expect:{'':{}}});
@@ -32,7 +33,7 @@ return view.extend({
 			busy=true;update();
 			return (dirty?saveDefault(method.value,current.draft_revision).then(checked).then(function(saved){current=saved;}):Promise.resolve())
 				.then(function(){if(!token.value)return;var value=token.value;token.value='';return saveCredential(value,current.draft_revision).then(checked).then(function(saved){current=saved;});})
-				.then(function(){dirty=false;return wantApply?apply(current.draft_revision).then(checked).then(function(saved){current=saved;}):null;})
+				.then(function(){dirty=false;return wantApply?caddyApply.confirmImpact(current).then(function(){return apply(current.draft_revision);}).then(checked).then(function(saved){current=saved;}):null;})
 				.catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');})
 				.finally(function(){return Promise.all([getDraft(),getCredentials()]).then(function(data){current=data[0];credentials=data[1];busy=false;update();});});
 		}

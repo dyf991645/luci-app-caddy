@@ -3,6 +3,7 @@
 'require form';
 'require rpc';
 'require ui';
+'require caddy.apply as caddyApply';
 
 var saveBasic = rpc.declare({object:'luci.caddy',method:'basic_profile_save',params:['scope','config','users','expected_revision'],expect:{'':{}}});
 var getDraft = rpc.declare({object:'luci.caddy',method:'draft_edit',expect:{'':{}}});
@@ -113,16 +114,12 @@ return view.extend({
 		}
 		function result(response) {if (!response.ok) throw new Error((response.error || _('Configuration operation failed'))+(response.diagnostic?.line ? ' · '+(response.diagnostic.source=='advanced_snippet'?_('Advanced snippet line'):_('Caddyfile line'))+' '+response.diagnostic.line : ''));return response;}
 		function showPreview(data) {var n=++sequence;return preview(validateConfig(data)).then(result).then(function(response) {if(n==sequence) code.textContent=JSON.stringify(response.config,null,2);});}
-		function confirmImpact(){
-			if(!current.affected_domains?.length)return Promise.resolve();
-			update();return new Promise(function(resolve,reject){ui.showModal(_('Apply global authentication change'),[E('p',{},_('The following domains reference the updated global authentication configuration:')),E('ul',{},current.affected_domains.map(function(domain){return E('li',{},domain);})),E('div',{'class':'right'},[E('button',{'class':'cbi-button','click':function(){ui.hideModal();reject(new Error(_('Application cancelled; draft retained')));}},_('Cancel')),' ',E('button',{'class':'cbi-button cbi-button-apply','click':function(){ui.hideModal();resolve();}},_('Apply'))])]);});
-		}
 		function syncAuth(){config.sites.forEach(function(site){map.data.sections('json','sites').forEach(function(buffer){if(buffer.domain==site.domain)map.data.set('json',buffer['.name'],'auth',site.auth);});});}
 		function perform(wantApply) {
 			busy=true;update();
 			return (mode == 'manual' ? Promise.resolve() : map.parse()).then(function() {
 				return dirty ? (accountDirty ? saveBasic(scope.value,values(),Array.from(accountRows.children).map(function(row){return row.account();}),current.draft_revision) : saveDraft(validateConfig(values()),current.draft_revision)).then(result).then(function(saved) {current=saved;config=Object.assign(values(),saved.draft,{manual_caddyfile:manual.value});syncAuth();dirty=false;accountDirty=false;loadAccounts();}) : null;
-			}).then(function() {return wantApply ? confirmImpact().then(function(){return apply(current.draft_revision);}).then(result).then(function(active) {current=active;}) : null;})
+			}).then(function() {return wantApply ? caddyApply.confirmImpact(current).then(function(){return apply(current.draft_revision);}).then(result).then(function(active) {current=active;}) : null;})
 				.then(function() {return showPreview(values());})
 				.catch(function(error) {ui.addNotification(null,E('p',{},error.message),'error');return getDraft().then(function(saved) {current=saved;});})
 				.finally(function() {busy=false;update();}).then(function() {return !dirty;});

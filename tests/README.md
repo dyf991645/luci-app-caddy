@@ -281,3 +281,34 @@ it with the extracted package catalog. Direct host-tool compilation is an early
 catalog check, **not** proof the final APK was built or installed. Browser
 Bootstrap light/dark, mobile, keyboard, dirty/save controls and error feedback
 still require real native browser acceptance; do not substitute the preview.
+
+## Review regressions: redirects and global authentication impact
+
+Run `bun test tests/apply-impact.test.js` from this repository. It executes the
+shipped Configuration and TLS views with host adapters for RPC, UI and DOM.
+It verifies pending application, explicit confirmation/cancellation, retry,
+latest save/credential revision and affected domains. It needs no dependency
+installation. This is an event-behavior check, not browser or visual acceptance.
+
+For the authorized real-router boundary, copy `tests/redirects.uc`,
+`tests/redirects-router.sh`, `tests/backend-hosts.uc` and `tests/config-schema.uc`
+into `/tmp/luci-caddy-review-fixes/`, plus the real manager `config.uc` named
+`config-manager.uc`. Run `sh /tmp/luci-caddy-review-fixes/redirects-router.sh`.
+It uses the installed `/usr/bin/caddy` in one temporary process, loopback admin
+32019, HTTP 32080 and HTTPS 32443. Both exact and wildcard Host headers include
+the original HTTP port; assertions check 308, actual hostname, escaped path,
+query and custom/default HTTPS port formatting. For default HTTPS 443 the
+fixture changes only the listener back to 32443 before starting Caddy, keeping
+system listeners untouched. Internal TLS and disabled certificate automation
+avoid DNS credentials, external DNS, ACME and trust-store installation.
+
+Run the public draft-save boundary tests with fresh private roots:
+
+```sh
+ucode /tmp/luci-caddy-review-fixes/backend-hosts.uc /tmp/luci-caddy-review-fixes/config-manager.uc /tmp/luci-caddy-review-fixes/hosts-fresh
+ucode /tmp/luci-caddy-review-fixes/config-schema.uc /tmp/luci-caddy-review-fixes/config-manager.uc /tmp/luci-caddy-review-fixes/schema-fresh
+```
+
+They verify shared proxy/Authelia IPv6, DNS and IPv4 acceptance/rejection,
+existing entry diagnostics, rejected-save revision retention and schema fields.
+All fixture files stay under `/tmp`; no installed RPC or service is replaced.
