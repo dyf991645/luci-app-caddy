@@ -124,7 +124,7 @@ function bindPage(){
     $('#site-filter').addEventListener('change',e=>{filter=e.target.value;$('#site-table').innerHTML=siteTable();});
   }
   if(page==='tls'){
-    $('#notification-form').addEventListener('submit',e=>{e.preventDefault();state.notificationsEnabled=new FormData(e.target).has('enabled');$('#webhook-url').value='';$('#webhook-headers').value='';persist();toast('模拟通知设置已保存；未发送任何请求，未保存目标或请求头。');});
+    $('#notification-form').addEventListener('submit',e=>{e.preventDefault();state.notificationsEnabled=new FormData(e.target).has('enabled');$('#webhook-url').value='';$('#webhook-headers').value='';savedSnapshot.notificationsEnabled=state.notificationsEnabled;persist();toast('模拟通知设置已保存；未发送任何请求，未保存目标或请求头。');});
     $$('[name=method]').forEach(input=>input.addEventListener('change',()=>{$('#default-challenge-help').innerHTML=challengeHelp(input.value);}));
     $('#tls-form').addEventListener('submit',e=>{e.preventDefault();const data=new FormData(e.target);state.tls={method:data.get('method'),credential:data.get('credential').trim()};change();render();toast('默认验证方式已保存（演示），已有站点保持原设置。');});
   }

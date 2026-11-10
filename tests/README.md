@@ -214,7 +214,7 @@ Ticket09: copy manager `notifications.uc`, `notification-worker.uc`,
 Copy the current RPC `luci.caddy` plugin too; the `rpc` fixture rewrites only
 its notification module constructor to use a private test root.
 Run `sh /tmp/luci-caddy-ticket09/notifications-router.sh`, then the same command
-with `evidence`, `worker` and `rpc`. These generate PEMs exclusively under `/tmp` and
+with `evidence`, `threshold90`, `threshold1`, `worker` and `rpc`. These generate PEMs exclusively under `/tmp` and
 never need a Caddy or LuCI process. The worker fixture executes the actual
 continuous worker with a local fixture-options file and a short check interval.
 
