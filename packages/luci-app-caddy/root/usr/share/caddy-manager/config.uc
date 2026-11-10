@@ -1,5 +1,5 @@
 'use strict';
-import { readfile, writefile, mkdir, chmod, rename, open, unlink } from 'fs';
+import { readfile, writefile, mkdir, chmod, rename, open, unlink, popen } from 'fs';
 
 // Options are a local test seam, never supplied by RPC callers.
 return function(options) {
@@ -27,6 +27,9 @@ return function(options) {
 			return next;
 		})};
 	}
+	function profile(ref) {
+		return type(ref)=='string' && match(ref,/^basic-[0-9]+-[0-9]+$/) ? read('basic-profiles/'+ref+'.json',null) : null;
+	}
 	function state(private) {
 		let draft = read('draft.json', { revision: 0, config: null });
 		let active = read('active-state.json', { revision: 0, config: null });
@@ -36,7 +39,14 @@ return function(options) {
 			delete public_config.manual_caddyfile;
 			for (let site in public_config.sites) delete site.advanced_snippet;
 		}
-		return { ok: true, draft: private ? draft.config : public_config, draft_revision: draft.revision, active_revision: active.revision, active_source: active.config ? (active.config.mode || 'form') : null, pending: draft.revision != active.revision, recovery_required: read('transaction.json', null) != null };
+		let affected_domains=[];
+		if (draft.config?.mode!='manual' && draft.config?.auth?.basic?.profile != active.config?.auth?.basic?.profile)
+			for(let site in draft.config?.sites) if(site.auth?.mode=='basic' && site.auth.source=='global') push(affected_domains,site.domain);
+		let basic_profiles={};
+		let refs=[draft.config?.auth?.basic?.profile];
+		for (let site in draft.config?.sites) push(refs,site.auth?.profile);
+		for (let ref in refs) {let users=profile(ref);if(users) basic_profiles[ref]=map(users,u=>({username:u.username}));}
+		return { ok: true, basic_profiles, affected_domains, draft: private ? draft.config : public_config, draft_revision: draft.revision, active_revision: active.revision, active_source: active.config ? (active.config.mode || 'form') : null, pending: draft.revision != active.revision, recovery_required: read('transaction.json', null) != null };
 	}
 	function source_check(text) {
 		if (type(text) != 'string' || length(text) > 65536) return 'Caddyfile content must be text up to 64 KiB';
@@ -64,12 +74,17 @@ return function(options) {
 			}
 		}
 		let g = config?.settings;
-		if (!known_keys(config,['version','settings','sites','mode','manual_caddyfile']) || !known_keys(g,['http_port','https_port','email','storage','default_challenge','cloudflare_credential'])) return 'Unsupported configuration field';
+		if (!known_keys(config,['version','settings','sites','mode','manual_caddyfile','auth']) || !known_keys(g,['http_port','https_port','email','storage','default_challenge','cloudflare_credential'])) return 'Unsupported configuration field';
 		if (config.version != 2 || type(config.sites) != 'array' || length(config.sites) < 1)
 			return 'Configure at least one site using the supported schema';
+		if (config.auth != null && (!known_keys(config.auth,['basic']) || !known_keys(config.auth.basic,['profile']) || !profile(config.auth.basic.profile))) return 'Invalid global Basic Auth profile';
 		let domains={};
 		for (let s in config.sites) {
-			if (!known_keys(s,['domain','upstreams','balance','path','strip','challenge','advanced_snippet'])) return 'Unsupported configuration field';
+			if (!known_keys(s,['domain','upstreams','balance','path','strip','challenge','advanced_snippet','auth'])) return 'Unsupported configuration field';
+			if (s.auth != null) {
+				if (!known_keys(s.auth,['mode','source','profile']) || index(['none','basic'],s.auth.mode)<0) return 'Unsupported access authentication';
+				if (s.auth.mode=='basic' && (index(['global','independent'],s.auth.source)<0 || !profile(s.auth.source=='global' ? config.auth?.basic?.profile : s.auth.profile))) return 'Configure the selected Basic Auth profile first';
+			}
 			if (config.mode == 'manual') continue;
 			let domain = type(s.domain) == 'string' && substr(s.domain,0,2) == '*.' ? substr(s.domain,2) : s.domain;
 			if (type(domain) != 'string' || length(s.domain) > 253 || !match(domain, /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/))
@@ -135,6 +150,10 @@ return function(options) {
 			let proxy={handler:'reverse_proxy',upstreams:map(s.upstreams,function(url) {return {dial:replace(url,/^https?:\/\//,'')};}),load_balancing:{selection_policy:{policy:s.balance}}};
 			if (substr(s.upstreams[0],0,8)=='https://') proxy.transport={protocol:'http',tls:{}};
 			let handles=[];
+			if (s.auth?.mode=='basic') {
+				let users=profile(s.auth.source=='global' ? config.auth.basic.profile : s.auth.profile);
+				push(handles,{handler:'authentication',providers:{http_basic:{hash:{algorithm:'bcrypt'},accounts:map(users,u=>({username:u.username,password:private_config ? u.hash : '[private hash]'}))}}});
+			}
 			if (s.strip) push(handles,{handler:'rewrite',strip_path_prefix:substr(s.path,0,length(s.path)-2)});
 			push(handles,proxy);
 			// Authentication belongs inside this matching handler, before rewrite/proxy.
@@ -191,7 +210,8 @@ return function(options) {
 					if (route.match?.[0]?.host?.[0] != site.domain || name == 'redirect') continue;
 					let scoped = route.handle[0].routes[0];
 					let proxy = scoped.handle;
-					scoped.handle = [{handler:'subroute',routes:[...routes,{handle:proxy}]}];
+					let auth = proxy[0]?.handler == 'authentication' ? [shift(proxy)] : [];
+					scoped.handle = [...auth,{handler:'subroute',routes:[...routes,{handle:proxy}]}];
 				}
 			}
 		}
@@ -221,6 +241,48 @@ return function(options) {
 	}
 
 	return {
+		basic_profile_save: function(request) {
+			return locked(function() {
+				let current=state(true);
+				if(request.expected_revision != current.draft_revision) return {ok:false,error:'Draft changed; reload before saving'};
+				let config=migrate(request.config || current.draft);
+				if (!config || config.mode=='manual') return {ok:false,error:'Authentication forms are read-only in manual mode'};
+				if (request.scope!='global' && !length(filter(config.sites,s=>s.domain==request.scope))) return {ok:false,error:'Unknown authentication scope'};
+				if(type(request.users)!='array' || !length(request.users) || length(request.users)>32) return {ok:false,error:'Configure between 1 and 32 accounts'};
+				let oldref=request.scope=='global' ? config.auth?.basic?.profile : filter(config.sites,s=>s.domain==request.scope)[0]?.auth?.profile;
+				let old=profile(oldref) || [], users=[], seen={};
+				for(let user in request.users) {
+					if(!known_keys(user,['username','password','hash','retain']) || type(user.username)!='string' || !match(user.username,/^[a-zA-Z0-9_.@-]{1,64}$/) || seen[user.username]) return {ok:false,error:'Account names must be unique and contain only letters, numbers, _, ., @ or -'};
+					seen[user.username]=true;
+					let hash=null;
+					if(user.retain===true && user.password==null && user.hash==null) {
+						for(let existing in old) if(existing.username==user.username) hash=existing.hash;
+					} else if(type(user.hash)=='string' && user.password==null && user.retain==null) hash=user.hash;
+					else if(type(user.password)=='string' && user.hash==null && user.retain==null && length(user.password)>0 && length(user.password)<=72 && index(user.password,'\n')<0 && index(user.password,'\r')<0 && index(user.password,'\u0000')<0) {
+						// Password crosses stdin only: never argv, a file, diagnostic or RPC result.
+						let path=root+'/password.hash';
+						let quote=s=>"'"+replace(s,/'/,"'\\''")+"'";
+						let pipe=popen(quote(options?.command || '/usr/share/caddy-manager/caddy-command')+' hash '+quote(path),'w');
+						if(pipe) {pipe.write(user.password+'\n');if(pipe.close()==0) hash=trim(readfile(path) || '');}
+						unlink(path);
+					}
+					if(type(hash)!='string' || !match(hash,/^\$2[aby]\$[0-9]{2}\$[a-zA-Z0-9./]{53}$/) || +substr(hash,4,2)<4 || +substr(hash,4,2)>16) return {ok:false,error:'Supply a password (1–72 bytes), retained account, or valid bcrypt hash (cost 4–16)'};
+					push(users,{username:user.username,hash});
+				}
+				mkdir(root+'/basic-profiles',0700);chmod(root+'/basic-profiles',0700);
+				let ref='basic-'+(current.draft_revision+1)+'-'+time();
+				// Exclusive file creation makes profile versions immutable even on abandoned saves.
+				let file=open(root+'/basic-profiles/'+ref+'.json','wx',0600);
+				if(!file) return {ok:false,error:'Unable to create private authentication profile'};
+				file.write(sprintf('%J',users));file.close();
+				config=json(sprintf('%J',config));
+				if(request.scope=='global') {config.auth ||= {};config.auth.basic={profile:ref};}
+				else for(let site in config.sites) if(site.domain==request.scope) site.auth={mode:'basic',source:'independent',profile:ref};
+				let error=check(config);if(error) return {ok:false,error};
+				write('draft.json',{revision:current.draft_revision+1,config});
+				return state();
+			});
+		},
 		draft_get: function() { return state(false); },
 		draft_edit: function() { return state(true); },
 		tls_save: function(request) {
