@@ -77,15 +77,15 @@ return function(options) {
 		if (!known_keys(config,['version','settings','sites','mode','manual_caddyfile','auth']) || !known_keys(g,['http_port','https_port','email','storage','default_challenge','cloudflare_credential'])) return 'Unsupported configuration field';
 		if (config.version != 2 || type(config.sites) != 'array' || length(config.sites) < 1)
 			return 'Configure at least one site using the supported schema';
-		if (config.mode!='manual' && config.auth != null && (!known_keys(config.auth,['basic']) || !known_keys(config.auth.basic,['profile']) || !profile(config.auth.basic.profile))) return 'Invalid global Basic Auth profile';
+		if (config.auth != null && (!known_keys(config.auth,['basic']) || !known_keys(config.auth.basic,['profile']) || type(config.auth.basic.profile)!='string' || !match(config.auth.basic.profile,/^basic-[0-9]+-[0-9]+$/) || (config.mode!='manual' && !profile(config.auth.basic.profile)))) return 'Invalid global Basic Auth profile';
 		let domains={};
 		for (let s in config.sites) {
 			if (!known_keys(s,['domain','upstreams','balance','path','strip','challenge','advanced_snippet','auth'])) return 'Unsupported configuration field';
-			if (config.mode == 'manual') continue;
 			if (s.auth != null) {
-				if (!known_keys(s.auth,['mode','source','profile']) || index(['none','basic'],s.auth.mode)<0) return 'Unsupported access authentication';
-				if (s.auth.mode=='basic' && (index(['global','independent'],s.auth.source)<0 || !profile(s.auth.source=='global' ? config.auth?.basic?.profile : s.auth.profile))) return 'Configure the selected Basic Auth profile first';
+				if (!known_keys(s.auth,['mode','source','profile']) || index(['none','basic'],s.auth.mode)<0 || (s.auth.source!=null && index(['global','independent'],s.auth.source)<0) || (s.auth.profile!=null && (type(s.auth.profile)!='string' || !match(s.auth.profile,/^basic-[0-9]+-[0-9]+$/)))) return 'Unsupported access authentication';
+				if (config.mode!='manual' && s.auth.mode=='basic' && (index(['global','independent'],s.auth.source)<0 || !profile(s.auth.source=='global' ? config.auth?.basic?.profile : s.auth.profile))) return 'Configure the selected Basic Auth profile first';
 			}
+			if (config.mode == 'manual') continue;
 			let domain = type(s.domain) == 'string' && substr(s.domain,0,2) == '*.' ? substr(s.domain,2) : s.domain;
 			if (type(domain) != 'string' || length(s.domain) > 253 || !match(domain, /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/))
 				return 'Enter a valid domain or leading wildcard domain';

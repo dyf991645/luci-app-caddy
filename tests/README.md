@@ -152,8 +152,11 @@ RPC, services, firewall, DNS, trust, or exercise public ACME.
 
 The original red test called the missing `basic_profile_save` manager operation
 and failed on real ucode; the green test uses the same public manager boundary.
-Installed LuCI/ubus/APK upgrade and browser interaction are separate integration
-acceptance steps. Standalone preview never hashes passwords and retains only
+`basic-auth-rpc.uc` loads a temporary copy of the real rpcd plugin redirected
+to this fixture manager/root, without registering or replacing the installed
+plugin. It verifies mutation args, hash/save, stale revisions and private
+readback through the actual RPC adapter. Installed LuCI/ubus/APK upgrade and
+browser interaction remain separate integration acceptance steps. Standalone preview never hashes passwords and retains only
 username metadata; its sensitive fields are discarded on simulated save.
 
 Ticket06 stored certificate evidence: copy `certificates.uc`, executable
