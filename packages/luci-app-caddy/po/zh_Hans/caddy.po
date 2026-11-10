@@ -780,4 +780,3 @@ msgstr "正在处理…"
 
 msgid "global or site domain"
 msgstr "global 或站点域名"
-
