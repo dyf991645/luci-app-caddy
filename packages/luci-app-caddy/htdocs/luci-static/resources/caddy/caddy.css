@@ -141,16 +141,12 @@
 .caddy-app .readonly-note { margin:0; padding:13px 18px; border-top:1px solid var(--line); background:var(--subtle); color:var(--muted); font-size:11px; }
 .caddy-app .pill.success { color:var(--success-color-low,#23734d); background:color-mix(in srgb,var(--success-color-medium,#23734d) 10%,var(--surface)); }
 .caddy-app .pill.warning { color:var(--text-color-high,#795b16); border:1px solid var(--warn-color-medium,#c79437); background:var(--subtle); }
-.caddy-site-editor .cbi-value-title { float:none; display:block; width:auto; text-align:left; margin-bottom:12px; padding:0; }
-.caddy-site-editor .cbi-value-field { margin-left:0; }
-.caddy-site-editor .cbi-value { padding:10px 0; }
 .caddy-site-editor .cbi-map { padding:0; }
 .caddy-app .site-table .tr[data-sid]:hover { background:var(--subtle); }
 .caddy-app .site-table .td { overflow-wrap:anywhere; }
 .caddy-app .site-table .cbi-section { margin-bottom:0; }
 
-/* Native Bootstrap uses horizontal flex rows and a wide cbi-modal. Site editing
- * intentionally uses stacked labels and a bounded, independently scrolling body. */
+/* Keep native horizontal form rows within a bounded, independently scrolling modal. */
 #modal_overlay > .modal.cbi-modal:has(.caddy-site-editor) {
  width:calc(100% - 32px); max-width:720px; max-height:90dvh; margin:5dvh auto;
  padding:0; display:flex; flex-direction:column; overflow:hidden;
@@ -166,14 +162,15 @@
  background:var(--background-color-medium,#f7f7f7); gap:8px;
 }
 .caddy-app.caddy-site-editor .cbi-value {
- display:block; margin:0 0 20px; padding:0; min-width:0;
+ display:grid; grid-template-columns:140px minmax(0,1fr); column-gap:24px;
+ align-items:start; margin:0 0 20px; padding:0; min-width:0;
 }
 .caddy-app.caddy-site-editor .cbi-value label.cbi-value-title {
- display:block; float:none; width:auto; flex:none; text-align:left;
- padding:0; margin:0 0 12px; font-size:12px; font-weight:600;
+ display:block; float:none; width:auto; flex:none; text-align:right;
+ padding:7px 0 0; margin:0; font-size:13px; font-weight:normal;
 }
-.caddy-app.caddy-site-editor .cbi-value-field {
- display:block; width:100%; margin:0; flex:none; min-width:0;
+.caddy-app.caddy-site-editor .cbi-value > .cbi-value-field {
+ display:block; width:auto; margin:0; flex:none; min-width:0;
 }
 .caddy-app.caddy-site-editor .cbi-value-description { line-height:1.6; }
 .caddy-app.caddy-site-editor .cbi-dynlist { width:100%; max-width:100%; }
@@ -188,13 +185,16 @@
 .caddy-site-editor .cbi-section-node > .cbi-tabcontainer { margin:0; }
 .caddy-site-editor .caddy-account-list { display:grid; gap:12px; }
 .caddy-site-editor .caddy-account-row {
- display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; gap:10px;
+ display:grid; grid-template-columns:minmax(0,1fr); gap:12px;
  padding:14px; border:1px solid var(--line); border-radius:3px; align-items:end;
 }
-.caddy-site-editor .caddy-account-row .field { margin:0; }
+.caddy-site-editor .caddy-account-row .field { display:grid; grid-template-columns:80px minmax(0,1fr); align-items:center; gap:16px; margin:0; }
+.caddy-site-editor .caddy-account-row .field > label { margin:0; text-align:right; }
+.caddy-site-editor .caddy-account-row > button { justify-self:end; }
 @media (max-width:650px) {
  #modal_overlay > .modal.cbi-modal:has(.caddy-site-editor) { width:calc(100% - 16px); max-height:96dvh; margin:2dvh auto; }
  #modal_overlay > .modal.cbi-modal:has(.caddy-site-editor) > :is(h4,.caddy-site-editor,.button-row) { padding-inline:16px; }
+ .caddy-app.caddy-site-editor .cbi-value { grid-template-columns:100px minmax(0,1fr); column-gap:16px; }
  .caddy-site-editor .caddy-account-row { grid-template-columns:1fr; }
  .caddy-site-editor .cbi-tabmenu { display:flex; flex-wrap:wrap; }
 }
@@ -262,6 +262,10 @@
 .caddy-app .site-table .table .cbi-section-actions { width:1%; white-space:nowrap; }
 .caddy-app .site-table .table .cbi-section-actions .cbi-button + .cbi-button { margin-left:6px; }
 .caddy-app[data-page=configuration] .toolbar { display:grid; grid-template-columns:minmax(0,420px) 150px minmax(0,1fr); align-items:center; gap:12px; }
+.caddy-app[data-page=configuration] .toolbar > :is(input[type=search],select) {
+ box-sizing:border-box; height:36px; min-height:36px; max-height:36px; margin:0;
+ padding:6px 10px; line-height:22px; align-self:center;
+}
 .caddy-app[data-page=configuration] .toolbar > input[type=search] { width:100%; max-width:100%; min-width:0; }
 .caddy-app[data-page=configuration] .toolbar > select { width:150px; min-width:0; max-width:150px; }
 .caddy-app[data-page=configuration] .toolbar .count { justify-self:end; }

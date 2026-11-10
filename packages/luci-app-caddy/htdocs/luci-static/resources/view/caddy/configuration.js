@@ -86,7 +86,7 @@ return view.extend({
 		option = section.option(form.Flag,'strip',_('Remove path prefix')); option.default='0';
 		option.cfgvalue = function(sid) {return [true,'true','1'].indexOf(map.data.get('json',sid,'strip')) >= 0 ? '1':'0';};
 		option.write = function(sid,value) {map.data.set('json',sid,'strip',value==='1');};
-		option = section.option(form.ListValue,'challenge',_('Verification method'));
+		option = section.option(form.ListValue,'challenge',_('Certificate verification'));
 		option.value('global',_('Global default')); option.value('dns-01','DNS-01'); option.value('http-01','HTTP-01'); option.default='global'; option.value('tls-alpn-01','TLS-ALPN-01');
 		option.textvalue=function(sid){var selected=this.map.data.get('json',sid,'challenge') || 'global';return selected=='global'?_('Global default')+' · '+(config.settings.default_challenge || 'http-01').toUpperCase():selected.toUpperCase();};
 		option = section.option(form.ListValue,'authMode',_('Access authentication'));option.value('none',_('No additional authentication'));option.value('basic','Basic Auth');option.value('authelia','Authelia');

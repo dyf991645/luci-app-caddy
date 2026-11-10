@@ -1068,3 +1068,9 @@ msgstr "已保存版本"
 
 msgid "Domain to Caddy to service"
 msgstr "域名经过 Caddy 转发到服务"
+
+msgid "Reload"
+msgstr "重载"
+
+msgid "Certificate verification"
+msgstr "证书验证"

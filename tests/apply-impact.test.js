@@ -105,7 +105,7 @@ test('reverse proxy status strip reflects the revision applied without refreshin
  const h=harness('configuration',[]);await h.render();
  const metric=h.nodes.find(n=>n.attrs['aria-label']==='Active revision');
  expect(metric.textContent).toBe('3');
- expect(h.button('Restart')).toBeUndefined();expect(h.button('reload')).toBeDefined();expect(h.nodes.some(n=>n.tag==='a'&&n.textContent==='Configuration preview')).toBe(false);
+ expect(h.button('Restart')).toBeUndefined();expect(h.button('Reload')).toBeDefined();expect(h.nodes.some(n=>n.tag==='a'&&n.textContent==='Configuration preview')).toBe(false);
  await h.button('Save & Apply').click();
  expect(metric.textContent).toBe('4');
 });
@@ -157,7 +157,7 @@ test('inline accounts preserve the optional write-only advanced hash entry',asyn
 
 
 test('overview contains no cross-page links or boot and start/stop controls',async()=>{
- const h=harness('overview');await h.render();expect(h.nodes.filter(n=>n.tag==='a')).toHaveLength(0);expect(h.nodes.filter(n=>n.attrs.type==='checkbox')).toHaveLength(0);expect(h.button('Start')).toBeUndefined();expect(h.button('Stop')).toBeUndefined();expect(h.button('Restart')).toBeUndefined();expect(h.button('reload')).toBeDefined();
+ const h=harness('overview');await h.render();expect(h.nodes.filter(n=>n.tag==='a')).toHaveLength(0);expect(h.nodes.filter(n=>n.attrs.type==='checkbox')).toHaveLength(0);expect(h.button('Start')).toBeUndefined();expect(h.button('Stop')).toBeUndefined();expect(h.button('Restart')).toBeUndefined();expect(h.button('Reload')).toBeDefined();
 });
 test('global service controls remain usable in manual mode without making the configuration draft dirty',async()=>{
  const h=harness('configuration',[],{route:'settings',config:{mode:'manual'}});await h.render();const run=h.nodes.find(n=>n.attrs['aria-label']==='Run Caddy');expect(run.disabled).toBe(false);run.checked=true;run.events.change();expect(h.button('Apply service settings').disabled).toBe(false);expect(h.button('Save').disabled).toBe(true);expect(h.calls.filter(c=>c.method==='action')).toHaveLength(0);
