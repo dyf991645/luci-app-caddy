@@ -207,7 +207,7 @@
  display:block; flex:none; float:none; width:auto; text-align:left;
  padding:0; margin:0 0 12px; line-height:1.5;
 }
-.caddy-app .cbi-value-field { display:block; flex:none; width:100%; margin:0; min-width:0; }
+.caddy-app .cbi-value > .cbi-value-field { display:block; flex:none; width:100%; margin:0; min-width:0; }
 .caddy-app .account-row { align-items:end; }
 .caddy-app .account-row .field { margin:0; }
 .caddy-app .account-row .field-label { font-size:12px; }
@@ -251,3 +251,22 @@
 .caddy-app[data-page=overview] .overview-flow-icon.shield { mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%202l9%204v6c0%205-9%2010-9%2010S3%2017%203%2012V6z%22%2F%3E%3Cpath%20d%3D%22m8%2012%203%203%205-6%22%2F%3E%3C%2Fsvg%3E"); }
 
 .caddy-app[data-page=overview] .overview-flow-icon.network { mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M9%203h6v5H9zM3%2017h6v5H3zM15%2017h6v5h-6zM12%208v5M6%2017v-4h12v4%22%2F%3E%3C%2Fsvg%3E"); }
+
+/* GridSection cells share cbi-value-field with forms; retain native table layout. */
+.caddy-app .site-table { overflow-x:auto; }
+.caddy-app .site-table .table { display:table; width:100%; min-width:760px; table-layout:auto; }
+.caddy-app .site-table .table .tr { display:table-row; }
+.caddy-app .site-table .table .td,.caddy-app .site-table .table .th { display:table-cell; width:auto; margin:0; vertical-align:middle; }
+.caddy-app .site-table .table .td.cbi-value-field { flex:none; min-width:0; }
+.caddy-app .site-table .table .td[data-name=enabled] { width:80px; text-align:center; }
+.caddy-app .site-table .table .cbi-section-actions { width:1%; white-space:nowrap; }
+.caddy-app .site-table .table .cbi-section-actions .cbi-button + .cbi-button { margin-left:6px; }
+.caddy-app[data-page=configuration] .toolbar { display:grid; grid-template-columns:minmax(0,420px) 150px minmax(0,1fr); align-items:center; gap:12px; }
+.caddy-app[data-page=configuration] .toolbar > input[type=search] { width:100%; max-width:100%; min-width:0; }
+.caddy-app[data-page=configuration] .toolbar > select { width:150px; min-width:0; max-width:150px; }
+.caddy-app[data-page=configuration] .toolbar .count { justify-self:end; }
+@media(max-width:650px) {
+ .caddy-app[data-page=configuration] .toolbar { grid-template-columns:minmax(0,1fr) 120px; }
+ .caddy-app[data-page=configuration] .toolbar > select { width:120px; max-width:120px; }
+ .caddy-app[data-page=configuration] .toolbar .count { grid-column:1 / -1; }
+}

@@ -51,7 +51,7 @@ return view.extend({
     .catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');})
     .finally(function(){busy=false;pending.textContent='';return status().then(update);});
   }
-  [['reload',_('Reload active configuration')],['restart',_('Restart')]].forEach(function(item){
+  [['reload','reload']].forEach(function(item){
    buttons[item[0]]=E('button',{'class':'button small','click':function(){return perform(item[0]);}},item[1]);controls.appendChild(buttons[item[0]]);
   });
   controls.appendChild(pending);update(initial[0]);

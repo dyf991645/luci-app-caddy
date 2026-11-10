@@ -13,7 +13,7 @@ return baseclass.extend({
 	memory: function(kib) {return kib==null?_('Unknown'):(kib/1024).toFixed(1)+' MiB';},
 	page: function(key, title, description, children, actions) {
 		if (!document.querySelector('link[data-caddy-layout]'))
-			document.head.appendChild(E('link', { 'rel': 'stylesheet', 'href': L.resource('caddy/caddy.css') + '?v=14', 'data-caddy-layout': '' }));
+			document.head.appendChild(E('link', { 'rel': 'stylesheet', 'href': L.resource('caddy/caddy.css') + '?v=15', 'data-caddy-layout': '' }));
 		return E('div', { 'class': 'caddy-app', 'data-page': key }, [
 			E('div', { 'class': 'heading' }, [
 				E('div', {}, [E('div', { 'class': 'heading-title' }, E('h1', {}, title)), E('p', {}, description)]),
@@ -37,7 +37,7 @@ return baseclass.extend({
 			emblem.textContent = data.running ? '✓' : '□';
 			buttons.forEach(function(button) { button.disabled = busy || !L.hasViewPermission() || !data.installed || !data.running; });
 		}
-		[['reload',_('Reload active configuration')],['restart',_('Restart')]].forEach(function(item) {
+		[['reload','reload']].forEach(function(item) {
 			var button = E('button', { 'class':'button small', 'disabled':true, 'click':function() {
 				if (busy) return;
 				busy = true; update(current);

@@ -73,11 +73,11 @@ return view.extend({
 		option.write=function(sid,value){this.map.data.set('json',sid,'enabled',value==='1');};
 		option = section.option(form.Value,'domain',_('Domain'));
 		option.rmempty = false;
-		option.textvalue=function(sid){var site=this.map.data.get('json',sid);return E('div',{'class':'site-cell'},[E('strong',{},site.name || site.domain),site.name?E('small',{'class':'hint'},site.domain):'']);};
+		option.textvalue=function(sid){var site=this.map.data.get('json',sid);return E('div',{'class':'site-cell'},[E('strong',{},site.name || site.domain || '—'),site.name?E('small',{'class':'hint'},site.domain):'']);};
 		option.validate = function(sid,value) {return /^(?=.{1,253}$)(?:\*\.)?[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(value) && value.split('.').every(function(label) {return label.length <= 63;}) || _('Enter a valid domain; wildcards require DNS-01');};
 		option = section.option(form.DynamicList,'upstreams',_('Backends'),_('Use explicit ports. All backends in a site must use the same protocol. HTTPS certificates are verified.'));
 		option.rmempty = false; option.default = 'http://127.0.0.1:8080';
-		option.textvalue=function(sid){var backends=this.map.data.get('json',sid,'upstreams') || [];return E('div',{},[E('span',{},backends[0] || ''),E('small',{'class':'hint'},backends.length+' '+_('Backends')+' · '+(this.map.data.get('json',sid,'balance') || 'round_robin'))]);};
+		option.textvalue=function(sid){var backends=this.map.data.get('json',sid,'upstreams') || [];return E('div',{},[E('span',{},backends[0] || ''),E('small',{'class':'hint'},backends.length+' '+_('Backends')+' · '+({round_robin:_('Round robin'),least_conn:_('Least connections'),random:_('Random')}[this.map.data.get('json',sid,'balance') || 'round_robin']))]);};
 		option.validate = function(sid,value) {try {new URL(value);} catch(e) {return _('Invalid backend address');} return /^https?:\/\/(?:[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?|\[[a-fA-F0-9:]+\]):[0-9]{1,5}$/.test(value) && +value.split(':').pop() > 0 && +value.split(':').pop() < 65536 || _('Use http(s)://host:port without credentials or paths');};
 		option = section.option(form.ListValue,'balance',_('Load balancing')); option.default='round_robin';
 		option.value('round_robin',_('Round robin')); option.value('least_conn',_('Least connections')); option.value('random',_('Random'));
@@ -90,6 +90,7 @@ return view.extend({
 		option.value('global',_('Global default')); option.value('dns-01','DNS-01'); option.value('http-01','HTTP-01'); option.default='global'; option.value('tls-alpn-01','TLS-ALPN-01');
 		option.textvalue=function(sid){var selected=this.map.data.get('json',sid,'challenge') || 'global';return selected=='global'?_('Global default')+' · '+(config.settings.default_challenge || 'http-01').toUpperCase():selected.toUpperCase();};
 		option = section.option(form.ListValue,'authMode',_('Access authentication'));option.value('none',_('No additional authentication'));option.value('basic','Basic Auth');option.value('authelia','Authelia');
+		option.textvalue=function(sid){var mode=this.map.data.get('json',sid,'auth')?.mode;return mode=='basic'?'Basic Auth':mode=='authelia'?'Authelia':'—';};
 		option.forcewrite=true;
 		option.cfgvalue=function(sid){return this.map.data.get('json',sid,'auth')?.mode || 'none';};
 		option.write=function(sid,value){var auth=this.map.data.get('json',sid,'auth') || {};this.map.data.set('json',sid,'auth',Object.assign({},auth,{mode:value,source:auth.source || 'global'}));};
@@ -105,6 +106,8 @@ return view.extend({
 		});
 		option = section.option(form.TextValue,'advanced_snippet',_('Advanced HTTP routing snippet'));option.rows=5;
 		option.description=_('Additional directives inside this site and path boundary. Imports and environment expansion are unsupported.');
+		var enabledField=section.children.splice(section.children.findIndex(function(field){return field.option=='enabled';}),1)[0];
+		section.children.splice(section.children.findIndex(function(field){return field.option=='authMode';})+1,0,enabledField);
 		section.children.forEach(function(field) {
 			if(['enabled','domain','upstreams','challenge','authMode'].indexOf(field.option) < 0) field.modalonly = true;
 		});
@@ -297,7 +300,7 @@ return view.extend({
 			update();
 			return layout.page(page, title, description, content.concat([
 				E('div',{'class':'apply-bar'},[E('div',{},[status,affected]),E('div',{'class':'actions'},[saveButton,applyButton])])
-			]),page=='configuration'?[E('a',{'class':'button','href':L.url('admin/services/caddy/config')},_('Configuration preview'))]:[]);
+			]));
 		});
 	},
 	handleSave:null,handleSaveApply:null,handleReset:null
