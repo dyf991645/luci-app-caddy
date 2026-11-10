@@ -3,8 +3,7 @@
     "title": "Caddy",
     "order": 60,
     "action": {
-      "type": "view",
-      "path": "caddy/overview"
+      "type": "firstchild"
     },
     "depends": {
       "acl": [
@@ -13,7 +12,7 @@
     }
   },
   "admin/services/caddy/configuration": {
-    "title": "Configuration",
+    "title": "Reverse proxy",
     "order": 20,
     "action": {
       "type": "view",
@@ -39,7 +38,6 @@
     }
   },
   "admin/services/caddy/certificates": {
-    "title": "Stored certificates",
     "order": 35,
     "action": {
       "type": "view",
@@ -52,7 +50,6 @@
     }
   },
   "admin/services/caddy/notifications": {
-    "title": "Certificate alerts",
     "order": 36,
     "action": {
       "type": "view",
@@ -66,10 +63,49 @@
   },
   "admin/services/caddy/diagnostics": {
     "title": "Logs and diagnostics",
-    "order": 40,
+    "order": 60,
     "action": {
       "type": "view",
       "path": "caddy/diagnostics"
+    },
+    "depends": {
+      "acl": [
+        "luci-app-caddy"
+      ]
+    }
+  },
+  "admin/services/caddy/overview": {
+    "title": "Overview",
+    "order": 10,
+    "action": {
+      "type": "view",
+      "path": "caddy/overview"
+    },
+    "depends": {
+      "acl": [
+        "luci-app-caddy"
+      ]
+    }
+  },
+  "admin/services/caddy/settings": {
+    "title": "Global settings",
+    "order": 40,
+    "action": {
+      "type": "view",
+      "path": "caddy/configuration"
+    },
+    "depends": {
+      "acl": [
+        "luci-app-caddy"
+      ]
+    }
+  },
+  "admin/services/caddy/config": {
+    "title": "Configuration file",
+    "order": 50,
+    "action": {
+      "type": "view",
+      "path": "caddy/configuration"
     },
     "depends": {
       "acl": [
