@@ -1,4 +1,4 @@
-# Managed configuration contract (tickets 02–03)
+# Managed configuration contract (tickets 02–07)
 
 The installed `config.uc` module returns `create(options)`. Options configure the
 local test environment only; RPC never accepts root paths, executables, admin
@@ -52,9 +52,9 @@ startup authority until a successful apply. Existing version1 public callers
 remain accepted through migration. Revisions and journal recovery are unchanged.
 Global port fields are JSON integers. `http-01` and `tls-alpn-01` are supported.
 All public object keys remain allowlisted; unknown fields fail validation.
-Future auth/manual/credential fields
-must be explicitly added to validation and generation; they must not be silently
-interpreted as Caddy JSON. Secret credentials belong to separate private storage,
+Authentication is documented in [AUTH-SCHEMA.md](AUTH-SCHEMA.md). Additional
+source/credential fields must be explicitly allowlisted and generated; they
+are never interpreted as caller-supplied Caddy JSON. Secret credentials belong to separate private storage,
 not the readable draft or preview. Generated preview is built from the public
 model and never reads private active/candidate JSON.
 

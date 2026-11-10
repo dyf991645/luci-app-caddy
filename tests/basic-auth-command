@@ -1,0 +1,12 @@
+#!/bin/sh
+if [ "$1" = advanced-hash ]; then
+ umask 077
+ printf '%s\n' 'advanced-fixture-password' | /usr/bin/caddy hash-password --algorithm bcrypt > "$2" 2>/dev/null
+elif [ "$1" = reload ] && [ "${2##*/}" = candidate.json ] && [ -f "${2%/*}/reject-load" ]; then
+ exit 1
+elif [ "$1" = request ]; then
+ status=$(curl -ks --max-time 10 --retry 5 --retry-all-errors --retry-delay 1 --noproxy '*' --resolve "$3:27443:127.0.0.1" -o "$2" -w '%{http_code}' ${5:+-u} ${5:+"$5"} "https://$3:27443$4" < /dev/null)
+ [ "$status" = "$6" ]
+else
+ exec /tmp/luci-caddy-ticket07/caddy-command "$@"
+fi

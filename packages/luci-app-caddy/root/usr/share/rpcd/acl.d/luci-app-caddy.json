@@ -16,7 +16,7 @@
       "ubus": {
         "luci.caddy": [
           "action",
-          "draft_edit",
+          "basic_profile_save", "draft_edit",
           "draft_save",
           "config_apply",
           "config_preview",
