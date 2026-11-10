@@ -31,7 +31,7 @@ return view.extend({
   }
   refresh.addEventListener('click',function() {refresh.disabled=true;return certificates().then(update).catch(function() {ui.addNotification(null,E('p',{},_('Unable to read certificate evidence')),'error');}).finally(function() {refresh.disabled=false;});});
   update(initial);
-  return E('div',{'class':'cbi-map'},[E('h2',{},_('TLS certificates')),E('ul',{'class':'cbi-tabmenu'},[['',_('Overview')],['configuration',_('Configuration')],['tls',_('Verification settings')],['certificates',_('Stored certificates')]].map(function(tab) {return E('li',{'class':tab[0]==='certificates'?'cbi-tab':'cbi-tab-disabled'},E('a',{'href':L.url('admin/services/caddy'+(tab[0]?'/'+tab[0]:''))},tab[1]));})),E('p',{},E('a',{'href':L.url('admin/services/caddy/notifications')},_('Certificate alerts and webhook'))),content,refresh]);
+  return E('div',{'class':'cbi-map'},[E('h2',{},_('TLS certificates')),E('ul',{'class':'cbi-tabmenu'},[['',_('Overview')],['configuration',_('Configuration')],['tls',_('Verification settings')],['certificates',_('Stored certificates')],['diagnostics',_('Logs and diagnostics')]].map(function(tab) {return E('li',{'class':tab[0]==='certificates'?'cbi-tab':'cbi-tab-disabled'},E('a',{'href':L.url('admin/services/caddy'+(tab[0]?'/'+tab[0]:''))},tab[1]));})),E('p',{},E('a',{'href':L.url('admin/services/caddy/notifications')},_('Certificate alerts and webhook'))),content,refresh]);
  },
  handleSave:null,handleSaveApply:null,handleReset:null
 });

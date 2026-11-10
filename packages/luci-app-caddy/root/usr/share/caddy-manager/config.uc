@@ -239,6 +239,7 @@ return function(options) {
 		if (writefile(path, text) == null || !chmod(path, 0600)) die('Unable to persist private source');
 		unlink(path+'.line');
 		if (!command('adapt', 'source.caddyfile')) {
+			unlink(path+'.stderr');
 			let line=trim(readfile(path+'.line') || '');unlink(path+'.line');
 			if(match(line,/^[0-9]{1,5}$/) && +line>0 && +line<=length(split(text,'\n'))) syntax_diagnostic={category:'caddyfile_syntax',source,line:max(1,+line-(offset || 0))};
 			die('Caddy rejected Caddyfile');

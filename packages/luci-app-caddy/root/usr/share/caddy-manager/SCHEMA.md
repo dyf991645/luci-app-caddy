@@ -127,10 +127,11 @@ Restart/reload therefore uses the exact last successful credential. Public
 preview is generated independently with a fixed redacted provider placeholder.
 Neither active JSON, candidates, journals nor credential files are downloadable.
 The command helper discards both stdout and stderr because Cloudflare provider
-errors can embed a token. RPC uses fixed errors exclusively. Future diagnostic
-readers must redact all retained active/candidate credential versions, including
-encoded error representations, before truncating or returning logs; these files
-must never be exposed via a raw log/config endpoint.
+errors can embed a token. RPC uses fixed errors exclusively. Diagnostic readers use a strict allowlist of fixed event categories, timestamps,
+levels, logger names and HTTP statuses. Raw messages/provider errors, source,
+headers, queries and arbitrary fields are omitted entirely, so unknown manual
+credentials do not depend on blacklist matching. These files must never be
+exposed via a raw log/config endpoint. See [DIAGNOSTICS.md](DIAGNOSTICS.md).
 
 Cloudflare needs Zone DNS Edit and Zone Read scoped to required zones, outbound
 Cloudflare API connectivity and authoritative TXT propagation. Syntax validation
@@ -200,3 +201,7 @@ the 404 fallback. Snippets may set headers or terminate requests explicitly;
 there is no automatic reconciliation if an administrator deliberately adds a
 second proxy. Import/environment restrictions and private preview rules apply
 to snippets too. Each source is limited to 64KiB.
+
+`settings.access_log` is an optional boolean, default false. Apply enables HTTP
+server access logs in the existing bounded logd RAM ring. Diagnostic RPC and
+export expose safe event/status evidence only; see DIAGNOSTICS.md.

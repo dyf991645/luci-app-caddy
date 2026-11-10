@@ -29,13 +29,14 @@ return function(options) {
    if(!length(line))continue;
    if(length(line)>8192){omitted++;continue;}
    let pos=index(line,'{'),e;try{e=pos>=0?json(substr(line,pos)):null;}catch(err){e=null;}
-   if(type(e)!='object' || (type(e.ts)!='int' && type(e.ts)!='double') || e.ts<0 || index(['debug','info','warn','error'],e.level)<0) {omitted++;continue;}
+   if(type(e)!='object' || (type(e.ts)!='int' && type(e.ts)!='double') || e.ts<0 || e.ts>time()+300 || index(['debug','info','warn','error'],e.level)<0) {omitted++;continue;}
    let event=null,logger=null,kind='runtime';
    if(index(['tls.obtain','tls.renew'],e.logger)>=0) {
     logger=e.logger;
     event=e.msg=='obtaining certificate' || e.msg=='renewing certificate' ? 'certificate_pending' : e.msg=='could not get certificate from issuer' ? 'issuer_error' : e.msg=='certificate obtained successfully' || e.msg=='certificate renewed successfully' ? 'certificate_success':null;
    } else if(type(e.logger)=='string' && match(e.logger,/^http\.log\.access(\.[a-zA-Z0-9_-]{1,32})?$/)) {logger='http.log.access';event='request_completed';kind='access';}
-   else if(index(['admin','http','tls','tls.cache.maintenance','http.log.error'],e.logger)>=0) {logger=e.logger;event=e.level=='error'?'service_error':e.level=='warn'?'service_warning':'service_event';}
+   else if(e.logger==null && e.level=='error') {logger='caddy';event='service_error';}
+   else if(index(['admin','admin.api','http','http.auto_https','tls','tls.cache.maintenance','http.log.error'],e.logger)>=0) {logger=e.logger;event=e.level=='error'?'service_error':e.level=='warn'?'service_warning':'service_event';}
    if(!event){omitted++;continue;}
    let record={ts:e.ts,level:e.level,logger,event,kind};
    if(kind=='access' && type(e.status)=='int' && e.status>=100 && e.status<=599) record.status=e.status;
@@ -77,7 +78,7 @@ return function(options) {
    if(draft?.mode!='manual')for(let field in ['http_port','https_port']) {
     let port=draft?.settings?.[field];if(type(port)!='int' || port<1 || port>65535)continue;
     let found=filter(listeners,l=>l.port==port);
-    push(ports,{source:'draft',protocol:field=='http_port'?'HTTP':'HTTPS',port,state:net==null?'unknown':length(filter(found,l=>l.owner!='caddy'))?'conflict':length(found)?'own_service':'available'});
+    push(ports,{source:'draft',protocol:field=='http_port'?'HTTP':'HTTPS',port,state:net==null?'unknown':length(filter(found,l=>index(['uhttpd','other'],l.owner)>=0))?'conflict':length(filter(found,l=>l.owner=='unknown'))?'unknown':length(found)?'own_service':'available'});
    }
    let active_ports=[];
    for(let name,server in active?.apps?.http?.servers)for(let addr in server.listen) {
