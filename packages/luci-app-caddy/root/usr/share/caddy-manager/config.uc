@@ -63,26 +63,26 @@ return function(options) {
 		for (let key in value) if (index(allowed,key) < 0) return false;
 		return true;
 	}
-	function auth_host_valid(host) {
+	function host_error(host) {
 		if(substr(host,0,1)=='[') {
 			let address=substr(host,1,length(host)-2), chunks=split(address,':'), compressed=split(address,'::'), count=0;
-			if(length(compressed)>2 || index(address,':::')>=0 || (length(compressed)==1 && length(chunks)!=8)) return false;
-			for(let chunk in chunks) if(chunk!='') {if(!match(chunk,/^[a-fA-F0-9]{1,4}$/)) return false;count++;}
-			return length(compressed)!=2 || count<8;
+			if(length(compressed)>2 || index(address,':::')>=0 || (length(compressed)==1 && length(chunks)!=8)) return 'Invalid IPv6 backend host';
+			for(let chunk in chunks) if(chunk!='') {if(!match(chunk,/^[a-fA-F0-9]{1,4}$/)) return 'Invalid IPv6 backend host';count++;}
+			return length(compressed)==2 && count>=8 ? 'Invalid IPv6 backend host' : null;
 		}
-		if(length(host)>253) return false;
-		for(let label in split(host,'.')) if(length(label)>63 || !match(label,/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$/)) return false;
-		if(match(host,/^[0-9.]+$/)) {let octets=split(host,'.');if(length(octets)!=4) return false;for(let octet in octets) if(+octet>255 || (length(octet)>1 && substr(octet,0,1)=='0')) return false;}
-		return true;
+		if(length(host)>253) return 'Invalid backend host';
+		for(let label in split(host,'.')) if(length(label)>63 || !match(label,/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$/)) return 'Invalid backend host';
+		if(match(host,/^[0-9.]+$/)) {let octets=split(host,'.');if(length(octets)!=4) return 'Invalid IPv4 backend host';for(let octet in octets) if(+octet>255 || (length(octet)>1 && substr(octet,0,1)=='0')) return 'Invalid IPv4 backend host';}
+		return null;
 	}
 	function authelia_check(auth) {
 		if (!known_keys(auth,['backend','uri','portal'])) return 'Configure Authelia backend, interface and login portal';
 		let backend=type(auth.backend)=='string' ? match(auth.backend,/^https?:\/\/([a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?|\[[a-fA-F0-9:]+\]):([0-9]{1,5})$/) : null;
-		if (!backend || !auth_host_valid(backend[1]) || +backend[3]<1 || +backend[3]>65535) return 'Authelia backend must be HTTP(S) host:port without credentials, path or query';
+		if (!backend || host_error(backend[1]) || +backend[3]<1 || +backend[3]>65535) return 'Authelia backend must be HTTP(S) host:port without credentials, path or query';
 		if(type(auth.uri)!='string' || !match(auth.uri,/^\/([a-zA-Z0-9_~-]+\/)*[a-zA-Z0-9_~-]+$/)) return 'Authelia interface must be an absolute path without query or fragment';
 		if(type(auth.portal)!='string' || !match(auth.portal,/^https?:\/\/[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?(:[0-9]{1,5})?(\/[a-zA-Z0-9_~.\/-]*)?$/) || index(auth.portal,'..')>=0) return 'Authelia portal must be an HTTP(S) URL without credentials, query or fragment';
 		let portal=match(auth.portal,/^https?:\/\/([^\/:]+)(:([0-9]+))?/);
-		if(!auth_host_valid(portal[1]) || (portal[3] && (+portal[3]<1 || +portal[3]>65535))) return 'Invalid Authelia portal host or port';
+		if(host_error(portal[1]) || (portal[3] && (+portal[3]<1 || +portal[3]>65535))) return 'Invalid Authelia portal host or port';
 		return null;
 	}
 	function encode_url(value) {
@@ -154,22 +154,8 @@ return function(options) {
 			for (let backend in s.upstreams) {
 				let parts=type(backend)=='string' ? match(backend, /^(https?):\/\/([a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?|\[[a-fA-F0-9:]+\]):([0-9]{1,5})$/) : null;
 				if (!parts) return 'Backend must be an HTTP or HTTPS host and explicit port without credentials or paths';
-				let host=parts[2];
-				if (substr(host,0,1)=='[') {
-					let address=substr(host,1,length(host)-2), chunks=split(address,':'), compressed=split(address,'::');
-					if (length(compressed)>2 || index(address,':::')>=0 || (length(compressed)==1 && length(chunks)!=8)) return 'Invalid IPv6 backend host';
-					let count=0;
-					for (let chunk in chunks) {if (chunk!='') {if (!match(chunk,/^[a-fA-F0-9]{1,4}$/)) return 'Invalid IPv6 backend host'; count++;}}
-					if (length(compressed)==2 && count>7) return 'Invalid IPv6 backend host';
-				} else {
-					if (length(host)>253) return 'Invalid backend host';
-					for (let label in split(host,'.')) if (length(label)>63 || !match(label,/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$/)) return 'Invalid backend host';
-					if (match(host,/^[0-9.]+$/)) {
-						let octets=split(host,'.');
-						if (length(octets)!=4) return 'Invalid IPv4 backend host';
-						for (let octet in octets) if (+octet>255 || (length(octet)>1 && substr(octet,0,1)=='0')) return 'Invalid IPv4 backend host';
-					}
-				}
+				let error=host_error(parts[2]);
+				if(error) return error;
 				let port=+split(backend, ':')[-1];
 				if (port < 1 || port > 65535) return 'Invalid backend port';
 				if (scheme && scheme != parts[1]) return 'All backends in a group must use the same protocol';
@@ -202,7 +188,7 @@ return function(options) {
 			}
 			if (options?.internal_tls) issuer={module:'internal'};
 			push(policies,{subjects:[s.domain],issuers:[issuer]});
-			push(redirects,{match:[{host:[s.domain]}],handle:[{handler:'static_response',status_code:308,headers:{Location:['https://'+s.domain+(g.https_port==443?'':':'+g.https_port)+'{http.request.uri}']}}]});
+			push(redirects,{match:[{host:[s.domain]}],handle:[{handler:'static_response',status_code:308,headers:{Location:['https://{http.request.host}'+(g.https_port==443?'':':'+g.https_port)+'{http.request.uri}']}}]});
 			let proxy={handler:'reverse_proxy',upstreams:map(s.upstreams,function(url) {return {dial:replace(url,/^https?:\/\//,'')};}),load_balancing:{selection_policy:{policy:s.balance}}};
 			if (substr(s.upstreams[0],0,8)=='https://') proxy.transport={protocol:'http',tls:{}};
 			let handles=s.auth?.mode=='authelia' ? authelia_handlers(s.auth.source=='global' ? config.auth.authelia : s.auth.authelia) : [];
