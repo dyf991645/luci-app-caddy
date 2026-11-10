@@ -1,0 +1,16 @@
+let manager=loadfile(ARGV[0])()({root:ARGV[1],admin:'127.0.0.1:25019'});
+let config={version:2,mode:'form',manual_caddyfile:'http://127.0.0.1:25999 {\n respond "retained-private-source"\n}',settings:{http_port:25080,https_port:25443,email:'',storage:ARGV[1]+'/data'},sites:[{domain:'dns.example.test',upstreams:['http://127.0.0.1:25081'],balance:'round_robin',path:'',strip:false,challenge:'dns-01',advanced_snippet:'header X-Test private-snippet-canary'}]};
+assert(manager.draft_save({config,expected_revision:0}).ok,'save private source alongside form');
+let credential=manager.credential_save({token:'private!token-canary',expected_revision:1});
+assert(credential.ok && index(sprintf('%J',credential),'private-snippet-canary')<0,'credential response preserves source privacy');
+let saved=manager.tls_save({default_challenge:'tls-alpn-01',expected_revision:2});
+assert(saved.ok && saved.draft_revision==3,'scoped TLS default save stages revision');
+assert(index(sprintf('%J',saved),'private-snippet-canary')<0,'TLS settings response never returns private source');
+let edited=manager.draft_edit().draft;
+assert(edited.manual_caddyfile==config.manual_caddyfile && edited.sites[0].advanced_snippet==config.sites[0].advanced_snippet,'credential and TLS default edits preserve both private sources');
+assert(edited.sites[0].challenge=='dns-01' && edited.settings.default_challenge=='tls-alpn-01','default edit leaves existing DNS site unchanged');
+edited.mode='manual';
+assert(manager.draft_save({config:edited,expected_revision:3}).ok,'switch to manual source');
+assert(!manager.credential_save({token:'other!token',expected_revision:4}).ok,'manual mode refuses credential form mutation');
+assert(!manager.tls_save({default_challenge:'http-01',expected_revision:4}).ok,'manual mode refuses TLS default mutation');
+print('PASS scoped TLS and credential edits preserve private sources and manual read-only contract\n');

@@ -1,0 +1,10 @@
+let plugin=loadfile(ARGV[0])()['luci.caddy'];
+let config={version:1,settings:{http_port:25080,https_port:25443,email:'',storage:'/tmp/luci-caddy-ticket05/rpc-data'},sites:[{domain:'dns.example.test',backend:'http://127.0.0.1:25081',challenge:'dns-01'}]};
+assert(plugin.draft_save.call({args:{config,expected_revision:0}}).ok,'RPC saves DNS draft');
+let token='rpc!private-canary';
+let saved=plugin.credential_save.call({args:{token,expected_revision:1}});
+assert(saved.ok && saved.draft_revision==2,'write RPC stages credential and draft reference');
+let responses=[saved,plugin.draft_get.call({args:{}}),plugin.credential_status.call({args:{}}),plugin.config_preview.call({args:{config:saved.draft}}),plugin.config_apply.call({args:{expected_revision:2}})];
+assert(!responses[-1].ok,'real Caddy rejects malformed provider token');
+assert(index(sprintf('%J',responses),token)<0,'token absent from every public RPC response and generated preview');
+print('PASS public DNS credential RPC write/status/save/preview/error isolation\n');

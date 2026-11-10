@@ -93,6 +93,51 @@ installations retain their original startup/reload behavior if the optional
 manager is absent. Caddy autosave is disabled, so `--resume` never bypasses this
 contract. Save/apply use the same OS lock across rpcd and CLI invocations.
 
+## DNS-01 and write-only Cloudflare credentials (ticket05)
+
+Settings additionally accept `default_challenge` (`http-01`, `dns-01`,
+`tls-alpn-01`) and `cloudflare_credential` (positive integer private version
+reference). Sites accept `dns-01` and a leading `*.` wildcard; wildcard sites
+must use DNS-01. Specific domains can use any of the three methods. The default
+only initializes new sites; it never rewrites existing site methods.
+
+`credential_status()` is read-only and returns `configured`, `draft_revision`
+and `active_revision` for credential references, never token bytes.
+`credential_save({token,expected_revision})` is write-ACL only. It creates a
+root-only immutable private version under `credentials/` (0700 directory,
+0600 files), updates the public draft reference and advances the draft revision.
+It does not replace the active secret or the running process environment.
+Stale concurrent edits fail. Retired versions remain private so an active or
+interrupted transaction retains its exact original credential. Removing a draft
+reference never deletes the active version. There is no public token readback,
+bulk credential export or deletion RPC.
+
+`tls_save({default_challenge,expected_revision})` is a scoped write RPC. Like
+credential staging, it edits the private full draft internally and returns only
+the read-safe state. This preserves retained manual content and scoped snippets
+without requiring the TLS page to fetch or resubmit unrelated private sources.
+Both TLS/default and credential mutations are refused in complete Caddyfile
+mode; the controls remain visible and read-only. Manual provider literals are
+never rewritten by form credential references.
+
+Apply resolves the selected private version into the private candidate JSON,
+validates it, and uses the existing transactional `/load` path. Failed validation
+or load retains the previous private active JSON and credential revision.
+Restart/reload therefore uses the exact last successful credential. Public
+preview is generated independently with a fixed redacted provider placeholder.
+Neither active JSON, candidates, journals nor credential files are downloadable.
+The command helper discards both stdout and stderr because Cloudflare provider
+errors can embed a token. RPC uses fixed errors exclusively. Future diagnostic
+readers must redact all retained active/candidate credential versions, including
+encoded error representations, before truncating or returning logs; these files
+must never be exposed via a raw log/config endpoint.
+
+Cloudflare needs Zone DNS Edit and Zone Read scoped to required zones, outbound
+Cloudflare API connectivity and authoritative TXT propagation. Syntax validation
+and successful hot load do not prove API acceptance, issuance or renewal.
+`disable_certificates` is a local-only test option, never accepted over RPC,
+allowing real DNS-provider provision/load without initiating ACME or DNS calls.
+
 No configuration writes uhttpd, firewall, DNS, NAT or router trust stores.
 Public HTTP-01 always needs external80 -> configured HTTP port; TLS-ALPN-01
 needs external443 -> configured HTTPS port. Internal nonstandard ports alone
