@@ -102,7 +102,7 @@ return view.extend({
 			var username=E('input',{'placeholder':_('Username'),'aria-label':_('Username'),'value':user?.username || ''});
 			var password=E('input',{'type':'password','placeholder':user ? _('Keep existing password') : _('New password'),'aria-label':_('New password'),'autocomplete':'new-password'});
 			var hash=E('input',{'type':'password','placeholder':_('Advanced: existing bcrypt hash'),'aria-label':_('Existing bcrypt hash'),'autocomplete':'new-password'});
-			var row=E('div',{'class':'field-row'},[username,' ',password,' ',hash,' ',E('button',{'class':'cbi-button','click':function(){row.remove();accountDirty=true;dirty=true;update();}},_('Remove account'))]);
+			var row=E('div',{'class':'account-row'},[username,' ',password,' ',hash,' ',E('button',{'class':'cbi-button','click':function(){row.remove();accountDirty=true;dirty=true;update();}},_('Remove account'))]);
 			row.account=function(){if(password.value && hash.value)return {username:username.value,password:password.value,hash:hash.value};return Object.assign({username:username.value},password.value ? {password:password.value} : hash.value ? {hash:hash.value} : {retain:true});};accountRows.appendChild(row);
 		}
 		function loadAccounts(){accountRows.replaceChildren();var selected=scope.value;var ref=selected=='global' ? config.auth?.basic?.profile : config.sites.find(function(site){return site.domain==selected;})?.auth?.profile;(current.basic_profiles?.[ref] || []).forEach(accountRow);if(!accountRows.children.length)accountRow();}
@@ -183,7 +183,7 @@ return view.extend({
 					], [E('button',{'class':'button','disabled':map.readonly,'click':function(){return showPreview(values()).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');});}},_('Refresh preview'))])];
 			}
 			else {
-				content = [E('div',{'class':'info-note','hidden':mode!='manual'}, [sourceStatus, E('a',{'href':L.url('admin/services/caddy/config')},_('Configuration file'))]),
+				content = [layout.serviceStrip(initial),E('div',{'class':'info-note','hidden':mode!='manual'}, [sourceStatus, E('a',{'href':L.url('admin/services/caddy/config')},_('Configuration file'))]),
 					layout.panel(_('Site list'), _('Configure a domain, backends and certificate verification for each site.'), [
 						E('div',{'class':'toolbar'}, [E('input',{'type':'search','placeholder':_('Search domain or backend'),'aria-label':_('Search domain or backend'),'input':function(event){
 							var query=event.target.value.toLowerCase();

@@ -21,7 +21,7 @@ function harness(page, affected=['basic.example.test','authelia.example.test']) 
   section(){const s={children:[],option(){const o={value(){},depends(){}};s.children.push(o);return o;}};this.children.push(s);return s;}
   parse(){return Promise.resolve();} render(){return Promise.resolve(E('form'));}
  }};
- const values={E,_:s=>s,ui,rpc,view:{extend:x=>x},form,L:{hasViewPermission:()=>true,url:x=>x,resource:x=>x,env:{dispatchpath:['admin','services','caddy','configuration']}},window:{addEventListener(){}},document:{addEventListener(){},querySelector(){return null;},head:{appendChild(){}}},location:{href:''},baseclass:{extend:x=>x}};
+ const values={poll:{add(){}},E,_:s=>s,ui,rpc,view:{extend:x=>x},form,L:{hasViewPermission:()=>true,url:x=>x,resource:x=>x,env:{dispatchpath:['admin','services','caddy','configuration']}},window:{addEventListener(){}},document:{addEventListener(){},querySelector(){return null;},head:{appendChild(){}}},location:{href:''},baseclass:{extend:x=>x}};
  const helper=new URL('caddy/apply.js',resources);
  if(existsSync(helper))values.caddyApply=evaluate(helper);
  values.layout=evaluate(new URL('caddy/layout.js',resources));
@@ -54,7 +54,7 @@ for(const page of ['configuration','tls']) {
  });
  test(`${page} Save & Apply confirms the latest save response rather than loaded impact`,async()=>{
   const h=harness(page,['outdated.example.test']);await h.render();
-  const field=h.nodes.find(n=>page==='tls' ? n.tag==='select' || n.tag==='input' && n.attrs.type==='radio' : n.tag==='form');
+  const field=h.nodes.find(n=>page==='tls' ? n.tag==='input' && n.attrs.type==='radio' : n.tag==='form');
   field.events.change();const operation=h.button('Save & Apply').click();await tick();
   expect(JSON.stringify(h.modal)).toContain('latest.example.test');
   expect(JSON.stringify(h.modal)).not.toContain('outdated.example.test');
@@ -64,7 +64,7 @@ for(const page of ['configuration','tls']) {
  });
  test(`${page} cancelling a newly saved authentication change retains its pending draft`,async()=>{
   const h=harness(page);await h.render();
-  h.nodes.find(n=>page==='tls' ? n.tag==='select' || n.tag==='input' && n.attrs.type==='radio' : n.tag==='form').events.change();
+  h.nodes.find(n=>page==='tls' ? n.tag==='input' && n.attrs.type==='radio' : n.tag==='form').events.change();
   const operation=h.button('Save & Apply').click();await tick();h.modalButton('Cancel').click();await operation;
   expect(h.calls.filter(c=>c.method==='config_apply')).toHaveLength(0);
   expect(h.button('Save & Apply').disabled).toBe(false);

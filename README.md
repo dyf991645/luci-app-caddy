@@ -2,6 +2,8 @@
 
 官方 OpenWrt 的原生 LuCI Caddy 管理界面，入口为“服务 → Caddy”。首版目标为 **OpenWrt 25.12.4 r32933-4ccb782af7 / mediatek/filogic / aarch64_cortex-a53 / APK**，不能仅按 CPU 架构判断兼容性。包含 `caddy-binary`（Caddy 2.11.8 + Cloudflare 0.2.4）和 `luci-app-caddy` 两个包。版本、SDK、上游摘要见 [artifact-lock.json](artifact-lock.json)。
 
+原生页面按预览分为概览、反向代理、TLS 证书、全局设置、配置文件和日志与诊断。站点采用列表加弹窗编辑；保存与应用在页面底部常驻区，表单布局使用插件范围内的样式并继承 Bootstrap 的明暗变量。
+
 支持多站点和后端、一个路径边界、三种域名验证方式、全局引用或独立 Basic Auth / Authelia、独立完整 Caddyfile、实际存储证书、后台证书告警及安全日志诊断。原生界面随 LuCI 用户语言和主题，附带简体中文，保留英文 fallback；不会修改语言或主题设置。[Web 预览](preview/README.md) 使用模拟状态，不连接路由器，不能作为原生界面验收。
 
 ## 安装与升级
@@ -25,7 +27,7 @@ apk add --allow-untrusted --no-network /tmp/caddy-install/caddy-binary-*.apk /tm
 
 模拟结果应只安装或升级这两个包；有额外变更或缺依赖时先停止并检查。`--allow-untrusted` 仅用于明确审查过、尚未建立可信签名分发的本地 APK，不替代校验和兼容性检查。各版本附件放在独立目录，避免通配符选中多个版本。首次缺少依赖时需从匹配固件的可信来源补齐，不能通过忽略依赖强行安装。
 
-安装后刷新 LuCI，等待 rpcd 异步重新注册，再检查 `ubus call luci.caddy status`、`apk info -v caddy-binary luci-app-caddy` 和日志诊断页。首次配置无代理监听；Caddy 管理端仅 `127.0.0.1:2019`，不向 LAN/WAN 开放。证书监控服务自动启用并启动，外部通知默认关闭。首次安装不启动 Caddy，也不启用其开机启动，由用户在概览页操作。
+安装后刷新 LuCI，等待 rpcd 异步重新注册，再检查 `ubus call luci.caddy status`、`apk info caddy-binary luci-app-caddy` 和日志诊断页。首次配置无代理监听；Caddy 管理端仅 `127.0.0.1:2019`，不向 LAN/WAN 开放。证书监控服务自动启用并启动，外部通知默认关闭。首次安装不启动 Caddy，也不启用其开机启动，由用户在概览页操作。
 
 从 r4 起，APK 升级在替换文件前记录 Caddy 是否运行并停服；只有升级前正在运行时才在升级后读取最近生效配置恢复运行，期间有服务中断，应安排维护窗口。升级前停止的服务始终保持停止，不会短暂启动；开机启用 / 禁用独立保留，不由运行状态推导。包安装脚本使用 `/var/run/caddy-package-running` 临时标记，正常完成即删除，不写入草稿、凭据或生效配置；升级中断或设备重启后需检查并按原运行状态恢复服务。此行为依赖目标 OpenWrt APK 平台的升级 hook，不扩展为其他固件的兼容保证。
 

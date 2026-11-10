@@ -780,3 +780,96 @@ msgstr "正在处理…"
 
 msgid "global or site domain"
 msgstr "global 或站点域名"
+
+msgid "Add site"
+msgstr "添加站点"
+
+msgid "Background monitoring runs independently of LuCI and the Caddy service, including complete Caddyfile mode."
+msgstr "后台监控独立于 LuCI 和 Caddy 服务运行，完整 Caddyfile 模式下也可用。"
+
+msgid "Certificates are issued and renewed automatically by Caddy. WebSocket upgrades are supported."
+msgstr "证书由 Caddy 自动申请和续期，支持 WebSocket 转发。"
+
+msgid "Close"
+msgstr "关闭"
+
+msgid "Cloudflare API Token"
+msgstr "Cloudflare API Token"
+
+msgid "Cloudflare DNS"
+msgstr "Cloudflare DNS"
+
+msgid "Configuration file"
+msgstr "配置文件"
+
+msgid "Configuration state"
+msgstr "配置状态"
+
+msgid "Configuration summary"
+msgstr "配置概况"
+
+msgid "Configure a domain, backends and certificate verification for each site."
+msgstr "每个站点独立配置域名、后端与证书验证方式。"
+
+msgid "Connect domains to your services; Caddy manages HTTPS automatically."
+msgstr "将域名连接到你的家庭服务，HTTPS 由 Caddy 自动管理。"
+
+msgid "Disabled"
+msgstr "已停用"
+
+msgid "Edit site"
+msgstr "编辑站点"
+
+msgid "Enabled"
+msgstr "已启用"
+
+msgid "Manage listening ports, persistent storage and shared authentication."
+msgstr "管理服务监听端口、持久化存储和共享认证配置。"
+
+msgid "Manage sites"
+msgstr "管理站点"
+
+msgid "No pending changes"
+msgstr "无待应用更改"
+
+msgid "Public port 443"
+msgstr "公网 443 端口"
+
+msgid "Public port 80"
+msgstr "公网 80 端口"
+
+msgid "Read-only local evidence."
+msgstr "设备本地只读状态。"
+
+msgid "Reverse proxies"
+msgstr "反向代理"
+
+msgid "Reverse proxy"
+msgstr "反向代理"
+
+msgid "Saved draft settings; service operations use the active configuration."
+msgstr "显示已保存的草稿设置；服务操作使用最后成功应用的配置。"
+
+msgid "Saved sites"
+msgstr "已保存站点"
+
+msgid "Saving changes updates the draft. Applying validates and hot loads Caddy."
+msgstr "保存仅更新草稿；应用会校验并热加载 Caddy 配置。"
+
+msgid "Search domain or backend"
+msgstr "搜索域名或后端地址"
+
+msgid "Service information"
+msgstr "服务信息"
+
+msgid "Service settings"
+msgstr "服务设置"
+
+msgid "Site list"
+msgstr "站点列表"
+
+msgid "View service status, listener ports and configuration."
+msgstr "查看服务状态、监听端口与配置概况。"
+
+msgid "View the protected generated configuration or edit the complete Caddyfile."
+msgstr "查看脱敏后的生成配置，或切换到完整 Caddyfile 编辑。"

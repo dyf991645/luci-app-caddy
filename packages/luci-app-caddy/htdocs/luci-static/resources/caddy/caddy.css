@@ -134,3 +134,17 @@
  .caddy-app .account-row { grid-template-columns:1fr; }
  .caddy-app .toolbar { flex-wrap:wrap; }
 }
+
+.caddy-app [hidden] { display:none !important; }
+.caddy-app .panel-body:has(> .site-table) { padding:0; }
+.caddy-app .site-table .cbi-section > h3 { display:none; }
+.caddy-app .readonly-note { margin:0; padding:13px 18px; border-top:1px solid var(--line); background:var(--subtle); color:var(--muted); font-size:11px; }
+.caddy-app .pill.success { color:var(--success-color-low,#23734d); background:color-mix(in srgb,var(--success-color-medium,#23734d) 10%,var(--surface)); }
+.caddy-app .pill.warning { color:var(--text-color-high,#795b16); border:1px solid var(--warn-color-medium,#c79437); background:var(--subtle); }
+.caddy-site-editor .cbi-value-title { float:none; display:block; width:auto; text-align:left; margin-bottom:7px; padding:0; }
+.caddy-site-editor .cbi-value-field { margin-left:0; }
+.caddy-site-editor .cbi-value { padding:10px 0; }
+.caddy-site-editor .cbi-map { padding:0; }
+.caddy-app .site-table .tr[data-sid]:hover { background:var(--subtle); }
+.caddy-app .site-table .td { overflow-wrap:anywhere; }
+.caddy-app .site-table .cbi-section { margin-bottom:0; }
