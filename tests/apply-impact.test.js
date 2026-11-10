@@ -43,7 +43,7 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
     if(o.renderWidget)body.push(o.renderWidget());else {o.input=E('input',{'aria-label':o.title,value:o.cfgvalue?o.cfgvalue('0'):rootMap.data.get('json','0',o.option)??o.default??''});body.push(o.input);}
    }
    ui.showModal('Edit site',body);
-   return {field(name){return section.children.find(o=>o.option===name).input;},visible(name){return section.children.find(o=>o.option===name).active();},button(label){return all(modal).find(n=>n.tag==='button'&&n.textContent===label);},inputs(){return all(modal).filter(n=>n.tag==='input');},save(){return grid.handleModalSave(activeMap);},cancel(){grid.handleModalCancel(activeMap);}};
+   return {validate(name,value){return section.children.find(o=>o.option===name).validate('0',value);},field(name){return section.children.find(o=>o.option===name).input;},visible(name){return section.children.find(o=>o.option===name).active();},button(label){return all(modal).find(n=>n.tag==='button'&&n.textContent===label);},inputs(){return all(modal).filter(n=>n.tag==='input');},save(){return grid.handleModalSave(activeMap);},cancel(){grid.handleModalCancel(activeMap);}};
   },async render(){await view.render(page==='tls'?[state,{ok:true}]:page==='overview'?[{installed:true,running:false,enabled:false},state]:state);},button(label){return nodes.find(n=>n.tag==='button'&&n.textContent===label);},get modal(){return modal;},modalButton(label){return all(modal).find(n=>n.tag==='button'&&n.textContent===label);},nodes,calls,notifications,clipboard};
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
@@ -175,4 +175,16 @@ test('name/backend search and status filter update matching count',async()=>{
 });
 test('configuration copy exports the server protected preview, never raw manual secrets',async()=>{
  const h=harness('configuration',[],{route:'config',config:{mode:'manual',manual_caddyfile:'private-token-canary'},preview:{source:'manual',redacted:true}});await h.render();await h.button('Copy preview').click();expect(h.clipboard).toEqual(['{\n  "source": "manual",\n  "redacted": true\n}']);expect(h.clipboard[0]).not.toContain('private-token-canary');
+});
+
+test('backend add input may stay empty while explicit addresses remain validated',async()=>{
+ const h=harness('configuration',[]);await h.render();const editor=await h.openSite();
+ expect(editor.validate('upstreams','')).toBe(true);
+ for(const address of ['http://127.0.0.1:80','https://router.home:443','http://[::1]:8080'])expect(editor.validate('upstreams',address)).toBe(true);
+ for(const address of ['invalid','http://router.home','http://router.home:0','http://router.home:65536','http://router.home:80/path'])expect(editor.validate('upstreams',address)).not.toBe(true);
+ await editor.save();expect(h.calls.find(c=>c.method==='draft_save').args[0].sites[0].upstreams).toEqual(['http://localhost:8080']);
+});
+test('removing every backend still prevents saving a site',async()=>{
+ const h=harness('configuration',[]);await h.render();const editor=await h.openSite();editor.field('upstreams').value=[];
+ await editor.save();expect(h.calls.some(c=>c.method==='draft_save')).toBe(false);expect(h.notifications.length).toBeGreaterThan(0);
 });

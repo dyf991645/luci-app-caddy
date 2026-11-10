@@ -78,7 +78,8 @@ return view.extend({
 		option = section.option(form.DynamicList,'upstreams',_('Backends'),_('Use explicit ports. All backends in a site must use the same protocol. HTTPS certificates are verified.'));
 		option.rmempty = false; option.default = 'http://127.0.0.1:8080';
 		option.textvalue=function(sid){var backends=this.map.data.get('json',sid,'upstreams') || [];return E('div',{},[E('span',{},backends[0] || ''),E('small',{'class':'hint'},backends.length+' '+_('Backends')+' · '+({round_robin:_('Round robin'),least_conn:_('Least connections'),random:_('Random')}[this.map.data.get('json',sid,'balance') || 'round_robin']))]);};
-		option.validate = function(sid,value) {try {new URL(value);} catch(e) {return _('Invalid backend address');} return /^https?:\/\/(?:[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?|\[[a-fA-F0-9:]+\]):[0-9]{1,5}$/.test(value) && +value.split(':').pop() > 0 && +value.split(':').pop() < 65536 || _('Use http(s)://host:port without credentials or paths');};
+		// DynamicList validates its empty add-item input too; list emptiness is checked on save.
+		option.validate = function(sid,value) {if(value==='')return true;try {new URL(value);} catch(e) {return _('Invalid backend address');} return /^https?:\/\/(?:[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?|\[[a-fA-F0-9:]+\]):[0-9]{1,5}$/.test(value) && +value.split(':').pop() > 0 && +value.split(':').pop() < 65536 || _('Use http(s)://host:port without credentials or paths');};
 		option = section.option(form.ListValue,'balance',_('Load balancing')); option.default='round_robin';
 		option.value('round_robin',_('Round robin')); option.value('least_conn',_('Least connections')); option.value('random',_('Random'));
 		option = section.option(form.Value,'path',_('Optional path'),_('Exact path or a trailing /*. /media/* matches /media/ and descendants, excludes /media and /mediaX. Other paths return 404.'));
@@ -133,7 +134,7 @@ return view.extend({
 		siteSection.renderMoreOptionsModal=function() {if(accountDirty){ui.addNotification(null,E('p',{},_('Save account edits before editing a site.')),'warning');return Promise.resolve();}return Promise.resolve(renderSiteModal.apply(this,arguments)).then(function() {
 			var node=siteSection.getActiveModalMap();
 			var button=node && dom.findClassInstance(node).parent===map ? node.parentNode.querySelector('div.button-row > button:last-child') : null;
-			if(button) button.textContent=_('Save site to draft');
+			if(button) button.textContent=_('Save');
 		});};
 		var cancelSiteModal=siteSection.handleModalCancel;
 		siteSection.handleModalCancel=function(modalMap,ev,isSaving) {
