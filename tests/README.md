@@ -174,9 +174,11 @@ Ticket09: copy manager `notifications.uc`, `notification-worker.uc`,
 `certificates.uc`, executable `certificate-command` and `webhook-command` to
 `/tmp/luci-caddy-ticket09/`; copy `tests/notifications.uc` as
 `notifications.uc.test`, plus `notification-evidence.uc`,
-`notification-delivery.uc`, `notification-argv.uc`, `notifications-router.sh`.
+`notification-delivery.uc`, `notification-argv.uc`, `notification-rpc.uc`, `notifications-router.sh`.
+Copy the current RPC `luci.caddy` plugin too; the `rpc` fixture rewrites only
+its notification module constructor to use a private test root.
 Run `sh /tmp/luci-caddy-ticket09/notifications-router.sh`, then the same command
-with `evidence` and `worker`. These generate PEMs exclusively under `/tmp` and
+with `evidence`, `worker` and `rpc`. These generate PEMs exclusively under `/tmp` and
 never need a Caddy or LuCI process. The worker fixture executes the actual
 continuous worker with a local fixture-options file and a short check interval.
 
@@ -184,7 +186,8 @@ For explicitly authorized controlled notifications, run
 `python3 tests/webhook-receiver.py /tmp/luci-caddy-ticket09-received.jsonl` on
 the host and establish only `ssh -N -R 29082:127.0.0.1:29082 router.home`.
 Run the router fixture with `delivery ok`, `delivery redirect`, `delivery error`
-and `delivery slow`. Verify receiver records: exactly1/3/3/3 requests,
+and `delivery slow`; `delivery recover` additionally checks actual covering
+PEM replacement delivery and recovery deduplication. Verify receiver records: exactly1/3/3/3 requests,
 respectively, no `/canary` redirect request, stable IDs within each episode,
 and only allowlisted payload fields. The slow fixture takes about24seconds
 for three bounded8-second attempts with simulated clock backoff. During it,

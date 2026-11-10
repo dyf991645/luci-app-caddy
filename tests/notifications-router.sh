@@ -12,6 +12,11 @@ cat > "$root/active.json" <<JSON
 JSON
 chmod 600 "$root/fixture.key" "$root/active.json"
 printf '' > "$root/events"
+if [ "${1:-}" = rpc ]; then
+ sed "s@loadfile('/usr/share/caddy-manager/notifications.uc')()()@loadfile('$base/notifications.uc')()({root:'$root'})@g" "$base/luci.caddy" > "$root/rpc-plugin"
+ ucode "$base/notification-rpc.uc" "$root/rpc-plugin" "$root"
+ exit
+fi
 if [ "${1:-}" = delivery ]; then
  ucode "$base/notification-delivery.uc" "$base/notifications.uc" "$root" "$base/certificate-command" "$base/certificates.uc" "$2" "$base/webhook-command"
  exit
