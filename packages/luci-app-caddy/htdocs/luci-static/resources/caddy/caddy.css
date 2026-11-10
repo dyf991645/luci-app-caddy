@@ -198,3 +198,5 @@
  .caddy-site-editor .caddy-account-row { grid-template-columns:1fr; }
  .caddy-site-editor .cbi-tabmenu { display:flex; flex-wrap:wrap; }
 }
+.caddy-site-editor .caddy-account-row > details { grid-column:1 / -1; margin:0; }
+.caddy-site-editor .caddy-account-row > details > .field { margin-top:10px; }
