@@ -213,3 +213,10 @@
 .caddy-app .account-row .field-label { font-size:12px; }
 
 .caddy-app .field label.inline-check { display:flex; gap:12px; margin-bottom:0; font-weight:400; }
+
+.caddy-app .status-strip { flex-wrap:wrap; row-gap:18px; }
+.caddy-app .status-metric { flex:1 0 110px; padding:0 16px; }
+.caddy-app .status-actions { flex-wrap:wrap; gap:8px; }
+.caddy-app .toolbar > select { width:auto; min-width:130px; }
+.caddy-app .toolbar .count { white-space:nowrap; color:var(--muted); font-size:12px; }
+.caddy-app .toolbar { flex-wrap:wrap; }

@@ -333,3 +333,11 @@ ucode /tmp/luci-caddy-review-fixes/config-schema.uc /tmp/luci-caddy-review-fixes
 They verify shared proxy/Authelia IPv6, DNS and IPv4 acceptance/rejection,
 existing entry diagnostics, rejected-save revision retention and schema fields.
 All fixture files stay under `/tmp`; no installed RPC or service is replaced.
+
+## r11 site metadata, disabled sites and process metrics
+
+`site-state.uc MANAGER ROOT COMMAND` runs at the manager public save/read/preview/apply seam with `disable_certificates:true`. Use `challenge-global-command` (real validate, reload no-op). It covers name/enabled persistence, legacy default-enabled, exclusion of disabled proxy/redirect/certificate/snippet/auth dependencies, reenable checks, all-disabled and empty configurations. Only isolated `/tmp` roots are permitted.
+
+`process-metrics-test.uc MODULE ROOT` uses a known proc fixture for starttime and VmRSS; `process-metrics-router.sh FIXTURE` runs a short-lived Caddy at loopback25997, no ACME and no installed init action, then checks actual process metrics and cleans up. Place process-metrics.uc in FIXTURE first; do not run if the loopback port is occupied.
+
+`bun test tests/apply-impact.test.js tests/service-controls.test.js` checks the shipped view save/apply seams, metadata and disabled flags, search/filter counts and protected preview clipboard export. These adapter tests do not replace native browser visual acceptance.

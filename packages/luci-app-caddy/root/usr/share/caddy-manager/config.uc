@@ -41,9 +41,9 @@ return function(options) {
 		}
 		let affected_domains=[];
 		if (draft.config?.mode!='manual' && draft.config?.auth?.basic?.profile != active.config?.auth?.basic?.profile)
-			for(let site in draft.config?.sites) if(site.auth?.mode=='basic' && site.auth.source=='global') push(affected_domains,site.domain);
+			for(let site in draft.config?.sites) if(site.enabled!==false && site.auth?.mode=='basic' && site.auth.source=='global') push(affected_domains,site.domain);
 		if(draft.config?.mode!='manual' && sprintf('%J',draft.config?.auth?.authelia)!=sprintf('%J',active.config?.auth?.authelia))
-			for(let site in draft.config?.sites) if(site.auth?.mode=='authelia' && site.auth.source=='global') push(affected_domains,site.domain);
+			for(let site in draft.config?.sites) if(site.enabled!==false && site.auth?.mode=='authelia' && site.auth.source=='global') push(affected_domains,site.domain);
 		let basic_profiles={};
 		let refs=[draft.config?.auth?.basic?.profile];
 		for (let site in draft.config?.sites) push(refs,site.auth?.profile);
@@ -115,22 +115,24 @@ return function(options) {
 		}
 		let g = config?.settings;
 		if (!known_keys(config,['version','settings','sites','mode','manual_caddyfile','auth']) || !known_keys(g,['http_port','https_port','email','storage','default_challenge','cloudflare_credential','access_log'])) return 'Unsupported configuration field';
-		if (config.version != 2 || type(config.sites) != 'array' || length(config.sites) < 1)
-			return 'Configure at least one site using the supported schema';
+		if (config.version != 2 || type(config.sites) != 'array')
+			return 'Configure a site list using the supported schema';
 		if(config.auth != null && !known_keys(config.auth,['basic','authelia'])) return 'Unsupported global authentication field';
 		if(config.auth?.basic != null && (!known_keys(config.auth.basic,['profile']) || type(config.auth.basic.profile)!='string' || !match(config.auth.basic.profile,/^basic-[0-9]+-[0-9]+$/) || (config.mode!='manual' && !profile(config.auth.basic.profile)))) return 'Invalid global Basic Auth profile';
 		if(config.auth?.authelia != null) {let error=authelia_check(config.auth.authelia);if(error) return error;}
 		let domains={};
 		for (let s in config.sites) {
-			if (!known_keys(s,['domain','upstreams','balance','path','strip','challenge','advanced_snippet','auth'])) return 'Unsupported configuration field';
+			if (!known_keys(s,['name','enabled','domain','upstreams','balance','path','strip','challenge','advanced_snippet','auth'])) return 'Unsupported configuration field';
+			if(s.name!=null && (type(s.name)!='string' || length(s.name)>240 || match(s.name,/[[:cntrl:]]/))) return 'Site name must be text up to 240 bytes without control characters';
+			if(s.enabled!=null && type(s.enabled)!='bool') return 'Site enabled must be a boolean';
 			if (s.auth != null) {
 				if (!known_keys(s.auth,['mode','source','profile','authelia']) || index(['none','basic','authelia'],s.auth.mode)<0) return 'Unsupported access authentication';
 				if(s.auth.source!=null && index(['global','independent'],s.auth.source)<0) return 'Unsupported authentication source';
 				if(s.auth.profile!=null && (type(s.auth.profile)!='string' || !match(s.auth.profile,/^basic-[0-9]+-[0-9]+$/))) return 'Invalid authentication profile reference';
 				if(s.auth.authelia!=null) {let error=authelia_check(s.auth.authelia);if(error) return error;}
 				if(config.mode=='manual') continue;
-				if (s.auth.mode=='basic' && (index(['global','independent'],s.auth.source)<0 || !profile(s.auth.source=='global' ? config.auth?.basic?.profile : s.auth.profile))) return 'Configure the selected Basic Auth profile first';
-				if(s.auth.mode=='authelia') {
+				if (s.enabled!==false && s.auth.mode=='basic' && (index(['global','independent'],s.auth.source)<0 || !profile(s.auth.source=='global' ? config.auth?.basic?.profile : s.auth.profile))) return 'Configure the selected Basic Auth profile first';
+				if(s.enabled!==false && s.auth.mode=='authelia') {
 					if(index(['global','independent'],s.auth.source)<0) return 'Choose global or independent Authelia configuration';
 					let auth=s.auth.source=='global' ? config.auth?.authelia : s.auth.authelia;
 					let error=authelia_check(auth);if(error) return error;
@@ -138,7 +140,7 @@ return function(options) {
 					for(let entry in config.sites) {
 						let same=entry.domain==host || (substr(entry.domain,0,2)=='*.' && substr(host,-length(entry.domain)+1)==substr(entry.domain,1));
 						let covers=entry.path=='' || entry.path==path || (substr(entry.path,-2)=='/*' && substr(path,0,length(entry.path)-1)==substr(entry.path,0,length(entry.path)-1));
-						if(same && covers && entry.auth?.mode && entry.auth.mode!='none') return 'Login portal must use no additional authentication to avoid a login loop; configure Authelia session cookies and access policies externally';
+						if(entry.enabled!==false && same && covers && entry.auth?.mode && entry.auth.mode!='none') return 'Login portal must use no additional authentication to avoid a login loop; configure Authelia session cookies and access policies externally';
 					}
 				}
 
@@ -147,7 +149,7 @@ return function(options) {
 			let domain = type(s.domain) == 'string' && substr(s.domain,0,2) == '*.' ? substr(s.domain,2) : s.domain;
 			if (type(domain) != 'string' || length(s.domain) > 253 || !match(domain, /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/))
 				return 'Enter a valid domain or leading wildcard domain';
-			if (domain != s.domain && effective_challenge(s,g) != 'dns-01') return 'Wildcard domains require DNS-01';
+			if (s.enabled!==false && domain != s.domain && effective_challenge(s,g) != 'dns-01') return 'Wildcard domains require DNS-01';
 			for (let label in split(domain, '.'))
 				if (length(label) > 63) return 'Domain labels must not exceed 63 characters';
 			if (domains[s.domain]) return 'Each domain must have exactly one site';
@@ -183,6 +185,7 @@ return function(options) {
 	function generate(config, private_config) {
 		let g=config.settings, routes=[], redirects=[], policies=[];
 		for (let s in config.sites) {
+			if(s.enabled===false) continue;
 			let challenge=effective_challenge(s,g);
 			let issuer={module:'acme',email:g.email,challenges:{http:{disabled:challenge!='http-01'},'tls-alpn':{disabled:challenge!='tls-alpn-01'}}};
 			if (challenge == 'dns-01') {
@@ -257,7 +260,7 @@ return function(options) {
 		}
 		let generated = generate(config,private_config);
 		for (let site in config.sites) {
-			if (!length(trim(site.advanced_snippet || ''))) continue;
+			if (site.enabled===false || !length(trim(site.advanced_snippet || ''))) continue;
 			let snippet = adapt('http://snippet.invalid {\n' + site.advanced_snippet + '\n}\n','advanced_snippet',1);
 			if (length(keys(snippet.apps || {})) != 1 || !snippet.apps.http || length(keys(snippet.apps.http.servers || {})) != 1 || snippet.apps.http.servers.srv0.tls_connection_policies != null || snippet.apps.http.servers.srv0.automatic_https != null)
 				die('Advanced snippets support HTTP routing directives only');
@@ -430,7 +433,7 @@ return function(options) {
 				let config = migrate(request.config || state(true).draft);
 				let error = check(config);
 				if (error) return {ok:false,error};
-				if (config.mode == 'manual' || length(filter(config.sites, s => length(s.advanced_snippet || '') > 0))) {
+				if (config.mode == 'manual' || length(filter(config.sites, s => s.enabled!==false && length(s.advanced_snippet || '') > 0))) {
 					try {
 						write('preview.json', compile(config,true));
 						if (!command('validate','preview.json')) die('Validation failed');

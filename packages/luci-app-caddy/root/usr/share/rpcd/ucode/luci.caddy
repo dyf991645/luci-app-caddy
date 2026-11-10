@@ -37,6 +37,7 @@ return {
 					installed: !!installed,
 					running: false,
 					enabled: !!init_enabled('caddy'),
+					uptime_seconds:null,memory_kib:null,
 					version: installed ? output('/usr/bin/caddy version 2>/dev/null') : null,
 					modules: []
 				};
@@ -56,8 +57,11 @@ return {
 					result.error = 'Unable to query procd';
 				}
 				for (let name, instance in service?.caddy?.instances)
-					if (instance.running)
+					if (instance.running) {
 						result.running = true;
+						let metrics=loadfile('/usr/share/caddy-manager/process-metrics.uc')()(instance.pid);
+						result.uptime_seconds=metrics.uptime_seconds;result.memory_kib=metrics.memory_kib;
+					}
 				bus.disconnect();
 				return result;
 			}

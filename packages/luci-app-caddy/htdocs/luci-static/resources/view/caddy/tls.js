@@ -22,12 +22,16 @@ return view.extend({
 		var method=current.draft && current.draft.settings.default_challenge || 'http-01';
 		var token=E('input',{'id':'caddy-cf-token','type':'password','autocomplete':'new-password','class':'cbi-input-text','disabled':readonly,'placeholder':_('Enter a new token to replace the saved credential')});
 		var status=E('p',{'role':'status','aria-live':'polite'}), credentialStatus=E('p');
+		var methodHelp=E('div',{'class':'challenge-help'}),siteMethods=E('div');
+		var help={'http-01':_('Public port 80 must reach the internal HTTP listener. DNS records must point to this entry. No DNS plugin is required.'),'dns-01':_('Uses Cloudflare DNS TXT records; no inbound port is required. Wildcards require DNS-01. API access and DNS propagation must work.'),'tls-alpn-01':_('Public port 443 must reach Caddy directly for TLS validation. An upstream HTTPS proxy must not terminate this challenge. No DNS plugin is required.')};
 		var descriptions={'http-01':_('Public port 80'),'dns-01':_('Cloudflare DNS'),'tls-alpn-01':_('Public port 443')};
 		var radios=['http-01','dns-01','tls-alpn-01'].map(function(value){var input=E('input',{'type':'radio','name':'default-challenge','value':value,'disabled':readonly});input.checked=method===value;input.addEventListener('change',function(){method=value;dirty=true;update();});return input;});
 		var choices=E('div',{'class':'choice-grid'},radios.map(function(input){return E('label',{'class':'choice'},[E('div',{},[input,E('strong',{'class':'mono'},input.value.toUpperCase())]),E('small',{},descriptions[input.value])]);}));
 		var save=E('button',{'class':'button cbi-button cbi-button-save','click':function(){return perform(false);}},_('Save'));
 		var activate=E('button',{'class':'button primary cbi-button cbi-button-apply','click':function(){return perform(true);}},_('Save & Apply'));
 		function update(){
+			methodHelp.textContent=help[method];
+			siteMethods.replaceChildren.apply(siteMethods,(current.draft?.sites || []).map(function(site){var selected=site.challenge || 'global';return layout.row((site.name?site.name+' · ':'')+site.domain,(site.enabled===false?_('Disabled')+' · ':'')+(selected=='global'?_('Global default')+' → '+method.toUpperCase():selected.toUpperCase()));}));
 			status.textContent=_('Draft revision')+': '+current.draft_revision+' · '+_('Active revision')+': '+current.active_revision+(current.pending?' · '+_('Pending application'):'');
 			credentialStatus.textContent=_('Saved credential revision')+': '+(credentials.draft_revision || _('Not configured'))+' · '+_('Active credential revision')+': '+(credentials.active_revision || _('None'));
 			save.disabled=readonly || busy || !dirty || !current.draft;
@@ -71,7 +75,8 @@ return view.extend({
 			!current.draft?layout.note(_('Save a site configuration before adding credentials.')):'',
 			layout.panel(_('Stored certificates'),'',certificateBody,E('a',{'class':'button','href':L.url('admin/services/caddy/certificates')},_('Stored certificates'))),
 			layout.panel(_('Certificate alerts and webhook'),'',notificationBody,E('a',{'class':'button','href':L.url('admin/services/caddy/notifications')},_('Certificate alerts and webhook'))),
-			layout.panel(_('Default verification method'),_('Sites using the global default follow this setting after Apply. Explicit site methods remain unchanged. Wildcard domains require DNS-01.'),[choices]),
+			layout.panel(_('Default verification method'),_('Sites using the global default follow this setting after Apply. Explicit site methods remain unchanged. Wildcard domains require DNS-01.'),[choices,methodHelp]),
+			layout.panel(_('Site verification methods'),_('Draft selections, not certificate issuance results. Global references resolve to the selected default; disabled sites do not create routes or certificate policies.'),[current.draft?.mode=='manual'?layout.note(_('Manual mode: retained site selections do not participate in the active Caddyfile.')):siteMethods,layout.note(_('Caddy requests certificates for configured enabled domains. Wildcard domains require DNS-01.'))]),
 			layout.panel(_('Cloudflare DNS credentials'),'',[
 				credentialStatus,E('div',{'class':'field'},[E('label',{'for':'caddy-cf-token'},_('Cloudflare API Token')),token]),
 				layout.note(_('Grant Zone DNS Edit and Zone Read only for the required zones. Tokens are write-only and never shown in previews or exports. Saving stages a private revision; successful Apply hot loads it. The active revision remains available after a failed apply. Changing the default verification method never removes credentials.')),

@@ -924,3 +924,93 @@ msgstr "勾选所需状态后，点击“应用服务设置”生效。启动使
 
 msgid "Unable to read service state"
 msgstr "无法读取服务状态"
+
+msgid "Site name"
+msgstr "站点名称"
+
+msgid "Listening ports"
+msgstr "监听端口"
+
+msgid "Matching sites"
+msgstr "匹配站点"
+
+msgid "Search name, domain or backend"
+msgstr "搜索名称、域名或后端"
+
+msgid "Filter site status"
+msgstr "筛选站点状态"
+
+msgid "All sites"
+msgstr "全部站点"
+
+msgid "Configuration preview"
+msgstr "配置预览"
+
+msgid "Stores ACME accounts, certificates and private keys. Use a directory retained across reboot and upgrades."
+msgstr "保存 ACME 账户、证书和私钥。请使用重启和升级后仍能保留的目录。"
+
+msgid "Protected configuration preview"
+msgstr "脱敏配置预览"
+
+msgid "Copy preview"
+msgstr "复制预览"
+
+msgid "Download preview"
+msgstr "下载预览"
+
+msgid "Form mode previews protected Caddy JSON; manual mode edits a Caddyfile. Copy and download always export the protected JSON preview."
+msgstr "表单模式展示脱敏的 Caddy JSON；手动模式编辑 Caddyfile。复制和下载均导出脱敏的 JSON 预览。"
+
+msgid "Uptime"
+msgstr "运行时长"
+
+msgid "Resident memory"
+msgstr "内存占用（RSS）"
+
+msgid "Draft HTTPS port"
+msgstr "草稿 HTTPS 端口"
+
+msgid "Draft enabled / total sites"
+msgstr "草稿启用 / 总站点"
+
+msgid "Manual mode"
+msgstr "手动模式"
+
+msgid "Packaged core source"
+msgstr "软件包内核来源"
+
+msgid "Official Caddy custom download · Cloudflare"
+msgstr "Caddy 官方定制下载 · Cloudflare"
+
+msgid "Draft Authelia sites"
+msgstr "草稿 Authelia 站点数"
+
+msgid "Public port 80 must reach the internal HTTP listener. DNS records must point to this entry. No DNS plugin is required."
+msgstr "公网 80 端口必须转发到内部 HTTP 监听端口，域名 DNS 记录须指向此入口，无需 DNS 插件。"
+
+msgid "Uses Cloudflare DNS TXT records; no inbound port is required. Wildcards require DNS-01. API access and DNS propagation must work."
+msgstr "通过 Cloudflare DNS TXT 记录验证，无需开放入站端口，支持通配符；需要能访问 API 并等待 DNS 传播。"
+
+msgid "Public port 443 must reach Caddy directly for TLS validation. An upstream HTTPS proxy must not terminate this challenge. No DNS plugin is required."
+msgstr "公网 443 端口须直达 Caddy 进行 TLS 验证，不能由上游 HTTPS 代理终止验证连接，无需 DNS 插件。"
+
+msgid "Site verification methods"
+msgstr "站点验证方式"
+
+msgid "Draft selections, not certificate issuance results. Global references resolve to the selected default; disabled sites do not create routes or certificate policies."
+msgstr "此处展示草稿选择，不代表证书签发结果。使用全局默认的站点按当前选择解析；停用站点不生成路由或证书申请策略。"
+
+msgid "Manual mode: retained site selections do not participate in the active Caddyfile."
+msgstr "手动模式：保留的站点选择不参与当前 Caddyfile。"
+
+msgid "Caddy requests certificates for configured enabled domains. Wildcard domains require DNS-01."
+msgstr "Caddy 按已启用站点的域名申请证书；通配符域名必须使用 DNS-01。"
+
+msgid "Configure listening ports, certificate storage and access logging."
+msgstr "配置监听端口、证书存储和访问日志。"
+
+msgid "Certificate and storage"
+msgstr "证书与存储"
+
+msgid "ACME account and persistent certificate data"
+msgstr "ACME 账户及持久化证书数据"

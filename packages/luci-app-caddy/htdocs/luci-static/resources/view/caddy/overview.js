@@ -7,13 +7,16 @@
 
 var status = rpc.declare({ object: 'luci.caddy', method: 'status', expect: { '': {} } });
 var draft = rpc.declare({ object: 'luci.caddy', method: 'draft_get', expect: { '': {} } });
+var diagnostics=rpc.declare({object:'luci.caddy',method:'diagnostics',expect:{'':{}}});
 var action = rpc.declare({ object: 'luci.caddy', method: 'action', params: ['action'], expect: { '': {} } });
 
 return view.extend({
-	load: function() { return Promise.all([status(), draft()]); },
+	load: function() { return Promise.all([status(), draft(),diagnostics()]); },
 	render: function(initial) {
 		var state = E('strong', { 'role': 'status', 'aria-live': 'polite' });
 		var snapshot = initial[1], config = snapshot.draft, settings = config && config.settings || {}, sites = config && config.sites || [];
+		var device=initial[2] || {};
+		var uptime=E('strong'),memory=E('strong');
 		var emblem = E('span', { 'class': 'status-emblem', 'aria-hidden': 'true' });
 		var info = E('div');
 		var controls = E('div', { 'class': 'actions' });
@@ -23,11 +26,17 @@ return view.extend({
 		var buttons = {};
 
 		function update(data) {
+			uptime.textContent=data.running===false?_('Stopped'):layout.duration(data.uptime_seconds);
+			memory.textContent=data.running===false?'—':layout.memory(data.memory_kib);
 			state.textContent = data.running == null ? _('Unknown') : data.running ? _('Running') : _('Stopped');
 			emblem.textContent = data.running ? '✓' : '□';
 			if (data.error)
 				state.appendChild(E('p', { 'class': 'alert-message warning' }, data.error));
 			info.replaceChildren(
+				layout.row(_('OpenWrt'),device.firmware ? [device.firmware.version,device.firmware.revision].filter(Boolean).join(' · '):_('Unknown')),
+				layout.row(_('Architecture (kernel / APK)'),device.architecture ? [device.architecture.kernel,device.architecture.apk].filter(Boolean).join(' / '):_('Unknown')),
+				layout.row(_('Packaged core source'),_('Official Caddy custom download · Cloudflare')),
+				layout.row(_('Core APK'),device.package?.version || _('Unknown')),
 				layout.row(_('Caddy version'), data.version || _('Not installed')),
 			layout.row(_('Cloudflare DNS'), (data.modules || []).find(function(m) { return m.indexOf('dns.providers.cloudflare') == 0; }) || _('Not installed')),
 				E('details', {}, [E('summary', {}, _('Installed modules')), E('pre', { 'style': 'white-space: pre-wrap; overflow-wrap: anywhere' }, (data.modules || []).join('\n') || _('No module information available'))])
@@ -63,8 +72,11 @@ return view.extend({
 		return layout.page('overview', _('Overview'), _('View service status, listener ports and configuration.'), [
 			E('section', { 'class': 'status-strip' }, [
 				E('div', { 'class': 'status-service' }, [emblem, E('div', {}, [E('small', {}, 'Caddy'), state])]),
-				E('div', { 'class': 'status-metric' }, [E('small', {}, _('Saved sites')), E('strong', {}, String(sites.length))]),
-				E('div', { 'class': 'status-metric' }, [E('small', {}, _('Active revision')), E('strong', {}, String(snapshot.active_revision))])
+				E('div', { 'class': 'status-metric' }, [E('small', {}, _('Draft enabled / total sites')), E('strong', {}, config?.mode=='manual'?_('Manual mode'):sites.filter(function(site){return site.enabled!==false;}).length+' / '+sites.length)]),
+				E('div', { 'class': 'status-metric' }, [E('small', {}, _('Active revision')), E('strong', {}, String(snapshot.active_revision))]),
+				E('div',{'class':'status-metric'},[E('small',{},_('Draft HTTPS port')),E('strong',{},config?.mode=='manual'?_('Manual mode'):String(settings.https_port || '—'))]),
+				E('div',{'class':'status-metric'},[E('small',{},_('Uptime')),uptime]),
+				E('div',{'class':'status-metric'},[E('small',{},_('Resident memory')),memory])
 			]),
 			E('div', { 'class': 'two-column' }, [
 				layout.panel(_('Service information'), '', [info,
@@ -76,6 +88,8 @@ return view.extend({
 					layout.row(_('Internal HTTPS port'), settings.https_port),
 					layout.row(_('Persistent storage directory'), settings.storage),
 					layout.row(_('Saved draft revision'), snapshot.draft_revision),
+					layout.row(_('Draft Authelia sites'),config?.mode=='manual'?_('Manual mode'):sites.filter(function(site){return site.enabled!==false && site.auth?.mode=='authelia';}).length),
+					layout.row(_('Default verification method'),(settings.default_challenge || 'http-01').toUpperCase()),
 					layout.row(_('Configuration state'), snapshot.pending ? _('Pending application') : _('No pending changes'))
 				])
 			]),

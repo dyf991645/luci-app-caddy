@@ -1,0 +1,18 @@
+import {readfile} from 'fs';
+let root=ARGV[1],manager=loadfile(ARGV[0])()({root,admin:'127.0.0.1:25019',command:ARGV[2],disable_certificates:true});
+let base={domain:'enabled.example.test',upstreams:['http://127.0.0.1:25081'],balance:'round_robin',path:'',strip:false,challenge:'http-01'};
+let config={version:2,settings:{http_port:25080,https_port:25443,email:'',storage:root+'/data'},sites:[{...base,name:'家庭媒体',enabled:true},{...base,domain:'disabled.example.test',name:'暂停站点',enabled:false,challenge:'dns-01',auth:{mode:'basic',source:'global'},advanced_snippet:'invalid directive'}]};
+let saved=manager.draft_save({config,expected_revision:0});assert(saved.ok,'named enabled and disabled sites can save without disabled auth credentials');
+let generated=manager.preview({config});assert(generated.ok,'disabled snippet does not participate in preview');
+assert(length(generated.config.apps.tls.automation.policies)==1,'disabled site has no certificate policy');
+assert(index(sprintf('%J',generated.config),'disabled.example.test')<0,'disabled site has no proxy or redirect');
+assert(manager.apply({expected_revision:1}).ok,'real Caddy validates active site while disabled DNS and snippet are excluded');
+let active=json(readfile(root+'/active.json'));assert(index(sprintf('%J',active),'disabled.example.test')<0,'disabled site excluded from committed runtime');
+let retained=manager.draft_edit();assert(retained.draft.sites[1].name=='暂停站点' && retained.draft.sites[1].enabled==false && retained.draft.sites[1].advanced_snippet=='invalid directive','disabled settings persist');
+config.sites[1].enabled=true;assert(!manager.draft_save({config,expected_revision:1}).ok,'reenabling requires valid authentication');
+config.sites=[base];assert(manager.draft_save({config,expected_revision:1}).ok,'legacy site without name/enabled remains supported');
+assert(length(manager.preview({}).config.apps.tls.automation.policies)==1,'legacy site defaults to enabled');
+config.sites=[{...base,enabled:false}];assert(manager.draft_save({config,expected_revision:2}).ok && manager.apply({expected_revision:3}).ok,'all-disabled configuration validates');
+config.sites=[];assert(manager.draft_save({config,expected_revision:3}).ok && manager.apply({expected_revision:4}).ok,'empty site list saves and validates');
+for(let site in [{...base,enabled:'false'},{...base,name:123},{...base,name:'bad\nname'}])assert(!manager.draft_save({config:{...config,sites:[site]},expected_revision:4}).ok,'invalid site metadata is rejected');
+print('PASS named/disabled/legacy/empty sites, runtime exclusion, real validation and reenable checks\n');

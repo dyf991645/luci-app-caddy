@@ -9,9 +9,11 @@ var serviceAction = rpc.declare({object:'luci.caddy',method:'action',params:['ac
 
 /* Content only: LuCI owns the top navigation, theme, session and page tabs. */
 return baseclass.extend({
+	duration: function(seconds) {if(seconds==null)return _('Unknown');var n=Math.floor(seconds),days=Math.floor(n/86400);return (days?days+'d ':'')+[Math.floor(n/3600)%24,Math.floor(n/60)%60,n%60].map(function(x){return String(x).padStart(2,'0');}).join(':');},
+	memory: function(kib) {return kib==null?_('Unknown'):(kib/1024).toFixed(1)+' MiB';},
 	page: function(key, title, description, children, actions) {
 		if (!document.querySelector('link[data-caddy-layout]'))
-			document.head.appendChild(E('link', { 'rel': 'stylesheet', 'href': L.resource('caddy/caddy.css') + '?v=10', 'data-caddy-layout': '' }));
+			document.head.appendChild(E('link', { 'rel': 'stylesheet', 'href': L.resource('caddy/caddy.css') + '?v=11', 'data-caddy-layout': '' }));
 		return E('div', { 'class': 'caddy-app', 'data-page': key }, [
 			E('div', { 'class': 'heading' }, [
 				E('div', {}, [E('div', { 'class': 'heading-title' }, E('h1', {}, title)), E('p', {}, description)]),
@@ -21,12 +23,16 @@ return baseclass.extend({
 		]);
 	},
 	serviceStrip: function(snapshot) {
+		var layoutDuration=this.duration,layoutMemory=this.memory;
 		var state = E('strong', { 'role':'status', 'aria-live':'polite' }, _('Unknown'));
 		var emblem = E('span', { 'class':'status-emblem', 'aria-hidden':'true' }, '□');
 		var controls = E('div', { 'class':'status-actions actions' });
 		var busy = false, buttons = [], current = {};
+		var uptime=E('strong',{'aria-label':_('Uptime')}),memory=E('strong',{'aria-label':_('Resident memory')});
 		function update(data) {
 			current = data;
+			uptime.textContent=data.running===false?_('Stopped'):layoutDuration(data.uptime_seconds);
+			memory.textContent=data.running===false?'—':layoutMemory(data.memory_kib);
 			state.textContent = data.running == null ? _('Unknown') : data.running ? _('Running') : _('Stopped');
 			emblem.textContent = data.running ? '✓' : '□';
 			buttons.forEach(function(button) { button.disabled = busy || !L.hasViewPermission() || !data.installed || !data.running; });
@@ -44,15 +50,21 @@ return baseclass.extend({
 		serviceStatus().then(update).catch(function() { update({}); });
 		poll.add(function() { return busy ? Promise.resolve() : serviceStatus().then(update); }, 5);
 		var siteCount = E('strong', {'aria-label':_('Saved sites')});
+		var httpsPort=E('strong',{'aria-label':_('Draft HTTPS port')});
 		var activeRevision = E('strong', {'aria-label':_('Active revision')});
 		var strip = E('section', { 'class':'status-strip' }, [
 			E('div', { 'class':'status-service' }, [emblem,E('div',{},[E('small',{},'Caddy'),state])]),
-			E('div', { 'class':'status-metric' }, [E('small',{},_('Saved sites')),siteCount]),
+			E('div', { 'class':'status-metric' }, [E('small',{},_('Draft enabled / total sites')),siteCount]),
 			E('div', { 'class':'status-metric' }, [E('small',{},_('Active revision')),activeRevision]),
+			E('div',{'class':'status-metric'},[E('small',{},_('Draft HTTPS port')),httpsPort]),
+			E('div',{'class':'status-metric'},[E('small',{},_('Uptime')),uptime]),
+			E('div',{'class':'status-metric'},[E('small',{},_('Resident memory')),memory]),
 			controls
 		]);
 		strip.updateSnapshot = function(value) {
-			siteCount.textContent = String(value.draft && value.draft.sites.length || 0);
+			var sites=value.draft?.sites || [],manual=value.draft?.mode=='manual';
+			siteCount.textContent=manual?_('Manual mode'):sites.filter(function(site){return site.enabled!==false;}).length+' / '+sites.length;
+			httpsPort.textContent=manual?_('Manual mode'):String(value.draft?.settings?.https_port || '—');
 			activeRevision.textContent = String(value.active_revision);
 		};
 		strip.updateSnapshot(snapshot);
