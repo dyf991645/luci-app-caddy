@@ -1,6 +1,13 @@
 #!/bin/sh /etc/rc.common
 # shellcheck disable=SC2034 # rc.common consumes these service declarations.
 
+# OpenWrt default_postinst enables/starts every packaged init script. Caddy is
+# opt-in; the package hook separately restores a previously running instance.
+# rc.common sets action before sourcing this file. Exit before procd is opened.
+case "${pkgname:-}:${action:-}" in
+	caddy-binary:enable|caddy-binary:start) exit 0 ;;
+esac
+
 START=95
 STOP=10
 USE_PROCD=1

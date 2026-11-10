@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=caddy-binary
 PKG_VERSION:=2.11.8
-PKG_RELEASE:=3
+PKG_RELEASE:=4
 PKG_LICENSE:=Apache-2.0
 PKG_SOURCE:=caddy-2.11.8-cloudflare-0.2.4-linux-arm64
 PKG_SOURCE_URL:=https://caddyserver.com/api
@@ -37,6 +37,32 @@ define Build/Prepare
 endef
 
 define Build/Compile
+endef
+
+define Package/caddy-binary/preinst
+#!/bin/sh
+# APK runs the NEW pre-upgrade before replacing files, not the old prerm.
+if [ -z "$${IPKG_INSTROOT}" ]; then
+	rm -f /var/run/caddy-package-running
+	if [ "$${PKG_UPGRADE}" = 1 ] && /etc/init.d/caddy running 2>/dev/null; then
+		umask 077
+		: > /var/run/caddy-package-running || exit 1
+		/etc/init.d/caddy stop || exit 1
+	fi
+fi
+endef
+
+define Package/caddy-binary/postinst
+#!/bin/sh
+# default_postinst's automatic enable/start is suppressed by caddy.init.
+if [ -z "$${IPKG_INSTROOT}" ]; then
+	if [ "$${PKG_UPGRADE}" = 1 ] && [ -f /var/run/caddy-package-running ]; then
+		rm -f /var/run/caddy-package-running
+		pkgname='' /etc/init.d/caddy start
+	else
+		rm -f /var/run/caddy-package-running
+	fi
+fi
 endef
 
 define Package/caddy-binary/install
