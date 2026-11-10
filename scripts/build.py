@@ -99,6 +99,13 @@ def build(args):
         run([apk, 'extract', '--allow-untrusted', '--no-chown', '--destination', extract, path])
         if name == 'caddy-binary' and sha(extract / 'usr/bin/caddy') != core['sha256']:
             raise ValueError('Packaged Caddy differs from reviewed upstream artifact')
+        if name == 'luci-app-caddy':
+            expected_catalog = args.work / 'caddy.zh-cn.lmo'
+            run([sdk / 'staging_dir/hostpkg/bin/po2lmo',
+                 ROOT / 'packages/luci-app-caddy/po/zh_Hans/caddy.po', expected_catalog])
+            catalog = extract / 'usr/lib/lua/luci/i18n/caddy.zh-cn.lmo'
+            if not catalog.is_file() or sha(catalog) != sha(expected_catalog):
+                raise ValueError('Packaged native Chinese catalog missing or changed')
         shutil.copyfile(path, args.output / path.name)
         packages.append({'file': path.name, 'architecture': arch, 'sha256': sha(path)})
     # Execute the actual packaged ARM64 binary via qemu on the x86_64 SDK runner.
@@ -122,7 +129,8 @@ def build(args):
                 'packages': packages, 'build': {'command': sys.argv, 'jobs': args.jobs,
                 'runner': os.environ.get('RUNNER_OS', sys.platform),
                 'run_url': os.environ.get('GITHUB_SERVER_URL', '') + '/' + os.environ.get('GITHUB_REPOSITORY', '') + '/actions/runs/' + os.environ.get('GITHUB_RUN_ID', '')},
-                'validation': {'apk_integrity': 'passed', 'installation': 'not performed by this build',
+                'validation': {'apk_integrity': 'passed', 'native_chinese_catalog': 'passed',
+                               'installation': 'not performed by this build',
                                'reproducible': False}}
     (args.output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     shutil.copyfile(ROOT / 'artifact-lock.json', args.output / 'artifact-lock.json')
