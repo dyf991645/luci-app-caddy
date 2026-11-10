@@ -22,7 +22,7 @@ return view.extend({
 		var mode = config.mode || 'form';
 		var manual = E('textarea',{'class':'cbi-input-textarea','rows':18,'spellcheck':'false','aria-label':_('Complete Caddyfile')},config.manual_caddyfile || '');
 		var sourceStatus = E('p',{'role':'status'});
-		var formNode;
+		var formNode, serviceStrip;
 		var map = new form.JSONMap({authelia:Object.assign({backend:'',uri:'/api/authz/forward-auth',portal:''},config.auth?.authelia),settings:Object.assign({},config.settings),sites:config.sites.map(function(site) {return Object.assign({},site);})});
 		map.readonly = !L.hasViewPermission();
 		var section = map.section(form.GridSection,'sites',_('Sites'));
@@ -109,6 +109,7 @@ return view.extend({
 		scope.addEventListener('change',loadAccounts);accountRows.addEventListener('input',function(){accountDirty=true;dirty=true;update();});loadAccounts();
 		accountsNode=E('div',{'class':'caddy-app form-section'},[E('h3',{},_('Basic Auth accounts')),E('p',{},_('Enter global for shared accounts, or the exact site domain for independent accounts.')),E('p',{},_('Passwords are hashed on the router. Existing passwords and hashes are never read back. Remove an account row to delete it. Save accounts updates the draft; apply activates the change.')),scope,accountRows,E('button',{'class':'cbi-button','click':function(){accountRow();accountDirty=true;dirty=true;update();}},_('Add account')),' ',E('button',{'class':'button primary cbi-button cbi-button-save','click':function(){busy=true;update();return map.parse().then(function(){return saveBasic(scope.value,values(),Array.from(accountRows.children).map(function(row){return row.account();}),current.draft_revision);}).then(result).then(function(saved){current=saved;config=Object.assign(values(),saved.draft,{manual_caddyfile:manual.value});config.sites.forEach(function(site){map.data.sections('json','sites').forEach(function(buffer){if(buffer.domain==site.domain)map.data.set('json',buffer['.name'],'auth',site.auth);});});dirty=false;accountDirty=false;loadAccounts();}).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');}).finally(function(){busy=false;update();});}},_('Save accounts to draft'))]);
 		function update() {
+			if(serviceStrip)serviceStrip.updateSnapshot(current);
 			sourceStatus.textContent = mode == 'manual' ? _('Draft source: complete Caddyfile. Retained form settings are read-only and do not participate. Service and autostart remain available on Overview.') : _('Draft source: form configuration. The separate manual Caddyfile is preserved.');
 			affected.textContent=current.affected_domains?.length ? _('Applying global authentication changes affects:')+' '+current.affected_domains.join(', ') : '';
 			if(accountsNode) accountsNode.querySelectorAll('input,select,button').forEach(function(field){field.disabled=busy || map.readonly || mode=='manual';});
@@ -183,7 +184,7 @@ return view.extend({
 					], [E('button',{'class':'button','disabled':map.readonly,'click':function(){return showPreview(values()).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');});}},_('Refresh preview'))])];
 			}
 			else {
-				content = [layout.serviceStrip(initial),E('div',{'class':'info-note','hidden':mode!='manual'}, [sourceStatus, E('a',{'href':L.url('admin/services/caddy/config')},_('Configuration file'))]),
+				content = [serviceStrip=layout.serviceStrip(current),E('div',{'class':'info-note','hidden':mode!='manual'}, [sourceStatus, E('a',{'href':L.url('admin/services/caddy/config')},_('Configuration file'))]),
 					layout.panel(_('Site list'), _('Configure a domain, backends and certificate verification for each site.'), [
 						E('div',{'class':'toolbar'}, [E('input',{'type':'search','placeholder':_('Search domain or backend'),'aria-label':_('Search domain or backend'),'input':function(event){
 							var query=event.target.value.toLowerCase();

@@ -43,12 +43,20 @@ return baseclass.extend({
 		});
 		serviceStatus().then(update).catch(function() { update({}); });
 		poll.add(function() { return busy ? Promise.resolve() : serviceStatus().then(update); }, 5);
-		return E('section', { 'class':'status-strip' }, [
+		var siteCount = E('strong', {'aria-label':_('Saved sites')});
+		var activeRevision = E('strong', {'aria-label':_('Active revision')});
+		var strip = E('section', { 'class':'status-strip' }, [
 			E('div', { 'class':'status-service' }, [emblem,E('div',{},[E('small',{},'Caddy'),state])]),
-			E('div', { 'class':'status-metric' }, [E('small',{},_('Saved sites')),E('strong',{},String(snapshot.draft && snapshot.draft.sites.length || 0))]),
-			E('div', { 'class':'status-metric' }, [E('small',{},_('Active revision')),E('strong',{},String(snapshot.active_revision))]),
+			E('div', { 'class':'status-metric' }, [E('small',{},_('Saved sites')),siteCount]),
+			E('div', { 'class':'status-metric' }, [E('small',{},_('Active revision')),activeRevision]),
 			controls
 		]);
+		strip.updateSnapshot = function(value) {
+			siteCount.textContent = String(value.draft && value.draft.sites.length || 0);
+			activeRevision.textContent = String(value.active_revision);
+		};
+		strip.updateSnapshot(snapshot);
+		return strip;
 	},
 	panel: function(title, description, children, actions) {
 		return E('section', { 'class': 'panel' }, [

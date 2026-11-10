@@ -83,3 +83,11 @@ test('TLS credential save confirms the newest credential response revision and i
  h.modalButton('Apply').click();await operation;
  expect(h.calls.filter(c=>c.method==='config_apply')).toEqual([{method:'config_apply',args:[6]}]);
 });
+
+test('reverse proxy status strip reflects the revision applied without refreshing the page',async()=>{
+ const h=harness('configuration',[]);await h.render();
+ const metric=h.nodes.find(n=>n.attrs['aria-label']==='Active revision');
+ expect(metric.textContent).toBe('3');
+ await h.button('Save & Apply').click();
+ expect(metric.textContent).toBe('4');
+});
