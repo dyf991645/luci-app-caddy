@@ -1,0 +1,10 @@
+import {writefile,readfile,chmod} from 'fs';
+let plugin=loadfile(ARGV[0])()['luci.caddy'],root=ARGV[1];
+let draft=sprintf('%J',{mode:'manual',manual_caddyfile:'PRIVATE_CADDYFILE_CANARY'});
+writefile(root+'/draft.json',draft);chmod(root+'/draft.json',0600);
+let response=plugin.notification_save.call({args:{enabled:false,url:'http://127.0.0.1:29082/ok?token=URL_CANARY',headers:{Authorization:'Bearer HEADER_CANARY'}}});
+assert(response.ok && response.webhook.configured && !response.webhook.enabled,'notification save RPC usable in manual mode');
+let status=plugin.notification_status.call({args:{}});
+assert(index(sprintf('%J',[response,status]),'CANARY')<0,'read/write RPC responses expose neither target nor headers nor private manual source');
+assert(readfile(root+'/draft.json')==draft,'notification settings do not modify Caddy configuration');
+print('PASS public RPC private notification settings independent of manual mode\n');

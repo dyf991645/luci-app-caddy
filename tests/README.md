@@ -205,3 +205,30 @@ Tests cover leaf metadata, one-label wildcard coverage, expiration boundaries,
 relative near-expiry, malformed PEM/symlinks/unsupported storage, source-derived
 issuer failure→success, replay and credential-error privacy. See
 `CERTIFICATES.md` for bounded-window and local filesystem trust limitations.
+
+Ticket09: copy manager `notifications.uc`, `notification-worker.uc`,
+`certificates.uc`, executable `certificate-command` and `webhook-command` to
+`/tmp/luci-caddy-ticket09/`; copy `tests/notifications.uc` as
+`notifications.uc.test`, plus `notification-evidence.uc`,
+`notification-delivery.uc`, `notification-argv.uc`, `notification-rpc.uc`, `notifications-router.sh`.
+Copy the current RPC `luci.caddy` plugin too; the `rpc` fixture rewrites only
+its notification module constructor to use a private test root.
+Run `sh /tmp/luci-caddy-ticket09/notifications-router.sh`, then the same command
+with `evidence`, `threshold90`, `threshold1`, `worker` and `rpc`. These generate PEMs exclusively under `/tmp` and
+never need a Caddy or LuCI process. The worker fixture executes the actual
+continuous worker with a local fixture-options file and a short check interval.
+
+For explicitly authorized controlled notifications, run
+`python3 tests/webhook-receiver.py /tmp/luci-caddy-ticket09-received.jsonl` on
+the host and establish only `ssh -N -R 29082:127.0.0.1:29082 router.home`.
+Run the router fixture with `delivery ok`, `delivery redirect`, `delivery error`
+and `delivery slow`; `delivery recover` additionally checks actual covering
+PEM replacement delivery and recovery deduplication. Verify receiver records: exactly1/3/3/3 requests,
+respectively, no `/canary` redirect request, stable IDs within each episode,
+and only allowlisted payload fields. The slow fixture takes about24seconds
+for three bounded8-second attempts with simulated clock backoff. During it,
+`ucode /tmp/luci-caddy-ticket09/notification-argv.uc` verifies the real curl
+argv excludes URL/query/header canaries without printing any argv. Shut down
+the host receiver and explicitly cancel `ssh -O cancel -R 29082:127.0.0.1:29082
+router.home` afterward; multiplexed forwarding can outlive the initiating SSH.
+No arbitrary real notification target or public ACME endpoint is exercised.
