@@ -11,7 +11,7 @@ var serviceAction = rpc.declare({object:'luci.caddy',method:'action',params:['ac
 return baseclass.extend({
 	page: function(key, title, description, children, actions) {
 		if (!document.querySelector('link[data-caddy-layout]'))
-			document.head.appendChild(E('link', { 'rel': 'stylesheet', 'href': L.resource('caddy/caddy.css'), 'data-caddy-layout': '' }));
+			document.head.appendChild(E('link', { 'rel': 'stylesheet', 'href': L.resource('caddy/caddy.css') + '?v=9', 'data-caddy-layout': '' }));
 		return E('div', { 'class': 'caddy-app', 'data-page': key }, [
 			E('div', { 'class': 'heading' }, [
 				E('div', {}, [E('div', { 'class': 'heading-title' }, E('h1', {}, title)), E('p', {}, description)]),

@@ -37,20 +37,21 @@ return view.extend({
 			modalMap.dirtyBefore=dirty;
 			modalMap.readonly = map.readonly || busy || mode == 'manual';
 			modalSection.tab('connection',_('Connection'));
-			modalSection.tab('security',_('TLS and authentication'));
+			modalSection.tab('verification',_('Verification method'));
+			modalSection.tab('authentication',_('Access authentication'));
 			modalSection.tab('advanced',_('Advanced'));
 			modalSection.children.forEach(function(field) {
 				// Grid-only presentation flags must not hide dependency sources in the dialog.
 				field.modalonly = false;
 				field.retain = true;
-				field.tab = field.option=='advanced_snippet' ? 'advanced' : /^(challenge|auth|authelia_)/.test(field.option) ? 'security' : 'connection';
+				field.tab = field.option=='advanced_snippet' ? 'advanced' : field.option=='challenge' ? 'verification' : /^(auth|authelia_)/.test(field.option) ? 'authentication' : 'connection';
 				modalSection.tabs[field.tab].children.push(field);
 			});
-			var reference=modalSection.taboption('security',form.DummyValue,'global_auth_reference',_('Global authentication'));
+			var reference=modalSection.taboption('authentication',form.DummyValue,'global_auth_reference',_('Global authentication'));
 			reference.depends({authMode:'basic',authSource:'global'});reference.depends({authMode:'authelia',authSource:'global'});
 			reference.renderWidget=function(){return E('a',{'href':L.url('admin/services/caddy/settings')},_('Manage shared authentication in Global settings'));};
 			var editor;
-			var accounts=modalSection.taboption('security',form.DummyValue,'basic_accounts',_('Basic Auth accounts'));
+			var accounts=modalSection.taboption('authentication',form.DummyValue,'basic_accounts',_('Basic Auth accounts'));
 			accounts.depends({authMode:'basic',authSource:'independent'});
 			accounts.renderWidget=function() {
 				var profile=map.data.get('json',sid,'auth')?.profile;
@@ -87,7 +88,7 @@ return view.extend({
 		option.forcewrite=true;
 		option.cfgvalue=function(sid){return this.map.data.get('json',sid,'auth')?.source || 'global';};
 		option.write=function(sid,value){this.map.data.set('json',sid,'auth',Object.assign({},this.map.data.get('json',sid,'auth'),{source:value}));};
-		[['backend',_('Independent Authelia backend')],['uri',_('Independent authorization interface')],['portal',_('Independent login portal')]].forEach(function(field) {
+		[['backend',_('Authelia backend')],['uri',_('Authorization interface')],['portal',_('Login portal URL')]].forEach(function(field) {
 			var o=section.option(form.Value,'authelia_'+field[0],field[1]);o.depends({authMode:'authelia',authSource:'independent'});o.rmempty=false;
 			o.forcewrite=true;o.retain=true;
 			o.cfgvalue=function(sid){return this.map.data.get('json',sid,'auth')?.authelia?.[field[0]] || (field[0]=='uri'?'/api/authz/forward-auth':'');};
@@ -178,7 +179,7 @@ return view.extend({
 			var username=E('input',{'placeholder':_('Username'),'aria-label':_('Username'),'value':user?.username || ''});
 			var password=E('input',{'type':'password','placeholder':user ? _('Keep existing password') : _('New password'),'aria-label':_('New password'),'autocomplete':'new-password'});
 			var hash=E('input',{'type':'password','placeholder':_('Advanced: existing bcrypt hash'),'aria-label':_('Existing bcrypt hash'),'autocomplete':'new-password'});
-			var row=E('div',{'class':'account-row'},[username,' ',password,' ',hash,' ',E('button',{'class':'cbi-button','click':function(){row.remove();accountDirty=true;dirty=true;update();}},_('Remove account'))]);
+			var row=E('div',{'class':'account-row'},[E('label',{'class':'field'},[E('span',{'class':'field-label'},_('Username')),username]),E('label',{'class':'field'},[E('span',{'class':'field-label'},_('New password')),password]),E('label',{'class':'field'},[E('span',{'class':'field-label'},_('Existing bcrypt hash')),hash]),E('button',{'class':'cbi-button','click':function(){row.remove();accountDirty=true;dirty=true;update();}},_('Remove account'))]);
 			row.account=function(){if(password.value && hash.value)return {username:username.value,password:password.value,hash:hash.value};return Object.assign({username:username.value},password.value ? {password:password.value} : hash.value ? {hash:hash.value} : {retain:true});};accountRows.appendChild(row);
 		}
 		function loadAccounts(){accountRows.replaceChildren();var selected=scope.value;var ref=selected=='global' ? config.auth?.basic?.profile : config.sites.find(function(site){return site.domain==selected;})?.auth?.profile;(current.basic_profiles?.[ref] || []).forEach(accountRow);if(!accountRows.children.length)accountRow();}
