@@ -13,7 +13,7 @@ return baseclass.extend({
 		if (!document.querySelector('link[data-caddy-layout]'))
 			document.head.appendChild(E('link', { 'rel': 'stylesheet', 'href': L.resource('caddy/caddy.css'), 'data-caddy-layout': '' }));
 		return E('div', { 'class': 'caddy-app', 'data-page': key }, [
-			E('header', { 'class': 'heading' }, [
+			E('div', { 'class': 'heading' }, [
 				E('div', {}, [E('div', { 'class': 'heading-title' }, E('h1', {}, title)), E('p', {}, description)]),
 				E('div', { 'class': 'heading-actions actions' }, actions || [])
 			]),
