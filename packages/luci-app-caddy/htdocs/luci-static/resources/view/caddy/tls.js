@@ -98,7 +98,18 @@ return view.extend({
    bodyMode.value=notifications.webhook?.body_mode || 'default';
    var body=E('textarea',{id:'tls-notify-body',rows:5,autocomplete:'off',placeholder:notifications.webhook?.body_configured?_('Leave blank to retain the saved body'):'{"text":"{{summary}}","domains":"{{domains}}"}'});
    var modeRow=E('div',{'class':'tls-form-row'},[E('label',{for:'tls-notify-body-mode'},_('Request body')),bodyMode]);
-   var bodyRow=E('div',{'class':'tls-form-row'},[E('label',{for:'tls-notify-body'},_('Body template')),E('div',{},[body,E('details',{},[E('summary',{},_('Available variables')),E('p',{'class':'hint'},'{{summary}} · {{domains}} · {{expires_at}} · {{type}} · {{event_id}} · {{not_after}} · {{observed_at}}')])])]);
+   var bodyRow=E('div',{'class':'tls-form-row'},[E('label',{for:'tls-notify-body'},_('Body template')),E('div',{},[body,E('details',{},[E('summary',{},_('Available variables')),E('table',{'class':'table'},[
+    E('thead',{},E('tr',{},[E('th',{},_('Variable')),E('th',{},_('Description'))])),
+    E('tbody',{},[
+     ['summary',_('Notification summary.')],
+     ['domains',_('Certificate domain names. A whole JSON value becomes an array; embedded values use comma-separated text.')],
+     ['expires_at',_('Certificate expiry in UTC, for example 2026-12-01T12:00:00Z.')],
+     ['type',_('Event type: expired, near_expiry_observed_issues, or recovered.')],
+     ['event_id',_('Unique event ID. Retries keep the same ID for deduplication.')],
+     ['not_after',_('Certificate expiry as a Unix timestamp in seconds.')],
+     ['observed_at',_('Time the event was first recorded, as a Unix timestamp in seconds.')]
+    ].map(function(item){return E('tr',{},[E('td',{},E('code',{},'{{'+item[0]+'}}')),E('td',{},item[1])]);}))
+   ]),E('p',{'class':'hint'},_('Put variables in JSON string values. A whole timestamp variable becomes a number; embedded variables become text.'))])])]);
    function updateFields(){
     var noBody=requestMethod.value=='GET' || requestMethod.value=='HEAD';
     modeRow.hidden=noBody;bodyRow.hidden=noBody || bodyMode.value!='custom';
@@ -148,12 +159,12 @@ return view.extend({
     E('div',{'class':'tls-form-row'},[E('label',{for:'caddy-cf-token'},_('API Token')),E('div',{},[token,credentialStatus])]),
     E('p',{'class':'hint'},_('Requires Zone DNS Edit and Zone Read for the selected zones.'))
    ]),
-   layout.panel(_('Stored certificates'),'',certificateBody,refresh),
    layout.panel(_('Certificate notifications'),'',notificationBody,[
     E('button',{'class':'button',click:notificationSettings},_('Configure')),
     E('button',{'class':'button',click:notificationHistory},_('History'))
    ]),
-   E('div',{'class':'apply-bar'},[E('div',{'class':'actions'},[save,activate])])
+   E('div',{'class':'apply-bar'},[E('div',{'class':'actions'},[save,activate])]),
+   layout.panel(_('Stored certificates'),'',certificateBody,refresh)
   ]);
  },handleSave:null,handleSaveApply:null,handleReset:null
 });

@@ -1224,3 +1224,33 @@ msgstr "可用变量"
 
 msgid "HTTP method"
 msgstr "请求方法"
+
+msgid "Variable"
+msgstr "变量"
+
+msgid "Description"
+msgstr "说明"
+
+msgid "Notification summary."
+msgstr "通知摘要。"
+
+msgid "Certificate domain names. A whole JSON value becomes an array; embedded values use comma-separated text."
+msgstr "证书包含的域名。在 JSON 中作为完整值时替换为数组；嵌入文字时用逗号分隔。"
+
+msgid "Certificate expiry in UTC, for example 2026-12-01T12:00:00Z."
+msgstr "证书到期时间（UTC），例如 2026-12-01T12:00:00Z。"
+
+msgid "Event type: expired, near_expiry_observed_issues, or recovered."
+msgstr "事件类型：expired（已到期）、near_expiry_observed_issues（临近到期且多次观察到续期异常）、recovered（已恢复）。"
+
+msgid "Unique event ID. Retries keep the same ID for deduplication."
+msgstr "事件唯一编号；重试时保持不变，可用于去重。"
+
+msgid "Certificate expiry as a Unix timestamp in seconds."
+msgstr "证书到期时间的 Unix 时间戳，单位为秒。"
+
+msgid "Time the event was first recorded, as a Unix timestamp in seconds."
+msgstr "首次记录此事件的 Unix 时间戳，单位为秒。"
+
+msgid "Put variables in JSON string values. A whole timestamp variable becomes a number; embedded variables become text."
+msgstr "在 JSON 字符串值中填写变量。完整的时间戳变量会替换为数字；嵌入文字的变量会替换为文本。"
