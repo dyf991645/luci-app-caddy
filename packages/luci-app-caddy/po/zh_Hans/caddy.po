@@ -1323,3 +1323,6 @@ msgstr "导出筛选后的日志"
 
 msgid "Runtime and access logs"
 msgstr "运行与访问日志"
+
+msgid "Runtime logs"
+msgstr "运行日志"

@@ -1,0 +1,16 @@
+'use strict';
+import {readfile,writefile,mkdir,chmod} from 'fs';
+let root=ARGV[2];mkdir(root,0700);chmod(root,0700);
+writefile(root+'/store.uc',"return function(options){assert(options.session=='fixture-session','session reaches store');return {read:function(){return {config:{mode:'form',sites:[]}};}};};");
+writefile(root+'/diagnostics.uc','return function(options){return loadfile('+sprintf('%J',ARGV[1])+')()({...options,root:'+sprintf('%J',root)+'});};');
+let source=replace(readfile(ARGV[0]),'/usr/share/caddy-manager/diagnostics.uc',root+'/diagnostics.uc');
+source=replace(source,'/usr/share/caddy-manager/uci-store.uc',root+'/store.uc');
+writefile(root+'/rpc.uc',source);
+let rpc=loadfile(root+'/rpc.uc')()['luci.caddy'];
+let args={confirm:true,ubus_rpc_session:'fixture-session'};
+let result=rpc.backend_probe.call({args});
+assert(result.ok && length(result.backends)==0,'authenticated probe accepts confirmation with transport session');
+assert(args.ubus_rpc_session=='fixture-session','caller args preserved');
+assert(!rpc.backend_probe.call({args:{confirm:false,ubus_rpc_session:'fixture-session'}}).ok,'missing confirmation rejected');
+assert(!rpc.backend_probe.call({args:{confirm:true,ubus_rpc_session:'fixture-session',url:'http://arbitrary.invalid:80'}}).ok,'arbitrary targets still rejected');
+print('PASS actual RPC and diagnostic module: session preserved for store, excluded from probe; confirmation and target restrictions retained\n');

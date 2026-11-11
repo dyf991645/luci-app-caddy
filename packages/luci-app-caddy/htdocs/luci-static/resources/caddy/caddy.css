@@ -351,3 +351,5 @@
  .caddy-app .diagnostic-filters { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
  .caddy-app .diagnostic-filters > button { grid-column:1 / -1; justify-self:start; }
 }
+
+.caddy-app .diagnostic-log-filters { grid-template-columns: 160px max-content; }
