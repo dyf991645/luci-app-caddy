@@ -151,10 +151,10 @@ test('cancel after a rejected account save restores the original site buffer',as
  const h=harness('configuration',[],{fail:'basic_profile_save'});await h.render();const editor=await h.openSite();editor.field('authMode').value='basic';editor.field('authSource').value='independent';const password=editor.inputs().find(n=>n.attrs['aria-label']==='New password');password.value='retry fixture';await editor.save();expect(password.value).toBe('retry fixture');expect(h.modal).not.toBeNull();editor.cancel();const reopened=await h.openSite();expect(reopened.field('authMode').value).toBe('none');expect(reopened.field('authSource').value).toBe('global');expect(h.calls.filter(c=>c.method==='basic_profile_save')).toHaveLength(1);
 });
 
-test('inline accounts preserve the optional write-only advanced hash entry',async()=>{
- const h=harness('configuration',[]);await h.render();const editor=await h.openSite();editor.field('authMode').value='basic';editor.field('authSource').value='independent';editor.inputs().find(n=>n.attrs['aria-label']==='Username').value='alice';const hash=editor.inputs().find(n=>n.attrs['aria-label']==='Existing bcrypt hash');expect(hash.attrs.type).toBe('password');expect(hash.value).toBe('');hash.value='$2b$fixture-only';await editor.save();expect(h.calls.find(c=>c.method==='basic_profile_save').args[2]).toEqual([{username:'alice',hash:'$2b$fixture-only'}]);
+test('site account editor only offers username/password and saves through the site button',async()=>{
+ const h=harness('configuration',[]);await h.render();const editor=await h.openSite();editor.field('authMode').value='basic';editor.field('authSource').value='independent';expect(editor.inputs().some(n=>n.attrs['aria-label']==='Existing bcrypt hash')).toBe(false);expect(JSON.stringify(h.modal)).not.toContain('bcrypt');
+ editor.inputs().find(n=>n.attrs['aria-label']==='Username').value='alice';editor.inputs().find(n=>n.attrs['aria-label']==='New password').value='new-password';await editor.save();expect(h.calls.find(c=>c.method==='basic_profile_save').args[2]).toEqual([{username:'alice',password:'new-password'}]);
 });
-
 
 test('overview contains no cross-page links or boot and start/stop controls',async()=>{
  const h=harness('overview');await h.render();expect(h.nodes.filter(n=>n.tag==='a')).toHaveLength(0);expect(h.nodes.filter(n=>n.attrs.type==='checkbox')).toHaveLength(0);expect(h.button('Start')).toBeUndefined();expect(h.button('Stop')).toBeUndefined();expect(h.button('Restart')).toBeUndefined();expect(h.button('Reload')).toBeDefined();
@@ -271,4 +271,12 @@ test('TLS page saves and clears the ACME email with the scoped TLS RPC',async()=
 test('service edits use shared Save & Apply after staging and do not save form fields',async()=>{
  const h=harness('configuration',[],{route:'settings'});await h.render();const checkbox=h.pageNodes().find(n=>n.attrs?.id==='caddy-service-running');checkbox.checked=true;checkbox.events.change();await h.button('Save & Apply').click();
  expect(h.calls.filter(c=>['service_save','config_apply','draft_save'].includes(c.method)).map(c=>c.method)).toEqual(['service_save','config_apply']);
+});
+
+test('global account changes only use the page save and expose no hash inputs',async()=>{
+ const h=harness('configuration',[],{route:'settings'});await h.render();
+ expect(h.pageNodes().filter(n=>n.tag==='button'&&n.textContent==='Save')).toHaveLength(1);expect(h.pageNodes().some(n=>n.textContent==='Save accounts to draft')).toBe(false);expect(h.pageNodes().some(n=>n.attrs?.['aria-label']==='Existing bcrypt hash')).toBe(false);
+ h.pageNodes().find(n=>n.attrs?.['aria-label']==='Username').value='alice';h.pageNodes().find(n=>n.attrs?.['aria-label']==='New password').value='global-password';
+ h.pageNodes().find(n=>n.children?.some(c=>c?.attrs?.class==='account-row')).events.input();await h.button('Save').click();
+ const save=h.calls.find(c=>c.method==='basic_profile_save');expect(save.args[0]).toBe('global');expect(save.args[2]).toEqual([{username:'alice',password:'global-password'}]);expect(h.calls.some(c=>c.method==='config_apply')).toBe(false);
 });

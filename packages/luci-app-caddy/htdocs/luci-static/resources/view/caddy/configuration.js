@@ -185,25 +185,27 @@ return view.extend({
 			function add(user) {
 				var username=E('input',{'class':'cbi-input-text','placeholder':_('Username'),'aria-label':_('Username'),'value':user?.username || '',disabled:readonly,'autocomplete':'off'});
 				var password=E('input',{'class':'cbi-input-text','type':'password','placeholder':user ? _('Keep existing password') : _('New password'),'aria-label':_('New password'),'autocomplete':'new-password',disabled:readonly});
-				var hash=E('input',{'class':'cbi-input-text','type':'password','placeholder':_('Advanced: existing bcrypt hash'),'aria-label':_('Existing bcrypt hash'),'autocomplete':'new-password',disabled:readonly});
-				var row=E('div',{'class':'caddy-account-row'},[E('div',{'class':'field'},[E('label',{},_('Username')),username]),E('div',{'class':'field'},[E('label',{},_('New password')),password]),E('button',{'type':'button','class':'cbi-button','disabled':readonly,'click':function(){row.remove();}},_('Remove account')),E('details',{},[E('summary',{},_('Advanced: existing bcrypt hash')),hash])]);
-				row.account=function(){if(password.value && hash.value)return {username:username.value,password:password.value,hash:hash.value};return Object.assign({username:username.value},password.value ? {password:password.value} : hash.value ? {hash:hash.value} : {retain:true});};
+				var row=E('div',{'class':'caddy-account-row'},[E('div',{'class':'field'},[E('label',{},_('Username')),username]),E('div',{'class':'field'},[E('label',{},_('New password')),password]),E('button',{'type':'button','class':'cbi-button','disabled':readonly,'click':function(){row.remove();}},_('Remove account'))]);
+				row.account=function(){return Object.assign({username:username.value},password.value ? {password:password.value} : {retain:true});};
 				rows.appendChild(row);
 			}
 			users.forEach(add);if(!users.length)add();
-			return {node:E('div',{},[E('p',{},_('Passwords are hashed on the router. Leave an existing password blank to keep it. Saving this site updates the draft; apply activates it.')),rows,E('button',{'type':'button','class':'cbi-button','disabled':readonly,'click':function(){add();}},_('Add account'))]),users:function(){return Array.from(rows.children).map(function(row){return row.account();});}};
+			return {node:E('div',{},[E('p',{},_('Leave an existing password blank to keep it. Apply saved changes to activate them.')),rows,E('button',{'type':'button','class':'cbi-button','disabled':readonly,'click':function(){add();}},_('Add account'))]),users:function(){return Array.from(rows.children).map(function(row){return row.account();});}};
 		}
 
 		function accountRow(user) {
 			var username=E('input',{'placeholder':_('Username'),'aria-label':_('Username'),'value':user?.username || ''});
 			var password=E('input',{'type':'password','placeholder':user ? _('Keep existing password') : _('New password'),'aria-label':_('New password'),'autocomplete':'new-password'});
-			var hash=E('input',{'type':'password','placeholder':_('Advanced: existing bcrypt hash'),'aria-label':_('Existing bcrypt hash'),'autocomplete':'new-password'});
-			var row=E('div',{'class':'account-row'},[E('label',{'class':'field'},[E('span',{'class':'field-label'},_('Username')),username]),E('label',{'class':'field'},[E('span',{'class':'field-label'},_('New password')),password]),E('label',{'class':'field'},[E('span',{'class':'field-label'},_('Existing bcrypt hash')),hash]),E('button',{'class':'cbi-button','click':function(){row.remove();accountDirty=true;dirty=true;update();}},_('Remove account'))]);
-			row.account=function(){if(password.value && hash.value)return {username:username.value,password:password.value,hash:hash.value};return Object.assign({username:username.value},password.value ? {password:password.value} : hash.value ? {hash:hash.value} : {retain:true});};accountRows.appendChild(row);
+			var row=E('div',{'class':'account-row'},[E('label',{'class':'field'},[E('span',{'class':'field-label'},_('Username')),username]),E('label',{'class':'field'},[E('span',{'class':'field-label'},_('New password')),password]),E('button',{'class':'cbi-button','click':function(){row.remove();accountDirty=true;dirty=true;update();}},_('Remove account'))]);
+			row.account=function(){return Object.assign({username:username.value},password.value ? {password:password.value} : {retain:true});};accountRows.appendChild(row);
 		}
 		function loadAccounts(){accountRows.replaceChildren();var selected=scope.value;var ref=selected=='global' ? config.auth?.basic?.profile : config.sites.find(function(site){return site.domain==selected;})?.auth?.profile;(current.basic_profiles?.[ref] || []).forEach(accountRow);if(!accountRows.children.length)accountRow();}
 		accountRows.addEventListener('input',function(){accountDirty=true;dirty=true;update();});loadAccounts();
-		accountsNode=E('div',{'class':'caddy-app form-section'},[E('h3',{},_('Basic Auth accounts')),E('p',{},_('Passwords are hashed on the router. Existing passwords and hashes are never read back. Remove an account row to delete it. Save accounts updates the draft; apply activates the change.')),accountRows,E('button',{'class':'cbi-button','click':function(){accountRow();accountDirty=true;dirty=true;update();}},_('Add account')),' ',E('button',{'class':'button primary cbi-button cbi-button-save','click':function(){busy=true;update();return map.parse().then(function(){return saveBasic(scope.value,values(),Array.from(accountRows.children).map(function(row){return row.account();}),current.draft_revision);}).then(result).then(function(saved){current=saved;config=Object.assign(values(),saved.draft,{manual_caddyfile:manual.value});config.sites.forEach(function(site){map.data.sections('json','sites').forEach(function(buffer){if(buffer.domain==site.domain)map.data.set('json',buffer['.name'],'auth',site.auth);});});dirty=false;accountDirty=false;loadAccounts();}).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');}).finally(function(){busy=false;update();caddyApply.refreshChanges();});}},_('Save accounts to draft'))]);
+		accountsNode=E('div',{'class':'caddy-app form-section'},[
+			E('h3',{},_('Basic Auth accounts')),
+			E('p',{},_('Leave an existing password blank to keep it. Use the page Save or Save & Apply buttons for account changes.')),
+			accountRows,E('button',{'class':'cbi-button','click':function(){accountRow();accountDirty=true;dirty=true;update();}},_('Add account'))
+		]);
 		function update() {
 			if(serviceStrip)serviceStrip.updateSnapshot(current);
 			filterSites();

@@ -1272,3 +1272,9 @@ msgstr "用于注册 ACME 证书账户，可以留空；此项不配置通知发
 
 msgid "Public HTTP-01 requires Internet port 80 to reach the HTTP port. TLS-ALPN-01 requires Internet port 443 to reach the HTTPS port. This application does not configure NAT, firewall, DNS or uhttpd."
 msgstr "HTTP-01 要求公网 80 端口能访问 HTTP 端口；TLS-ALPN-01 要求公网 443 端口能访问 HTTPS 端口。本应用不配置 NAT、防火墙、DNS 或 uhttpd。"
+
+msgid "Leave an existing password blank to keep it. Apply saved changes to activate them."
+msgstr "已有账号的密码留空可保留原密码；应用已保存的更改后生效。"
+
+msgid "Leave an existing password blank to keep it. Use the page Save or Save & Apply buttons for account changes."
+msgstr "已有账号的密码留空可保留原密码；账号修改统一使用页面底部的“保存”或“保存并应用”。"
