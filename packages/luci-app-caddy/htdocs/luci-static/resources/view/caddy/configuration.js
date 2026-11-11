@@ -21,7 +21,7 @@ return view.extend({
 		var route = L.env && L.env.dispatchpath || [];
 		var page = route.indexOf('settings') >= 0 ? 'settings' : route.indexOf('config') >= 0 ? 'config' : 'configuration';
 		var current = initial;
-		var config = initial.draft || {version:2,settings:{http_port:10080,https_port:10443,email:'',storage:'/etc/caddy/data'},sites:[{domain:'',upstreams:['http://127.0.0.1:8080'],balance:'round_robin',path:'',strip:false,challenge:'global'}]};
+		var config = initial.draft || {version:2,settings:{http_port:18080,https_port:18443,email:'',storage:'/etc/caddy/data'},sites:[{domain:'',upstreams:['http://127.0.0.1:8080'],balance:'round_robin',path:'',strip:false,challenge:'global'}]};
 		var mode = config.mode || 'form';
 		var manual = E('textarea',{'class':'cbi-input-textarea','rows':18,'spellcheck':'false','aria-label':_('Caddyfile')},config.manual_caddyfile || '');
 		var sourceStatus = E('p',{'role':'status'});

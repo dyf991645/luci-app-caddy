@@ -10,8 +10,8 @@ isolated real-router test seam, with CA trust installation explicitly disabled.
 {
   "version": 2,
   "settings": {
-    "http_port": 10080,
-    "https_port": 10443,
+    "http_port": 18080,
+    "https_port": 18443,
     "email": "",
     "storage": "/etc/caddy/data"
   },

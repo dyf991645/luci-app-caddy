@@ -66,7 +66,7 @@ and load/provider failures retain fixed safe messages. Event bookkeeping is
 best effort and never turns a successful Caddy operation into a failed apply.
 
 Public HTTP-01 requires Internet80 to the selected internal HTTP port (default
-10080); TLS-ALPN-01 requires Internet443 to internal HTTPS (default10443).
+18080); TLS-ALPN-01 requires Internet443 to internal HTTPS (default18443).
 DNS-01 requires provider API acceptance and TXT propagation. A local listener
 cannot prove public DNS, NAT or firewall behavior. Direct nonstandard-port
 browser addresses and generated redirects include the configured port; public
