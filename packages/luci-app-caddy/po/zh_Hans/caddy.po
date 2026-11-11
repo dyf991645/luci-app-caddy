@@ -1197,3 +1197,30 @@ msgstr "已发送"
 
 msgid "Failed"
 msgstr "失败"
+
+msgid "Certificate request"
+msgstr "证书申请"
+
+msgid "Default notification"
+msgstr "默认通知内容"
+
+msgid "No body"
+msgstr "无请求体"
+
+msgid "Custom body"
+msgstr "自定义请求体"
+
+msgid "Leave blank to retain the saved body"
+msgstr "留空保留已保存的请求体"
+
+msgid "Request body"
+msgstr "请求体"
+
+msgid "Body template"
+msgstr "请求体模板"
+
+msgid "Available variables"
+msgstr "可用变量"
+
+msgid "HTTP method"
+msgstr "请求方法"

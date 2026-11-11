@@ -34,7 +34,7 @@ return function(options) {
   if(kind=='source')return s.content||'';
   let list=v=>v==null?[]:type(v)=='array'?v:[v];
   if(kind=='basic') {let users=list(s.username),hashes=list(s.hash);return map(users,(u,i)=>({username:u,hash:hashes[i]}));}
-  if(kind=='webhook') {let headers={},names=list(s.header_name),vals=list(s.header_value);for(let i,k in names)headers[k]=vals[i];return {url:s.url||'',headers};}
+  if(kind=='webhook') {let headers={},names=list(s.header_name),vals=list(s.header_value);for(let i,k in names)headers[k]=vals[i];return {url:s.url||'',headers,body:s.body||''};}
   return null;
  }
  function putSecret(kind,ref,value) {
@@ -44,7 +44,7 @@ return function(options) {
   if(kind=='credential')c.set('caddy_secrets',id,'token',value.token);
   if(kind=='source')c.set('caddy_secrets',id,'content',value);
   if(kind=='basic') {c.set('caddy_secrets',id,'username',map(value,u=>u.username));c.set('caddy_secrets',id,'hash',map(value,u=>u.hash));}
-  if(kind=='webhook') {c.set('caddy_secrets',id,'url',value.url);if(length(keys(value.headers))) {c.set('caddy_secrets',id,'header_name',keys(value.headers));c.set('caddy_secrets',id,'header_value',values(value.headers));}}
+  if(kind=='webhook') {c.set('caddy_secrets',id,'url',value.url);if(length(value.body||''))c.set('caddy_secrets',id,'body',value.body);if(length(keys(value.headers))) {c.set('caddy_secrets',id,'header_name',keys(value.headers));c.set('caddy_secrets',id,'header_value',values(value.headers));}}
   if(!c.commit('caddy_secrets'))die('Unable to persist private UCI configuration');
   chmod(confdir+'/caddy_secrets',0600);
  }
@@ -155,7 +155,7 @@ return function(options) {
   if(ref && ref!='legacy') {let legacy=snapshot(ref);encode(c,legacy.config);if(!c.save('caddy'))die('Unable to migrate pending session');}
   return c;
  }
- function metadata(c) {return {service:fields(c,'service',{running:'running',enabled:'enabled'},['running','enabled']),notifications:fields(c,'notifications',{enabled:'enabled',webhook:'webhook'},['enabled'])};}
+ function metadata(c) {return {service:fields(c,'service',{running:'running',enabled:'enabled'},['running','enabled']),notifications:fields(c,'notifications',{enabled:'enabled',webhook:'webhook',method:'method',body_mode:'body_mode'},['enabled'])};}
  function model() {
   let c=current(),config=decode(c),refs=[];
   if(config?.settings?.cloudflare_credential!=null)push(refs,secret('credential',config.settings.cloudflare_credential));
@@ -176,7 +176,7 @@ return function(options) {
   saveProfile:users=>allocate('basic',users),
   service:()=>metadata(current()).service,
   saveService:function(v) {let c=current();c.set('caddy','service','service');for(let k in ['running','enabled'])c.set('caddy','service',k,v[k]?'1':'0');if(!c.save('caddy'))die('Unable to stage service settings');},
-  notifications:function() {let v=metadata(current()).notifications,target=secret('webhook',v.webhook)||{url:'',headers:{}};return {enabled:v.enabled===true,...target};},
-  saveNotifications:function(v) {let c=current();c.set('caddy','notifications','notifications');c.set('caddy','notifications','enabled',v.enabled?'1':'0');let old=secret('webhook',c.get('caddy','notifications','webhook'));if(sprintf('%J',canonical(old))!=sprintf('%J',canonical({url:v.url,headers:v.headers})))c.set('caddy','notifications','webhook',''+allocate('webhook',v));if(!c.save('caddy'))die('Unable to stage notifications');}
+  notifications:function() {let v=metadata(current()).notifications,target=secret('webhook',v.webhook)||{url:'',headers:{}};return {enabled:v.enabled===true,...target,method:v.method||'POST',body_mode:v.body_mode||'default'};},
+  saveNotifications:function(v) {let c=current();c.set('caddy','notifications','notifications');c.set('caddy','notifications','enabled',v.enabled?'1':'0');let old=secret('webhook',c.get('caddy','notifications','webhook'));if(sprintf('%J',canonical(old))!=sprintf('%J',canonical({url:v.url,headers:v.headers,body:v.body||''})))c.set('caddy','notifications','webhook',''+allocate('webhook',v));c.set('caddy','notifications','method',v.method||'POST');c.set('caddy','notifications','body_mode',v.body_mode||'default');if(!c.save('caddy'))die('Unable to stage notifications');}
  };
 };

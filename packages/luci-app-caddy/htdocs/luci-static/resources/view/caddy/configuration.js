@@ -40,7 +40,7 @@ return view.extend({
 			modalMap.dirtyBefore=dirty;
 			modalMap.readonly = map.readonly || busy || mode == 'manual';
 			modalSection.tab('connection',_('Connection'));
-			modalSection.tab('verification',_('Verification method'));
+			modalSection.tab('verification',_('Certificate request'));
 			modalSection.tab('authentication',_('Access authentication'));
 			modalSection.tab('advanced',_('Advanced'));
 			modalSection.children.forEach(function(field) {

@@ -10,11 +10,12 @@ return function(options) {
   if(s.type!='file' || s.size>524288 || s.uid!=0 || s.mode & 0077) die('Unsafe notification file');
   return json(readfile(path));
  }
- function put(path,value) {
+ function putText(path,value) {
   let f=open(path+'.tmp','w',0600);if(!f) die('Notification write failed');
-  f.write(sprintf('%J',value));f.close();if(!chmod(path+'.tmp',0600) || !rename(path+'.tmp',path)) die('Notification commit failed');
+  f.write(value);f.close();if(!chmod(path+'.tmp',0600) || !rename(path+'.tmp',path)) die('Notification commit failed');
   if((path==ledger || path==file) && system(['/bin/sync'],10000)!=0)die('Notification sync failed');
  }
+ function put(path,value) {putText(path,sprintf('%J',value));}
  function locked(fn) {
   let s=lstat(root);if(s?.type!='directory' || s.uid!=0 || s.mode & 0022 || realpath(root)!=root) return fail();
   let lock=open(root+'/notifications.lock','a',0600);
@@ -23,14 +24,43 @@ return function(options) {
  }
  function settings() {return options?.store ? options.store.notifications() : read(file,{enabled:false,url:'',headers:{}});}
  function state() {let s=read(ledger,{version:1,serial:0,episodes:{},events:[],observations:{},last_check:0});if(s.version!=1 || type(s.episodes)!='object' || type(s.events)!='array') die('Invalid ledger');return s;}
- function publicState(s,c) {return {ok:true,webhook:{enabled:c.enabled,configured:length(c.url)>0},last_check:read(runtime,{last_check:s.last_check}).last_check,history:'partial_bounded_logd_window',alerts:values(s.episodes),deliveries:map(s.events,e=>({event_id:e.event_id,type:e.type,attempts:e.attempts,delivery:e.delivery,next_due:e.next_due})),interval:s.interval||300};}
+ function publicState(s,c) {return {ok:true,webhook:{enabled:c.enabled,configured:length(c.url)>0,method:c.method||'POST',body_mode:c.body_mode||'default',body_configured:length(c.body||'')>0},last_check:read(runtime,{last_check:s.last_check}).last_check,history:'partial_bounded_logd_window',alerts:values(s.episodes),deliveries:map(s.events,e=>({event_id:e.event_id,type:e.type,attempts:e.attempts,delivery:e.delivery,next_due:e.next_due})),interval:s.interval||300};}
+ function renderBody(template,payload) {
+  let date=payload.not_after?gmtime(payload.not_after):null;
+  let vars={...payload,expires_at:date?sprintf('%04d-%02d-%02dT%02d:%02d:%02dZ',date.year,date.mon,date.mday,date.hour,date.min,date.sec):''};
+  let names=['event_id','type','domains','not_after','observed_at','summary','expires_at'];
+  function substitute(value,typed) {
+   let parts=split(value,'{{'),out=parts[0];
+   for(let i=1;i<length(parts);i++) {
+    let end=index(parts[i],'}}');if(end<0)die('Invalid variable');
+    let name=substr(parts[i],0,end);if(index(names,name)<0)die('Unknown variable');
+    let v=vars[name];if(typed && length(parts)==2 && !length(parts[0]) && end+2==length(parts[i]))return v??'';
+    out+=(type(v)=='array'?join(', ',v):v??'')+substr(parts[i],end+2);
+   }
+   return out;
+  }
+  function walk(value) {
+   if(type(value)=='string')return substitute(value,true);
+   if(type(value)=='array')return map(value,walk);
+   if(type(value)=='object'){let result={};for(let k,v in value)result[k]=walk(v);return result;}
+   return value;
+  }
+  let parsed,isjson=true;try{parsed=json(template);}catch(e){isjson=false;}
+  return isjson?{body:sprintf('%J',walk(parsed)),content_type:'application/json'}:{body:substitute(template,false),content_type:'text/plain; charset=utf-8'};
+ }
  function save(args) {return locked(function() {
-  if(type(args)!='object' || length(filter(keys(args),k=>index(['enabled','url','headers'],k)<0)) || type(args.enabled)!='bool') return {ok:false,error:'Invalid notification settings'};
+  if(type(args)!='object' || length(filter(keys(args),k=>index(['enabled','url','headers','method','body_mode','body'],k)<0)) || type(args.enabled)!='bool') return {ok:false,error:'Invalid notification settings'};
   let old=settings(),url=length(args.url||'')?args.url:old.url,headers=args.headers && length(keys(args.headers))?args.headers:(url!=old.url?{}:old.headers);
   if(type(url)!='string' || length(url)>2048 || (length(url) && (!match(url,/^https?:\/\/[^[:space:]\/@?#]+(\/[^[:space:]#]*)?(\?[^[:space:]#]*)?$/) || match(url,/[[:cntrl:][:space:]\\]/))) || args.enabled && !length(url)) return {ok:false,error:'Use one HTTP or HTTPS URL without userinfo or fragment'};
   if(type(headers)!='object' || length(keys(headers))>8) return {ok:false,error:'Invalid webhook headers'};
-  for(let k,v in headers) if(!match(k,/^[A-Za-z0-9-]{1,64}$/) || index(['host','content-length','transfer-encoding','connection','content-type'],lc(k))>=0 || type(v)!='string' || length(v)>2048 || match(v,/[[:cntrl:]]/)) return {ok:false,error:'Invalid webhook headers'};
-  if(options?.store)options.store.saveNotifications({enabled:args.enabled,url,headers});else put(file,{enabled:args.enabled,url,headers});return publicState(state(),settings());
+  for(let k,v in headers) if(!match(k,/^[A-Za-z0-9-]{1,64}$/) || index(['host','content-length','transfer-encoding','connection'],lc(k))>=0 || type(v)!='string' || length(v)>2048 || match(v,/[[:cntrl:]]/)) return {ok:false,error:'Invalid webhook headers'};
+  let method=args.method||old.method||'POST',body_mode=args.body_mode||old.body_mode||'default';
+  let body=length(args.body||'')?args.body:(url!=old.url?'':old.body||'');
+  if(index(['POST','GET','PUT','PATCH','DELETE','HEAD','OPTIONS'],method)<0 || index(['default','none','custom'],body_mode)<0 || type(body)!='string' || length(body)>16384 || index(body,chr(0))>=0) return {ok:false,error:'Invalid webhook method or body'};
+  if(body_mode=='custom' && method!='GET' && method!='HEAD' && !length(body))return {ok:false,error:'Enter a custom request body'};
+  try {renderBody(body,{});} catch(e) {return {ok:false,error:'Invalid webhook body variable'};}
+  let value={enabled:args.enabled,url,headers,method,body_mode,body};
+  if(options?.store)options.store.saveNotifications(value);else put(file,value);return publicState(state(),settings());
  });}
  function event(s,ep,type,cert) {
   let id=ep.episode_id+':'+type;
@@ -44,9 +74,14 @@ return function(options) {
    if(e.delivery!='pending' || e.next_due>now) continue;
    // Persist budget before I/O: crashes consume an attempt and retain the same event ID.
    e.attempts++;e.next_due=now+(e.attempts==1?60:300);if(e.attempts>=3)e.delivery='exhausted';put(ledger,s);
-   let config='url = '+quote(c.url)+'\n';for(let k,v in c.headers) config+='header = '+quote(k+': '+v)+'\n';
+   let method=c.method||'POST',config='url = '+quote(c.url)+'\nrequest = '+quote(method)+'\n';if(method=='HEAD')config+='head\n';
    let payload={event_id:e.event_id,type:e.type,domains:e.domains,not_after:e.not_after,observed_at:e.created_at,summary:e.type=='near_expiry_observed_issues'?'Near expiry with repeated observed issuer issues; final attempt outcomes unknown':e.type=='expired'?'Stored certificate expired':'Valid replacement certificate observed'};
-   put(root+'/webhook-payload.json',payload);
+   let rendered={body:sprintf('%J',payload),content_type:'application/json'};
+   if(c.body_mode=='custom')rendered=renderBody(c.body||'',payload);
+   if(c.body_mode=='none' || method=='GET' || method=='HEAD')rendered.body='';
+   let customType=false;for(let k,v in c.headers){if(lc(k)=='content-type')customType=true;config+='header = '+quote(k+': '+v)+'\n';}
+   if(!customType && length(rendered.body))config+='header = '+quote('Content-Type: '+rendered.content_type)+'\n';
+   putText(root+'/webhook-payload.json',rendered.body);
    let f=open(root+'/webhook-config','w',0600);if(!f)die('Webhook file unavailable');f.write(config);f.close();chmod(root+'/webhook-config',0600);
    let code=system([options?.webhook_command || '/usr/share/caddy-manager/webhook-command',root+'/webhook-config',root+'/webhook-payload.json',root+'/webhook-result'],10000);
    let result=readfile(root+'/webhook-result');unlink(root+'/webhook-config');unlink(root+'/webhook-payload.json');unlink(root+'/webhook-result');

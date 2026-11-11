@@ -207,7 +207,7 @@ test('TLS page opens notification settings and stages save without leaving the p
  const h=harness('tls',[]);await h.render();h.button('Configure').click();expect(h.modal.attrs.title).toBe('Notification settings');
  h.modalField('tls-notify-enabled').checked=true;h.modalField('tls-notify-url').value='https://notify.example.test/private';h.modalField('tls-notify-headers').value='{"Authorization":"test"}';
  expect(h.modalButton('Save').attrs.disabled==null).toBe(true);await h.modalButton('Save').click();
- expect(h.calls.filter(c=>c.method==='notification_save')).toEqual([{method:'notification_save',args:[true,'https://notify.example.test/private',{Authorization:'test'}]}]);
+ expect(h.calls.filter(c=>c.method==='notification_save')).toEqual([{method:'notification_save',args:[true,'https://notify.example.test/private',{Authorization:'test'},'POST','default','']}]);
  expect(h.changeRefreshes).toBe(1);expect(h.modal).toBeNull();expect(h.calls.some(c=>c.method==='config_apply')).toBe(false);
 });
 test('TLS notification modal cancellation and failed saves preserve editable fields',async()=>{
@@ -221,11 +221,21 @@ test('TLS readonly forms disable notification saves and credential inputs',async
  const h=harness('tls',[],{readonly:true});await h.render();expect(h.nodes.find(n=>n.attrs.id==='caddy-cf-token').disabled).toBe(true);
  h.button('Configure').click();expect(h.modalButton('Save').disabled).toBe(true);await h.modalButton('Save').click();expect(h.calls.some(c=>c.method==='notification_save')).toBe(false);
 });
-test('TLS site verification edits use scoped save alongside the global method',async()=>{
- const h=harness('tls',[]);await h.render();const select=h.nodes.find(n=>n.tag==='select'&&n.attrs['aria-label']==='app.example.test Certificate verification');
- select.value='tls-alpn-01';select.events.change();await h.button('Save').click();
- expect(h.calls.filter(c=>c.method==='tls_save')).toEqual([{method:'tls_save',args:['http-01',4,{'app.example.test':'tls-alpn-01'}]}]);
- expect(h.calls.some(c=>c.method==='draft_save')).toBe(false);expect(h.changeRefreshes).toBeGreaterThan(0);
+test('TLS default verification has no per-site controls or pending label',async()=>{
+ const h=harness('tls',[]);await h.render();
+ expect(h.pageNodes().some(n=>n.textContent==='Pending application')).toBe(false);
+ expect(h.pageNodes().some(n=>n.attrs?.['aria-label']==='app.example.test Certificate verification')).toBe(false);
+ const radio=h.nodes.find(n=>n.attrs.name==='default-challenge'&&n.attrs.value==='dns-01');radio.events.change();await h.button('Save').click();
+ expect(h.calls.filter(c=>c.method==='tls_save')).toEqual([{method:'tls_save',args:['dns-01',4]}]);
+});
+test('TLS webhook sends custom method/body and hides body controls for GET and HEAD',async()=>{
+ const h=harness('tls',[],{notification:{ok:true,webhook:{enabled:true,configured:true,method:'PATCH',body_mode:'custom',body_configured:true}}});await h.render();h.button('Configure').click();
+ const method=h.modalField('tls-notify-method'),mode=h.modalField('tls-notify-body-mode'),body=h.modalField('tls-notify-body');
+ expect(method.value).toBe('PATCH');expect(mode.value).toBe('custom');expect(body.value).toBe('');
+ expect(body.attrs.placeholder).toContain('retain');body.value='{"text":"{{summary}}"}';
+ for(const value of ['GET','HEAD']){method.value=value;method.events.change();expect(body.disabled).toBe(true);expect(body.parentNode.parentNode.hidden).toBe(true);}
+ method.value='PUT';method.events.change();expect(body.disabled).toBe(false);expect(body.parentNode.parentNode.hidden).toBe(false);
+ await h.modalButton('Save').click();expect(h.calls.find(c=>c.method==='notification_save').args).toEqual([true,'',{},'PUT','custom','{"text":"{{summary}}"}']);
 });
 test('TLS notification history uses a modal and empty certificate inventory stays concise',async()=>{
  const h=harness('tls',[],{notification:{ok:true,webhook:{enabled:false},alerts:[],deliveries:[{event_id:'fixture-event',type:'expired',delivery:'sent',attempts:1}]}});await h.render();

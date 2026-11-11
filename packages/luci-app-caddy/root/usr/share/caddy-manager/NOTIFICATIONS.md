@@ -1,7 +1,7 @@
 # Independent certificate alert worker
 
 `notifications.uc` returns `create(options)` with `check()`, `status()` and
-`save({enabled,url,headers})`. RPC exposes only status/save; reading status does
+`save({enabled,url,headers,method,body_mode,body})`. RPC exposes only status/save; reading status does
 not scan, send or alter event state. Options are local CLI test seams, never RPC
 arguments. `notification-worker.uc` continuously calls the same check interface;
 its independent `caddy-monitor` procd service starts at boot regardless of the
@@ -27,8 +27,10 @@ File disappearance, unreadable storage, cleared logs, worker restart or webhook
 configuration changes never establish recovery. Backward clock observations
 pause recovery. Stored PEM evidence does not verify a live TLS connection.
 
-Private mode0600 JSON configuration and a versioned episode/observation/event
-ledger live under the trusted mode0700 manager root. A separate worker lock
+Settings stage in public UCI `caddy.notifications`; private URL, headers and body
+templates are immutable mode0600 entries in `caddy_secrets`. The worker reads
+committed settings only. A versioned episode/observation/event ledger lives
+under the trusted mode0700 manager root. A separate worker lock
 serializes checks/settings. Writes use same-directory0600 temporary files and
 rename; durable event/budget/settings commits are synced before network I/O.
 Unchanged checks do not rewrite the durable ledger; the last-check timestamp
@@ -40,12 +42,12 @@ Completed delivery history is evicted first; active pending events are retained.
 `enabled` defaults false. Both user-chosen HTTP and HTTPS URLs, including LAN
 receivers, are supported. Userinfo, fragments, whitespace/control characters and
 backslashes are rejected. URL query and up to8 private headers are write-only;
-status exposes only enabled/configured metadata. Blank inputs retain secrets; changing the URL clears old headers unless new
+status exposes enabled/configured, method, body mode and body-configured metadata. Blank inputs retain secrets; changing the URL clears old headers unless new
 headers are supplied, so retargeting does not silently forward old credentials.
-Headers cannot override transport framing, Host or JSON Content-Type. Notification
-settings are independent of save/apply and available in complete Caddyfile mode.
+Headers cannot override transport framing or Host; Content-Type may be overridden.
+Settings use native UCI save/apply/revert and are available in complete Caddyfile mode.
 
-The fixed executable curl helper reads a0600 config and allowlisted JSON payload;
+The fixed executable curl helper reads a0600 config and bounded request body;
 URL/header secrets never enter argv. Curl config values escape backslash and
 double quote. `--disable` is first, proxy bypass is explicit, only HTTP(S) is
 allowed, redirects are not followed, HTTPS certificate checks stay enabled,
@@ -75,7 +77,29 @@ and disables this monitor; it does not stop the separately packaged Caddy
 service. Webhooks stay disabled until explicitly configured and enabled.
 
 Production settings now stage in `caddy.notifications` (enabled and webhook
-reference), with private URL/header list fields in `caddy_secrets`. The worker
+reference, method and body_mode), with private URL/header/body fields in `caddy_secrets`. The worker
 reads only committed UCI settings. Save refreshes LuCI native pending changes;
 Apply/revert controls activation. Legacy notifications.json is imported once.
 The notification ledger and runtime check evidence remain operational files.
+
+## Request method and body
+
+Method defaults to POST. Supported methods: POST, GET, PUT, PATCH, DELETE, HEAD,
+OPTIONS. GET and HEAD send no body (HEAD also enables curl's HEAD behavior).
+`body_mode` defaults to `default`, which sends the existing JSON payload.
+`none` sends no body; `custom` uses a write-only template of at most16KiB.
+Blank body input retains the saved template. Changing target clears old headers
+and body unless supplied again. Saving never sends a request.
+
+Variables: `{{event_id}}`, `{{type}}`, `{{domains}}`, `{{not_after}}`,
+`{{observed_at}}`, `{{summary}}`, `{{expires_at}}` (UTC ISO8601).
+For valid JSON templates, substitution occurs recursively in string values;
+a value containing exactly a variable preserves its type (domains is an array,
+epoch timestamps are numbers). Embedded variables become text and JSON is
+serialized afterward, preserving escaping. JSON object keys remain literal.
+Other templates use plain text, with domains joined by commas. Default content
+type is application/json for JSON and text/plain for text; custom Content-Type
+headers override it. Unknown or unterminated variable expressions are rejected.
+No environment, file or executable expansion occurs.
+
+Example: `{"text":"{{summary}}","domains":"{{domains}}"}`.

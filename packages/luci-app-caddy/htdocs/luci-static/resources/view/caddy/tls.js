@@ -7,12 +7,12 @@
 
 var getDraft=rpc.declare({object:'luci.caddy',method:'draft_get',expect:{'':{}}});
 var getCredentials=rpc.declare({object:'luci.caddy',method:'credential_status',expect:{'':{}}});
-var saveDefault=rpc.declare({object:'luci.caddy',method:'tls_save',params:['default_challenge','expected_revision','site_challenges'],expect:{'':{}}});
+var saveDefault=rpc.declare({object:'luci.caddy',method:'tls_save',params:['default_challenge','expected_revision'],expect:{'':{}}});
 var saveCredential=rpc.declare({object:'luci.caddy',method:'credential_save',params:['token','expected_revision'],expect:{'':{}}});
 var apply=rpc.declare({object:'luci.caddy',method:'config_apply',params:['expected_revision'],expect:{'':{}}});
 var getCertificates=rpc.declare({object:'luci.caddy',method:'certificates',expect:{'':{}}});
 var getNotifications=rpc.declare({object:'luci.caddy',method:'notification_status',expect:{'':{}}});
-var saveNotifications=rpc.declare({object:'luci.caddy',method:'notification_save',params:['enabled','url','headers'],expect:{'':{}}});
+var saveNotifications=rpc.declare({object:'luci.caddy',method:'notification_save',params:['enabled','url','headers','method','body_mode','body'],expect:{'':{}}});
 function observed(epoch){return epoch==null?_('Unknown'):new Date(epoch*1000).toLocaleString();}
 function checked(response){if(!response.ok)throw new Error(response.error || _('Operation failed'));return response;}
 function certificateState(cert){return ({valid:cert.near_expiry?_('Near expiry'):_('Valid'),expired:_('Expired'),not_yet_valid:_('Not yet valid')})[cert.validity] || _('Unknown');}
@@ -23,10 +23,10 @@ return view.extend({
  render:function(initial){
   var current=initial[0],credentials=initial[1],inventory=initial[2]||{},notifications=initial[3]||{};
   var busy=false,dirty=false,permission=L.hasViewPermission(),readonly=!permission || current.draft?.mode=='manual';
-  var method=current.draft?.settings.default_challenge || 'http-01',siteChallenges={};
+  var method=current.draft?.settings.default_challenge || 'http-01';
   var token=E('input',{id:'caddy-cf-token',type:'password',autocomplete:'new-password','class':'cbi-input-text',disabled:readonly || null,placeholder:_('Leave blank to keep the saved token')});
-  var status=E('p',{role:'status','aria-live':'polite','class':'muted'}),credentialStatus=E('span',{'class':'muted'});
-  var methodHelp=E('p',{'class':'hint'}),siteMethods=E('div',{'class':'tls-site-methods'});
+  var credentialStatus=E('span',{'class':'muted'});
+  var methodHelp=E('p',{'class':'hint'});
   var help={'http-01':_('Requires public port 80.'),'dns-01':_('Uses Cloudflare; supports wildcard domains.'),'tls-alpn-01':_('Requires public port 443 to reach Caddy directly.')};
   var descriptions={'http-01':_('Public port 80'),'dns-01':_('Cloudflare DNS'),'tls-alpn-01':_('Public port 443')};
   var radios=['http-01','dns-01','tls-alpn-01'].map(function(value){
@@ -34,28 +34,20 @@ return view.extend({
    input.checked=method===value;input.addEventListener('change',function(){method=value;dirty=true;update();});return input;
   });
   var choices=E('div',{'class':'choice-grid'},radios.map(function(input){return E('label',{'class':'choice'},[E('div',{},[input,E('strong',{},input.value.toUpperCase())]),E('small',{},descriptions[input.value])]);}));
-  var siteControls=(current.draft?.sites || []).map(function(site){
-   var select=E('select',{'aria-label':site.domain+' '+_('Certificate verification'),disabled:readonly || null},['global','http-01','dns-01','tls-alpn-01'].map(function(value){return E('option',{value:value},value=='global'?_('Global default'):value.toUpperCase());}));
-   select.value=site.challenge || 'global';
-   select.addEventListener('change',function(){siteChallenges[site.domain]=select.value;dirty=true;update();});
-   siteMethods.appendChild(E('div',{'class':'tls-form-row'},[E('label',{},(site.name?site.name+' · ':'')+site.domain),select]));return select;
-  });
   var save=E('button',{'class':'button cbi-button cbi-button-save',click:function(){return perform(false);}},_('Save'));
   var activate=E('button',{'class':'button primary cbi-button cbi-button-apply',click:function(){return perform(true);}},_('Save & Apply'));
   function update(){
    methodHelp.textContent=help[method];
-   status.textContent=current.pending?_('Pending application'):'';status.hidden=!current.pending;
    credentialStatus.textContent=credentials.configured?_('Configured'):_('Not configured');
    save.disabled=readonly || busy || !dirty || !current.draft;
    activate.disabled=readonly || busy || (!dirty && !current.pending) || !current.draft;
    token.disabled=readonly || busy;
    radios.forEach(function(input){input.disabled=readonly || busy;input.checked=input.value===method;});
-   siteControls.forEach(function(input){input.disabled=readonly || busy;});
   }
   function refreshDraft(){return Promise.all([getDraft(),getCredentials()]).then(function(data){current=data[0];credentials=data[1];update();});}
   function perform(wantApply){
    busy=true;update();
-   return (dirty?saveDefault(method,current.draft_revision,siteChallenges).then(checked).then(function(saved){current=saved;siteChallenges={};}):Promise.resolve())
+   return (dirty?saveDefault(method,current.draft_revision).then(checked).then(function(saved){current=saved;}):Promise.resolve())
     .then(function(){if(!token.value)return;var value=token.value;return saveCredential(value,current.draft_revision).then(checked).then(function(saved){token.value='';current=saved;});})
     .then(function(){dirty=false;return wantApply?caddyApply.confirmImpact(current).then(function(){return apply(current.draft_revision);}).then(checked).then(function(saved){current=saved;}):null;})
     .catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');})
@@ -100,21 +92,36 @@ return view.extend({
    var saving=false,enabled=E('input',{id:'tls-notify-enabled',type:'checkbox',disabled:!permission || null});enabled.checked=!!notifications.webhook?.enabled;
    var url=E('input',{id:'tls-notify-url',type:'password',autocomplete:'new-password',disabled:!permission || null,placeholder:notifications.webhook?.configured?_('Leave blank to retain private target'):'https://…'});
    var headers=E('textarea',{id:'tls-notify-headers',rows:3,autocomplete:'off',disabled:!permission || null,placeholder:'{"Authorization":"Bearer …"}'});
+   var requestMethod=E('select',{id:'tls-notify-method'},['POST','GET','PUT','PATCH','DELETE','HEAD','OPTIONS'].map(function(value){return E('option',{value:value},value);}));
+   requestMethod.value=notifications.webhook?.method || 'POST';
+   var bodyMode=E('select',{id:'tls-notify-body-mode'},[['default',_('Default notification')],['none',_('No body')],['custom',_('Custom body')]].map(function(item){return E('option',{value:item[0]},item[1]);}));
+   bodyMode.value=notifications.webhook?.body_mode || 'default';
+   var body=E('textarea',{id:'tls-notify-body',rows:5,autocomplete:'off',placeholder:notifications.webhook?.body_configured?_('Leave blank to retain the saved body'):'{"text":"{{summary}}","domains":"{{domains}}"}'});
+   var modeRow=E('div',{'class':'tls-form-row'},[E('label',{for:'tls-notify-body-mode'},_('Request body')),bodyMode]);
+   var bodyRow=E('div',{'class':'tls-form-row'},[E('label',{for:'tls-notify-body'},_('Body template')),E('div',{},[body,E('details',{},[E('summary',{},_('Available variables')),E('p',{'class':'hint'},'{{summary}} · {{domains}} · {{expires_at}} · {{type}} · {{event_id}} · {{not_after}} · {{observed_at}}')])])]);
+   function updateFields(){
+    var noBody=requestMethod.value=='GET' || requestMethod.value=='HEAD';
+    modeRow.hidden=noBody;bodyRow.hidden=noBody || bodyMode.value!='custom';
+    requestMethod.disabled=bodyMode.disabled=saving || !permission;
+    body.disabled=saving || !permission || noBody || bodyMode.value!='custom';
+   }
+   requestMethod.addEventListener('change',updateFields);bodyMode.addEventListener('change',updateFields);updateFields();
    var feedback=E('p',{role:'status','aria-live':'polite'});
    var cancel=E('button',{'class':'button cbi-button',click:function(){if(!saving)ui.hideModal();}},_('Cancel'));
    var submit=E('button',{'class':'button primary cbi-button cbi-button-save',disabled:!permission || null,click:function(){
     if(saving || !permission)return Promise.resolve();
     var values={};try{if(headers.value.trim())values=JSON.parse(headers.value);}catch(e){feedback.textContent=_('Headers must be a JSON object.');return Promise.resolve();}
-    saving=true;submit.disabled=cancel.disabled=enabled.disabled=url.disabled=headers.disabled=true;
-    return saveNotifications(enabled.checked,url.value,values).then(checked).then(function(data){
-     notifications=data;url.value='';headers.value='';renderNotifications();ui.hideModal();
+    saving=true;submit.disabled=cancel.disabled=enabled.disabled=url.disabled=headers.disabled=true;updateFields();
+    return saveNotifications(enabled.checked,url.value,values,requestMethod.value,bodyMode.value,body.value).then(checked).then(function(data){
+     notifications=data;url.value='';headers.value='';body.value='';renderNotifications();ui.hideModal();
      return Promise.all([refreshDraft(),caddyApply.refreshChanges()]);
-    }).catch(function(error){feedback.textContent=error.message;}).finally(function(){saving=false;cancel.disabled=false;submit.disabled=enabled.disabled=url.disabled=headers.disabled=!permission;});
+    }).catch(function(error){feedback.textContent=error.message;}).finally(function(){saving=false;cancel.disabled=false;submit.disabled=enabled.disabled=url.disabled=headers.disabled=!permission;updateFields();});
    }},_('Save'));
    modal(_('Notification settings'),[
     E('div',{'class':'tls-form-row'},[E('label',{for:'tls-notify-enabled'},_('Enable webhook')),enabled]),
     E('div',{'class':'tls-form-row'},[E('label',{for:'tls-notify-url'},_('Webhook URL')),url]),
-    E('div',{'class':'tls-form-row'},[E('label',{for:'tls-notify-headers'},_('Request headers')),headers]),feedback
+    E('div',{'class':'tls-form-row'},[E('label',{for:'tls-notify-method'},_('HTTP method')),requestMethod]),
+    E('div',{'class':'tls-form-row'},[E('label',{for:'tls-notify-headers'},_('Request headers')),headers]),modeRow,bodyRow,feedback
    ],[cancel,' ',submit]);
   }
   function notificationHistory(){
@@ -132,11 +139,10 @@ return view.extend({
   }},_('Refresh'));
   renderCertificates();renderNotifications();update();
   return layout.page('tls',_('TLS certificates'),'',[
-   status,current.draft?.mode=='manual'?layout.note(_('TLS settings are managed by the Caddyfile.')):'',
+   current.draft?.mode=='manual'?layout.note(_('TLS settings are managed by the Caddyfile.')):'',
    !current.draft?layout.note(_('Save a site configuration first.')):'',
    layout.panel(_('Default verification method'),'',[
-    choices,methodHelp,
-    siteControls.length && current.draft?.mode!='manual'?E('details',{'class':'tls-site-settings'},[E('summary',{},_('Site verification methods')),siteMethods]):''
+    choices,methodHelp
    ]),
    layout.panel(_('Cloudflare DNS credentials'),'',[
     E('div',{'class':'tls-form-row'},[E('label',{for:'caddy-cf-token'},_('API Token')),E('div',{},[token,credentialStatus])]),
