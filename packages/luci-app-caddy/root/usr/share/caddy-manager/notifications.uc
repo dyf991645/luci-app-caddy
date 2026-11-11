@@ -21,7 +21,7 @@ return function(options) {
   if(!lock || !lock.lock('xn')) {lock?.close();return {ok:false,error:'Notification worker is busy'};}
   let result;try {result=fn();} catch(e) {result=fail();} lock.close();return result;
  }
- function settings() {return read(file,{enabled:false,url:'',headers:{}});}
+ function settings() {return options?.store ? options.store.notifications() : read(file,{enabled:false,url:'',headers:{}});}
  function state() {let s=read(ledger,{version:1,serial:0,episodes:{},events:[],observations:{},last_check:0});if(s.version!=1 || type(s.episodes)!='object' || type(s.events)!='array') die('Invalid ledger');return s;}
  function publicState(s,c) {return {ok:true,webhook:{enabled:c.enabled,configured:length(c.url)>0},last_check:read(runtime,{last_check:s.last_check}).last_check,history:'partial_bounded_logd_window',alerts:values(s.episodes),deliveries:map(s.events,e=>({event_id:e.event_id,type:e.type,attempts:e.attempts,delivery:e.delivery,next_due:e.next_due})),interval:s.interval||300};}
  function save(args) {return locked(function() {
@@ -30,7 +30,7 @@ return function(options) {
   if(type(url)!='string' || length(url)>2048 || (length(url) && (!match(url,/^https?:\/\/[^[:space:]\/@?#]+(\/[^[:space:]#]*)?(\?[^[:space:]#]*)?$/) || match(url,/[[:cntrl:][:space:]\\]/))) || args.enabled && !length(url)) return {ok:false,error:'Use one HTTP or HTTPS URL without userinfo or fragment'};
   if(type(headers)!='object' || length(keys(headers))>8) return {ok:false,error:'Invalid webhook headers'};
   for(let k,v in headers) if(!match(k,/^[A-Za-z0-9-]{1,64}$/) || index(['host','content-length','transfer-encoding','connection','content-type'],lc(k))>=0 || type(v)!='string' || length(v)>2048 || match(v,/[[:cntrl:]]/)) return {ok:false,error:'Invalid webhook headers'};
-  put(file,{enabled:args.enabled,url,headers});return publicState(state(),settings());
+  if(options?.store)options.store.saveNotifications({enabled:args.enabled,url,headers});else put(file,{enabled:args.enabled,url,headers});return publicState(state(),settings());
  });}
  function event(s,ep,type,cert) {
   let id=ep.episode_id+':'+type;

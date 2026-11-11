@@ -28,8 +28,8 @@ return {
 		logs: {args:{level:'',kind:''},call:function(request) {return loadfile('/usr/share/caddy-manager/diagnostics.uc')()().logs({level:request.args.level || 'all',kind:request.args.kind || 'all'});}},
 		diagnostics: {call:function(request) {return loadfile('/usr/share/caddy-manager/diagnostics.uc')()({store:loadfile('/usr/share/caddy-manager/uci-store.uc')()({session:request?.args?.ubus_rpc_session})}).status();}},
 		backend_probe: {args:{confirm:false},call:function(request) {return loadfile('/usr/share/caddy-manager/diagnostics.uc')()({store:loadfile('/usr/share/caddy-manager/uci-store.uc')()({session:request?.args?.ubus_rpc_session})}).probe(request.args);}},
-		notification_status: {call:function() {return loadfile('/usr/share/caddy-manager/notifications.uc')()().status();}},
-		notification_save: {args:{enabled:false,url:'',headers:{}},call:function(request) {return loadfile('/usr/share/caddy-manager/notifications.uc')()().save(request.args);}},
+		notification_status: {call:function(request) {return loadfile('/usr/share/caddy-manager/notifications.uc')()({store:loadfile('/usr/share/caddy-manager/uci-store.uc')()({session:request?.args?.ubus_rpc_session})}).status();}},
+		notification_save: {args:{enabled:false,url:'',headers:{}},call:function(request) {return loadfile('/usr/share/caddy-manager/notifications.uc')()({store:loadfile('/usr/share/caddy-manager/uci-store.uc')()({session:request?.args?.ubus_rpc_session})}).save({enabled:request.args.enabled,url:request.args.url,headers:request.args.headers});}},
 		basic_profile_save: {args:{scope:'',config:{},users:[],expected_revision:0},call:function(request) {return manager(request).basic_profile_save(request.args);}},
 		tls_save: {args:{default_challenge:'',expected_revision:0},call:function(request) {return manager(request).tls_save(request.args);}},
 		credential_status: {call:function(request) {return manager(request).credential_status();}},
@@ -39,12 +39,13 @@ return {
 		draft_get: {call: function(request) {return manager(request).draft_get();}},
 		draft_save: {args:{config:{},expected_revision:0},call:function(request) {return manager(request).draft_save(request.args);}},
 		config_preview: {args:{config:{}},call:function(request) {return manager(request).preview(request.args);}},
-		config_apply: {args:{expected_revision:0},call:function(request) {return manager(request,true).apply(request.args);}},
+		config_apply: {args:{expected_revision:0},call:function(request) {let result=manager(request,true).apply(request.args);if(result.ok && system(['/usr/bin/ucode','/usr/share/caddy-manager/uci-services.uc'],10000)!=0)return {ok:false,error:'Configuration applied; service settings could not be applied'};return result;}},
 		status: {
-			call: function() {
+			call: function(request) {
 				let installed = access('/usr/bin/caddy');
 				let result = {
 					installed: !!installed,
+					desired:loadfile('/usr/share/caddy-manager/uci-store.uc')()({session:request?.args?.ubus_rpc_session}).service(),
 					running: false,
 					enabled: !!init_enabled('caddy'),
 					uptime_seconds:null,memory_kib:null,
@@ -76,6 +77,7 @@ return {
 				return result;
 			}
 		},
+		service_save: {args:{running:false,enabled:false},call:function(request) {let store=loadfile('/usr/share/caddy-manager/uci-store.uc')()({session:request?.args?.ubus_rpc_session});store.saveService({running:request.args.running,enabled:request.args.enabled});return {ok:true};}},
 		action: {
 			args: { action: 'action' },
 			call: function(request) {

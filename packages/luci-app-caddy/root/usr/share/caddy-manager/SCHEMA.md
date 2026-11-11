@@ -75,13 +75,33 @@ Errors return `{ok:false,error}` with fixed safe text; raw CLI/provider errors
 can contain credentials and never enter RPC responses. An indeterminate load
 or failed compensation additionally returns `recovery_required:true`.
 
-With the production UCI store, `/etc/config/caddy` manager section `config`
-option `revision` references a private immutable `config-versions/<revision>.json`
-snapshot. Writes stage a real UCI delta in the rpcd caller session; native
-commit/revert and rollback control the source. A config.change trigger synchronizes
-the committed snapshot. Secrets never appear in the UCI delta. Legacy `draft.json`
-is retained for migration and isolated manager fixtures, and is no longer a
-second writable authority. Snapshot allocation is serialized by the manager lock.
+The production UCI source is `/etc/config/caddy`, with actual `manager config`,
+`auth auth`, `site`, `service service`, and `notifications notifications` sections.
+Each backend is an ordered `list upstream`, and scalar fields (ports, domain,
+challenge, auth mode/source, Authelia backend/URI/portal) are normal UCI options.
+Empty strings use `<option>_empty=1` to distinguish a deliberately empty value
+from an absent optional field, because libuci removes empty string options.
+The manager's API revision is an opaque content fingerprint, not a UCI pointer;
+direct `uci set` edits participate in pending detection and concurrency checks.
+Service and notification settings stage through the same per-session native UCI
+changeset, then become effective on Apply. They do not start services or deliver
+webhooks when saved. Native commit/revert/rollback controls the field source.
+The config.change trigger validates/synchronizes committed fields, then applies
+the desired runtime and boot state. Invalid configuration keeps last-active Caddy.
+
+`/etc/config/caddy_secrets` (0600, no public UCI ACL) contains typed `credential`,
+`basic`, `source`, and `webhook` sections with token, username/hash lists,
+Caddyfile/snippet content, and URL/header lists. These immutable private UCI
+versions are referenced by the public fields, so native changes never include
+sensitive values and rollback retains the exact prior credentials. Private
+versions abandoned by cancellation are retained; no garbage collection runs.
+
+Post-install migration imports legacy draft/snapshot JSON, referenced credentials,
+Basic accounts and notification settings, and converts saved rpcd session
+revision deltas into field deltas. It backs up the old UCI baseline, preserves
+legacy files for recovery, resumes unconverted sessions, and never loads Caddy
+or changes runtime/boot state. JSON is no longer an editable configuration source;
+isolated test fixtures can still supply the legacy file adapter.
 `active.json` remains the procd startup authority.
 `active-state.json` records the last committed public model/revision.
 `candidate.json` and `transaction.json` are private, mode0600, inside the
@@ -116,8 +136,7 @@ use the same effective method.
 `credential_status()` is read-only and returns `configured`, `draft_revision`
 and `active_revision` for credential references, never token bytes.
 `credential_save({token,expected_revision})` is write-ACL only. It creates a
-root-only immutable private version under `credentials/` (0700 directory,
-0600 files), updates the public draft reference and advances the draft revision.
+root-only immutable `credential` section in `caddy_secrets` (0600), updates the public draft reference and advances the draft revision.
 It does not replace the active secret or the running process environment.
 Stale concurrent edits fail. Retired versions remain private so an active or
 interrupted transaction retains its exact original credential. Removing a draft

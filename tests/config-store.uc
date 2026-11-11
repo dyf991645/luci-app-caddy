@@ -1,7 +1,7 @@
 import { readfile } from 'fs';
 let config={version:2,settings:{http_port:25080,https_port:25443,email:'',storage:ARGV[1]+'/data'},sites:[{domain:'store.example.test',upstreams:['http://127.0.0.1:25081'],balance:'round_robin',path:'',strip:false,challenge:'http-01'}]};
 let draft={revision:0,config:null},commits=0;
-let store={read:()=>draft,write:function(value){draft=value;},commit:function(){commits++;return true;}};
+let store={hasChanges:()=>false,equivalent:(a,b)=>sprintf('%J',a)==sprintf('%J',b),read:()=>draft,write:function(value){draft=value;},commit:function(){commits++;return true;}};
 let manager=loadfile(ARGV[0])()({root:ARGV[1],store,offline:true,command:'/bin/true',disable_certificates:true});
 let saved=manager.draft_save({config,expected_revision:0});
 assert(saved.ok,'valid configuration saves');

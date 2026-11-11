@@ -1,0 +1,23 @@
+import {cursor} from 'uci';
+import {mkdir,writefile,readfile,chmod} from 'fs';
+let root=ARGV[0],modules=ARGV[1],confdir=root+'/config';
+for(let dir in [root,confdir,root+'/config-versions',root+'/credentials',root+'/basic-profiles',root+'/pending'])mkdir(dir,0700);
+let config={version:2,mode:'manual',manual_caddyfile:'http://test.invalid { respond test }',settings:{http_port:8080,https_port:8443,email:'',storage:root+'/data',cloudflare_credential:7},auth:{basic:{profile:'basic-2-100'}},sites:[{name:'one',enabled:false,domain:'one.example.test',upstreams:['http://localhost:8081'],balance:'least_conn',path:'/api/*',strip:true,challenge:'dns-01',auth:{mode:'basic',source:'independent',profile:'basic-2-100'}}]};
+writefile(confdir+'/caddy',"config manager 'config'\n option revision '2'\n");
+writefile(root+'/config-versions/2.json',sprintf('%J',{revision:2,config}));
+let next=json(sprintf('%J',config));next.sites[0].name='staged';writefile(root+'/config-versions/3.json',sprintf('%J',{revision:3,config:next}));
+writefile(root+'/credentials/7.json',sprintf('%J',{token:'migrationCanary'}));writefile(root+'/basic-profiles/basic-2-100.json',sprintf('%J',[{username:'u',hash:'migrationHash'}]));
+writefile(root+'/notifications.json',sprintf('%J',{enabled:true,url:'https://notify.example.test/private',headers:{Authorization:'migrationHeader'}}));chmod(root+'/notifications.json',0600);
+let c=cursor(confdir,root+'/pending');c.set('caddy','config','revision','3');assert(c.save('caddy'),'create existing rpcd staged snapshot');
+let factory=loadfile(modules+'/uci-store.uc')(),a=factory({root,confdir,savedir:root+'/pending'});a.initialize();
+assert(a.equivalent(a.read().config,next),'preserve pending model in initiating session');
+let b=factory({root,confdir,savedir:root+'/committed'});assert(b.equivalent(b.read().config,config),'preserve committed model separately');
+assert(a.secret('credential',7).token=='migrationCanary' && a.secret('basic','basic-2-100')[0].hash=='migrationHash','all referenced legacy secrets imported');
+assert(a.notifications().enabled && a.notifications().headers.Authorization=='migrationHeader','legacy webhook imported');
+c=cursor(confdir,root+'/pending');c.load('caddy');assert(c.revert('caddy') && a.equivalent(a.read().config,config),'native revert returns migrated committed fields');
+// Simulate restart after baseline migration but before another saved session conversion.
+c=cursor(confdir,root+'/later');c.set('caddy','config','revision','3');c.save('caddy');
+let later=factory({root,confdir,savedir:root+'/later'});assert(later.equivalent(later.read().config,next),'recover late legacy session after interruption');
+let privateRef=later.saveCredential('newMigrationToken');assert(privateRef!=7 && later.secret('credential',7).token=='migrationCanary','allocating a token does not overwrite imported secret');
+assert(readfile(root+'/uci-migration-backup')!=null,'legacy UCI baseline backed up');
+print('PASS committed/pending snapshot migration, manual source, Basic/Cloudflare/webhook import, native revert and interrupted-session recovery\n');

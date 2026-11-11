@@ -29,7 +29,7 @@ return function(options) {
 		})};
 	}
 	function profile(ref) {
-		return type(ref)=='string' && match(ref,/^basic-[0-9]+-[0-9]+$/) ? read('basic-profiles/'+ref+'.json',null) : null;
+		return type(ref)=='string' && match(ref,/^basic-[0-9]+-[0-9]+$/) ? (options?.store ? options.store.secret('basic',ref) : read('basic-profiles/'+ref+'.json',null)) : null;
 	}
 	function state(private) {
 		let draft = options?.store ? options.store.read() : read('draft.json', { revision: 0, config: null });
@@ -49,7 +49,7 @@ return function(options) {
 		let refs=[draft.config?.auth?.basic?.profile];
 		for (let site in draft.config?.sites) push(refs,site.auth?.profile);
 		for (let ref in refs) {let users=profile(ref);if(users) basic_profiles[ref]=map(users,u=>({username:u.username}));}
-		return { ok: true, basic_profiles, affected_domains, draft: private ? draft.config : public_config, draft_revision: draft.revision, active_revision: active.revision, active_source: active.config ? (active.config.mode || 'form') : null, pending: draft.revision != active.revision, recovery_required: read('transaction.json', null) != null };
+		return { ok: true, basic_profiles, affected_domains, draft: private ? draft.config : public_config, draft_revision: draft.revision, active_revision: active.revision, active_source: active.config ? (active.config.mode || 'form') : null, pending: options?.store ? (draft.signature!=null && active.signature!=null ? draft.signature!=active.signature : (!options.store.equivalent(draft.config,active.config) || options.store.hasChanges())) : draft.revision != active.revision, recovery_required: read('transaction.json', null) != null };
 	}
 	function source_check(text) {
 		if (type(text) != 'string' || length(text) > 65536) return 'Caddyfile content must be text up to 64 KiB';
@@ -190,7 +190,7 @@ return function(options) {
 			let challenge=effective_challenge(s,g);
 			let issuer={module:'acme',email:g.email,challenges:{http:{disabled:challenge!='http-01'},'tls-alpn':{disabled:challenge!='tls-alpn-01'}}};
 			if (challenge == 'dns-01') {
-				let credential = private_config ? read('credentials/' + g.cloudflare_credential + '.json',null) : null;
+				let credential = private_config ? (options?.store ? options.store.secret('credential',g.cloudflare_credential) : read('credentials/' + g.cloudflare_credential + '.json',null)) : null;
 				if (private_config && !credential) die('Missing Cloudflare credential');
 				issuer.challenges.dns = {provider:{name:'cloudflare',api_token:credential ? credential.token : '[REDACTED: Cloudflare credential]'}};
 			}
@@ -336,11 +336,11 @@ return function(options) {
 					push(users,{username:user.username,hash});
 				}
 				mkdir(root+'/basic-profiles',0700);chmod(root+'/basic-profiles',0700);
-				let ref='basic-'+(current.draft_revision+1)+'-'+time();
+				let ref=options?.store ? options.store.saveProfile(users) : 'basic-'+(current.draft_revision+1)+'-'+time();
 				// Exclusive file creation makes profile versions immutable even on abandoned saves.
-				let file=open(root+'/basic-profiles/'+ref+'.json','wx',0600);
-				if(!file) return {ok:false,error:'Unable to create private authentication profile'};
-				file.write(sprintf('%J',users));file.close();
+				let file=options?.store ? null : open(root+'/basic-profiles/'+ref+'.json','wx',0600);
+				if(!options?.store && !file) return {ok:false,error:'Unable to create private authentication profile'};
+				if(file){file.write(sprintf('%J',users));file.close();}
 				config=json(sprintf('%J',config));
 				if(request.scope=='global') {config.auth ||= {};config.auth.basic={profile:ref};}
 				else for(let site in config.sites) if(site.domain==request.scope) site.auth={mode:'basic',source:'independent',profile:ref};
@@ -377,9 +377,9 @@ return function(options) {
 				if (current.draft.mode == 'manual') return {ok:false,error:'Cloudflare form credentials are read-only in complete Caddyfile mode'};
 				if (type(request.token) != 'string' || length(request.token) < 1 || length(request.token) > 4096 || match(request.token, /[[:space:][:cntrl:]]/)) return {ok:false,error:'Enter a Cloudflare API Token without whitespace'};
 				// Immutable versions preserve the last active secret across failed applies.
-				let revision = read('credentials/sequence.json',{revision:0}).revision + 1;
-				write('credentials/sequence.json',{revision});
-				write('credentials/' + revision + '.json',{token:request.token});
+				let revision;
+				if(options?.store)revision=options.store.saveCredential(request.token);
+				else {revision=read('credentials/sequence.json',{revision:0}).revision+1;write('credentials/sequence.json',{revision});write('credentials/'+revision+'.json',{token:request.token});}
 				current.draft.settings.cloudflare_credential = revision;
 				write('draft.json',{revision:current.draft_revision+1,config:current.draft});
 				return state();
@@ -407,6 +407,7 @@ return function(options) {
 				write('candidate.json', candidate);
 				if (!command('validate','candidate.json')) return {ok:false,error:'Caddy rejected the generated configuration; active configuration is unchanged'};
 				let next = {revision:current.draft_revision,config:current.draft};
+				if(options?.store)next.signature=options.store.read().signature;
 				let previous = read('active-state.json',{revision:0,config:null});
 				write('transaction.json',{previous,next,next_json:candidate});
 				if (!options?.offline && !command('reload','candidate.json')) {

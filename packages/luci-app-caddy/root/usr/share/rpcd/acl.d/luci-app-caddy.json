@@ -21,6 +21,7 @@
       "ubus": {
         "luci.caddy": [
           "action",
+          "service_save",
           "basic_profile_save",
           "draft_edit",
           "draft_save",

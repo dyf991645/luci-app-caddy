@@ -19,8 +19,9 @@ created. Passwords accept1–72bytes and exclude CR/LF/NUL. Existing advanced
 hash input accepts bcrypt cost4–16. Hashes never leave the manager via RPC,
 including writer `draft_edit`, preview, mutation responses and errors.
 
-Private mode0600 immutable `basic-profiles/<ref>.json` versions contain usernames
-and hashes. The mode0700 manager root owns the directory. Public drafts contain
+Private mode0600 immutable `basic` sections in `/etc/config/caddy_secrets`
+contain ordered `list username` and `list hash` fields. The package has no public
+LuCI UCI ACL; legacy JSON files are migration inputs only. Public drafts contain
 only references. Old versions are retained for last-active/recovery stability;
 this ticket does not garbage-collect profiles. Saving never rewrites an active
 profile. A failed validate/load therefore retains old credentials, including

@@ -3,6 +3,7 @@
 'require rpc';
 'require ui';
 'require caddy.layout as layout';
+'require caddy.apply as applyFlow';
 var status=rpc.declare({object:'luci.caddy',method:'notification_status',expect:{'':{}}});
 var save=rpc.declare({object:'luci.caddy',method:'notification_save',params:['enabled','url','headers'],expect:{'':{}}});
 function phase(value) {return ({expired:_('Stored certificate expired'),near_expiry_observed_issues:_('Near expiry with repeated issuer issues; final attempt outcomes unknown'),recovered:_('Valid replacement observed')})[value]||_('Unknown');}
@@ -10,7 +11,7 @@ return view.extend({
  load:function() {return status();},
  render:function(initial) {
   var readonly=!L.hasViewPermission();
-  var enabled=E('input',{type:'checkbox',id:'notify-enabled',disabled:readonly}),url=E('input',{type:'password',id:'notify-url',disabled:readonly,autocomplete:'new-password',placeholder:_('Leave blank to retain private target')}),headers=E('textarea',{id:'notify-headers',disabled:readonly,rows:3,autocomplete:'off',placeholder:'{"Authorization":"Bearer …"}'}),alerts=E('div',{'aria-live':'polite'}),feedback=E('p',{role:'status'}),button=E('button',{type:'button','class':'button primary cbi-button cbi-button-save',disabled:readonly},_('Save notification settings'));
+  var enabled=E('input',{type:'checkbox',id:'notify-enabled',disabled:readonly || null}),url=E('input',{type:'password',id:'notify-url',disabled:readonly || null,autocomplete:'new-password',placeholder:_('Leave blank to retain private target')}),headers=E('textarea',{id:'notify-headers',disabled:readonly || null,rows:3,autocomplete:'off',placeholder:'{"Authorization":"Bearer …"}'}),alerts=E('div',{'aria-live':'polite'}),feedback=E('p',{role:'status'}),button=E('button',{type:'button','class':'button primary cbi-button cbi-button-save',disabled:readonly || null},_('Save'));
   function update(data) {
    enabled.checked=!!data.webhook?.enabled;
    var children=[E('p',{},data.ok?_(data.webhook?.configured?'A private webhook target is configured.':'No webhook target configured.'):data.error||_('Notification state unavailable')),E('p',{},_('Last background check')+': '+(data.last_check?new Date(data.last_check*1000).toISOString():_('Not yet observed')))];
@@ -23,7 +24,7 @@ return view.extend({
    if(readonly)return;
    var h={};try {if(headers.value.trim())h=JSON.parse(headers.value);}catch(e){feedback.textContent=_('Headers must be a JSON object.');headers.focus();return;}
    button.disabled=true;feedback.textContent=_('Saving…');
-   save(enabled.checked,url.value,h).then(function(data) {if(!data.ok)throw Error(data.error);url.value='';headers.value='';update(data);feedback.textContent=_('Notification settings saved.');}).catch(function(e){feedback.textContent=e.message||_('Unable to save notification settings');}).finally(function(){button.disabled=readonly;});
+   save(enabled.checked,url.value,h).then(function(data) {if(!data.ok)throw Error(data.error);url.value='';headers.value='';update(data);feedback.textContent=_('Notification settings saved; apply the pending UCI changes to activate them.');return applyFlow.refreshChanges();}).catch(function(e){feedback.textContent=e.message||_('Unable to save notification settings');}).finally(function(){button.disabled=readonly;});
   });
   update(initial);
   var refresh=E('button',{type:'button','class':'button cbi-button'},_('Refresh background status'));

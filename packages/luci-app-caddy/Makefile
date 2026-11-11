@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-caddy
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=20
+PKG_RELEASE:=21
 PKG_LICENSE:=Apache-2.0
 PKG_BUILD_DEPENDS:=luci-base/host
 
@@ -19,6 +19,7 @@ endef
 
 define Package/luci-app-caddy/conffiles
 /etc/config/caddy
+/etc/config/caddy_secrets
 endef
 
 define Build/Compile
@@ -30,6 +31,7 @@ define Package/luci-app-caddy/postinst
 if [ -z "$${IPKG_INSTROOT}" ]; then
 	rm -f /tmp/luci-indexcache.*
 	rm -rf /tmp/luci-modulecache/
+	/usr/bin/ucode /usr/share/caddy-manager/uci-migrate.uc || exit 1
 	/etc/init.d/rpcd reload 2>/dev/null
 	/etc/init.d/caddy-monitor enable
 	/etc/init.d/caddy-monitor restart

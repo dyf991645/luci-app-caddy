@@ -73,3 +73,9 @@ The production monitor can be managed separately with
 `/etc/init.d/caddy-monitor start|stop|enable|disable`. Package removal stops
 and disables this monitor; it does not stop the separately packaged Caddy
 service. Webhooks stay disabled until explicitly configured and enabled.
+
+Production settings now stage in `caddy.notifications` (enabled and webhook
+reference), with private URL/header list fields in `caddy_secrets`. The worker
+reads only committed UCI settings. Save refreshes LuCI native pending changes;
+Apply/revert controls activation. Legacy notifications.json is imported once.
+The notification ledger and runtime check evidence remain operational files.

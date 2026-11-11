@@ -26,7 +26,7 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
 
  const values={backendList:{create(value){return {render(){return E('input',{value});}};}},navigator:{clipboard:{writeText:async text=>{clipboard.push(text);}}},dom:{findClassInstance:node=>node.instance},poll:{add(){}},E,_:s=>s,ui,rpc,view:{extend:x=>x},form,L:{hasViewPermission:()=>true,url:x=>x,resource:x=>x,env:{dispatchpath:['admin','services','caddy',fixture.route || 'configuration']}},window:{addEventListener(){}},document:{createTextNode:s=>({textContent:s}),addEventListener(){},querySelector(){return null;},head:{appendChild(){}}},location:{href:''},baseclass:{extend:x=>x}};
  const helper=new URL('caddy/apply.js',resources);
- if(existsSync(helper))values.caddyApply=evaluate(helper);
+ if(existsSync(helper))values.caddyApply=evaluate(helper);values.applyFlow=values.caddyApply;
  values.layout=evaluate(new URL('caddy/layout.js',resources));
  values.service=evaluate(new URL('caddy/service.js',resources));
  function evaluate(file){return new Function(...Object.keys(values),readFileSync(file,'utf8'))(...Object.values(values));}
@@ -160,7 +160,7 @@ test('overview contains no cross-page links or boot and start/stop controls',asy
  const h=harness('overview');await h.render();expect(h.nodes.filter(n=>n.tag==='a')).toHaveLength(0);expect(h.nodes.filter(n=>n.attrs.type==='checkbox')).toHaveLength(0);expect(h.button('Start')).toBeUndefined();expect(h.button('Stop')).toBeUndefined();expect(h.button('Restart')).toBeUndefined();expect(h.button('Reload')).toBeDefined();
 });
 test('global service controls remain usable in manual mode without making the configuration draft dirty',async()=>{
- const h=harness('configuration',[],{route:'settings',config:{mode:'manual'}});await h.render();const run=h.nodes.find(n=>n.attrs['aria-label']==='Run Caddy');expect(run.disabled).toBe(false);run.checked=true;run.events.change();expect(h.button('Apply service settings').disabled).toBe(false);expect(h.button('Save').disabled).toBe(true);expect(h.calls.filter(c=>c.method==='action')).toHaveLength(0);
+ const h=harness('configuration',[],{route:'settings',config:{mode:'manual'}});await h.render();const run=h.nodes.find(n=>n.attrs['aria-label']==='Run Caddy');expect(run.disabled).toBe(false);run.checked=true;run.events.change();expect(h.nodes.filter(n=>n.tag==='button'&&n.textContent==='Save').some(n=>!n.disabled)).toBe(true);expect(h.calls.filter(c=>c.method==='action')).toHaveLength(0);
 });
 
 test('site name and disabled state persist while keeping existing settings',async()=>{
@@ -192,4 +192,12 @@ test('removing every backend still prevents saving a site',async()=>{
 test('site and TLS saves refresh the native LuCI UCI change indicator',async()=>{
  const h=harness('configuration',[]);await h.render();const editor=await h.openSite();await editor.save();expect(h.changeRefreshes).toBeGreaterThan(0);
  const tls=harness('tls',[]);await tls.render();tls.nodes.find(n=>n.tag==='input'&&n.attrs.type==='radio').events.change();await tls.button('Save').click();expect(tls.changeRefreshes).toBeGreaterThan(0);
+});
+
+test('notification saves refresh native UCI changes and editable controls omit disabled',async()=>{
+ const h=harness('notifications');await h.render();
+ const button=h.button('Save');expect(button).toBeDefined();expect(button.attrs.disabled==null).toBe(true);
+ const url=h.nodes.find(n=>n.attrs.id==='notify-url'),headers=h.nodes.find(n=>n.attrs.id==='notify-headers');
+ url.value='https://notify.example.test/private';headers.value='{"Authorization":"test"}';
+ button.events.click();await tick();expect(h.calls.some(c=>c.method==='notification_save')).toBe(true);expect(h.changeRefreshes).toBe(1);
 });

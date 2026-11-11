@@ -341,3 +341,16 @@ All fixture files stay under `/tmp`; no installed RPC or service is replaced.
 `process-metrics-test.uc MODULE ROOT` uses a known proc fixture for starttime and VmRSS; `process-metrics-router.sh FIXTURE` runs a short-lived Caddy at loopback25997, no ACME and no installed init action, then checks actual process metrics and cleans up. Place process-metrics.uc in FIXTURE first; do not run if the loopback port is occupied.
 
 `bun test tests/apply-impact.test.js tests/service-controls.test.js` checks the shipped view save/apply seams, metadata and disabled flags, search/filter counts and protected preview clipboard export. These adapter tests do not replace native browser visual acceptance.
+
+## Full UCI field migration
+
+`uci-fields.uc` verifies actual scalar/list options, direct CLI field edits,
+canonical model round trips, native deltas, two savedirs, revert/commit,
+private Basic/Cloudflare/webhook fields and desired service state.
+`uci-migration.uc` verifies committed and pending snapshot import, retained
+manual source and credentials, native revert, interrupted-session recovery
+and idempotence. Run each with a fresh `/tmp/<root>` and module directory.
+`service-state.uc <service-state.uc module>` uses isolated service adapters
+for all sixteen runtime/boot transitions and failed/unknown state cases.
+`uci-store-router.sh` runs real Caddy on loopback to verify field application,
+rollback and validation failure; it does not apply installed user configuration.

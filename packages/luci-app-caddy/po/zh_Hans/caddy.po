@@ -1083,3 +1083,15 @@ msgstr "删除后端"
 
 msgid "Configure at least one backend"
 msgstr "至少配置一个后端"
+
+msgid "Service changes not saved"
+msgstr "服务设置尚未保存"
+
+msgid "Service settings saved"
+msgstr "服务设置已保存"
+
+msgid "Save service settings, then use LuCI Save & Apply to apply them. Starting uses the applied configuration."
+msgstr "保存服务设置后，使用 LuCI 的保存并应用使其生效。启动时使用已应用的配置。"
+
+msgid "Notification settings saved; apply the pending UCI changes to activate them."
+msgstr "通知设置已保存，应用待处理的 UCI 更改后生效。"

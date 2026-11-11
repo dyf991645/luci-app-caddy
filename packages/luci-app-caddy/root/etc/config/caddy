@@ -1,2 +1,2 @@
 config manager 'config'
-	option revision 'legacy'
+	option schema 'legacy'
