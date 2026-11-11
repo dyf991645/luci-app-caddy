@@ -4,9 +4,9 @@ const resources=new URL('../packages/luci-app-caddy/htdocs/luci-static/resources
 // Executes the shipped LuCI views. DOM, JSONMap and RPC are host adapters only;
 // clicks, asynchronous save responses and the confirmation gate are real view code.
 function harness(page, affected=['basic.example.test','authelia.example.test'], fixture={}) {
- const nodes=[]; let modal=null,pageRoot=null,changeRefreshes=0; const calls=[],notifications=[],clipboard=[];
+ const nodes=[]; let modal=null,pageRoot=null,changeRefreshes=0; const calls=[],notifications=[],clipboard=[],downloads=[];
  function E(tag,attrs={},children=[]) {
-  const node={tag,attrs,children:[],value:attrs.value || '',disabled:attrs.disabled || false,textContent:typeof children==='string'?children:'',events:{},
+  const node={tag,attrs,children:[],value:attrs.value || (tag==='textarea'&&typeof children==='string'?children:''),disabled:attrs.disabled!=null,textContent:typeof children==='string'?children:'',events:{},
    addEventListener(name,fn){this.events[name]=fn;},appendChild(n){this.children.push(n);Object.defineProperty(n,'parentNode',{value:this,writable:true,configurable:true});},replaceChildren(...n){this.children=n;},
    querySelectorAll(selector){return all(this).filter(n=>selector.split(',').includes(n.tag));},remove(){if(this.parentNode)this.parentNode.children=this.parentNode.children.filter(n=>n!==this);},classList:{add(){}},click(){return this.attrs.click?.();}};
   node.children=Array.isArray(children)?children:[children];node.children.forEach(n=>{if(n&&typeof n==='object')Object.defineProperty(n,'parentNode',{value:node,writable:true,configurable:true});}); nodes.push(node);return node;
@@ -16,7 +16,7 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
  Object.assign(config,fixture.config || {});
  let state={ok:true,basic_profiles:fixture.basic_profiles || {},draft:config,draft_revision:4,active_revision:3,pending:true,affected_domains:affected};
  const ui={changes:{init(){changeRefreshes++;return Promise.resolve();}},showModal(title,body){modal=E('modal',{title},body);},hideModal(){modal=null;},addNotification(...args){notifications.push(args);}};
- const rpc={declare({method}){return async (...args)=>{calls.push({method,args});if(fixture.fail===method)return {ok:false,error:'Revision conflict'};if(method==='status')return {installed:true,running:false,enabled:false};if(method==='credential_status')return {ok:true,configured:!!fixture.credential};if(method==='certificates')return fixture.certificates||{ok:true,complete:true,certificates:[]};if(method==='notification_status')return fixture.notification||{ok:true,webhook:{enabled:false,configured:false},alerts:[],deliveries:[]};if(method==='notification_save')return {ok:true,webhook:{enabled:args[0],configured:!!args[1]},alerts:[],deliveries:[]};if(method==='config_preview')return {ok:true,config:fixture.preview || {}};if(method==='config_apply'){state={...state,active_revision:state.draft_revision,pending:false,affected_domains:[]};return state;}if(method==='basic_profile_save'||method==='draft_save')state={...state,draft:args[method==='basic_profile_save'?1:0]};if(['tls_save','credential_save','draft_save','basic_profile_save'].includes(method))state={...state,draft_revision:state.draft_revision+1,affected_domains:['latest.example.test']};return state;};}};
+ const rpc={declare({method}){return async (...args)=>{calls.push({method,args});if(fixture.wait?.method===method)await fixture.wait.promise;if(fixture.fail===method)return {ok:false,error:'Revision conflict'};if(method==='status')return {installed:true,running:false,enabled:false};if(method==='credential_status')return {ok:true,configured:!!fixture.credential};if(method==='certificates')return fixture.certificates||{ok:true,complete:true,certificates:[]};if(method==='notification_status')return fixture.notification||{ok:true,webhook:{enabled:false,configured:false},alerts:[],deliveries:[]};if(method==='notification_save')return {ok:true,webhook:{enabled:args[0],configured:!!args[1]},alerts:[],deliveries:[]};if(method==='config_preview')return {ok:true,config:fixture.preview || {}};if(method==='config_apply'){state={...state,active_revision:state.draft_revision,pending:false,affected_domains:[]};return state;}if(method==='basic_profile_save'||method==='draft_save')state={...state,draft:args[method==='basic_profile_save'?1:0]};if(['tls_save','credential_save','draft_save','basic_profile_save'].includes(method))state={...state,draft_revision:state.draft_revision+1,affected_domains:['latest.example.test']};return state;};}};
  let rootMap,activeMap;
  const form={JSONMap:class {
   constructor(data){this.buffer=data;this.children=[];rootMap=this;this.data={get:(_,sid,key)=>key==null?this.buffer[sid]:this.buffer[sid]?.[key],set:(_,sid,key,v)=>{this.buffer[sid][key]=v;},sections:()=>this.buffer.sites.map((s,i)=>({...s,'.name':String(i)}))};this.buffer.sites.forEach((s,i)=>this.buffer[String(i)]=s);}
@@ -24,7 +24,7 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
   parse(){return Promise.resolve();} render(){return fixture.route==='settings'?Promise.all(this.children.map(s=>s.render())).then(nodes=>E('form',{},nodes)):Promise.resolve(E('form'));} load(){return Promise.resolve();}reset(){return Promise.resolve();}
  }};
 
- const values={backendList:{create(value){return {render(){return E('input',{value});}};}},navigator:{clipboard:{writeText:async text=>{clipboard.push(text);}}},dom:{findClassInstance:node=>node.instance},poll:{add(){}},E,_:s=>s,ui,rpc,view:{extend:x=>x},form,L:{hasViewPermission:()=>!fixture.readonly,url:x=>x,resource:x=>x,env:{dispatchpath:['admin','services','caddy',fixture.route || 'configuration']}},window:{addEventListener(){}},document:{createTextNode:s=>({textContent:s}),addEventListener(){},querySelector(){return null;},head:{appendChild(){}}},location:{href:''},baseclass:{extend:x=>x}};
+ const values={URL:class extends URL {static createObjectURL(){return 'blob:fixture';}static revokeObjectURL(){}},backendList:{create(value){return {render(){return E('input',{value});}};}},navigator:{clipboard:{writeText:async text=>{clipboard.push(text);}}},dom:{findClassInstance:node=>node.instance},poll:{add(){}},E,_:s=>s,ui,rpc,view:{extend:x=>x},form,L:{hasViewPermission:()=>!fixture.readonly,url:x=>x,resource:x=>x,env:{dispatchpath:['admin','services','caddy',fixture.route || 'configuration']}},window:{addEventListener(){}},document:{createTextNode:s=>({textContent:s}),addEventListener(){},querySelector(){return null;},body:{appendChild(node){downloads.push(node);}},head:{appendChild(){}}},location:{href:''},baseclass:{extend:x=>x}};
  const helper=new URL('caddy/apply.js',resources);
  if(existsSync(helper))values.caddyApply=evaluate(helper);values.applyFlow=values.caddyApply;
  values.layout=evaluate(new URL('caddy/layout.js',resources));
@@ -44,7 +44,7 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
    }
    ui.showModal('Edit site',body);
    return {validate(name,value){return section.children.find(o=>o.option===name).validate('0',value);},field(name){return section.children.find(o=>o.option===name).input;},visible(name){return section.children.find(o=>o.option===name).active();},button(label){return all(modal).find(n=>n.tag==='button'&&n.textContent===label);},inputs(){return all(modal).filter(n=>n.tag==='input');},save(){return grid.handleModalSave(activeMap);},cancel(){grid.handleModalCancel(activeMap);}};
-  },async render(){pageRoot=await view.render(page==='tls'?[state,{ok:true,configured:!!fixture.credential},fixture.certificates||{ok:true,complete:true,certificates:[]},fixture.notification||{ok:true,webhook:{enabled:false,configured:false},alerts:[],deliveries:[]}]:page==='overview'?[{installed:true,running:false,enabled:false},state]:state);},button(label){return nodes.find(n=>n.tag==='button'&&n.textContent===label);},get modal(){return modal;},modalButton(label){return all(modal).find(n=>n.tag==='button'&&n.textContent===label);},nodes,calls,notifications,clipboard,pageNodes:()=>all(pageRoot),modalField:id=>all(modal).find(n=>n.attrs?.id===id),get changeRefreshes(){return changeRefreshes;}};
+  },async render(){pageRoot=await view.render(page==='tls'?[state,{ok:true,configured:!!fixture.credential},fixture.certificates||{ok:true,complete:true,certificates:[]},fixture.notification||{ok:true,webhook:{enabled:false,configured:false},alerts:[],deliveries:[]}]:page==='overview'?[{installed:true,running:false,enabled:false},state]:state);},button(label){return nodes.find(n=>n.tag==='button'&&n.textContent===label);},get modal(){return modal;},modalButton(label){return all(modal).find(n=>n.tag==='button'&&n.textContent===label);},nodes,calls,notifications,clipboard,downloads,pageNodes:()=>all(pageRoot),modalField:id=>all(modal).find(n=>n.attrs?.id===id),get changeRefreshes(){return changeRefreshes;}};
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 test('TLS pending Apply lists shared authentication impact and cancellation sends no apply',async()=>{
@@ -279,4 +279,35 @@ test('global account changes only use the page save and expose no hash inputs',a
  h.pageNodes().find(n=>n.attrs?.['aria-label']==='Username').value='alice';h.pageNodes().find(n=>n.attrs?.['aria-label']==='New password').value='global-password';
  h.pageNodes().find(n=>n.children?.some(c=>c?.attrs?.class==='account-row')).events.input();await h.button('Save').click();
  const save=h.calls.find(c=>c.method==='basic_profile_save');expect(save.args[0]).toBe('global');expect(save.args[2]).toEqual([{username:'alice',password:'global-password'}]);expect(h.calls.some(c=>c.method==='config_apply')).toBe(false);
+});
+
+for(const mode of ['form','manual'])test(`configuration file controls stay interactive in ${mode} mode`,async()=>{
+ const h=harness('configuration',[],{route:'config',config:{mode,manual_caddyfile:'retained-caddyfile'}});await h.render();
+ const select=h.pageNodes().find(n=>n.tag==='select');expect(select.disabled).toBe(false);
+ expect(select.children.filter(n=>n.attrs.selected!=null).map(n=>n.attrs.value)).toEqual([mode]);
+ for(const label of ['Refresh preview','Copy preview','Download preview'])expect(h.button(label).disabled).toBe(false);
+ await h.button('Refresh preview').click();expect(h.calls.some(c=>c.method==='config_preview')).toBe(true);
+ select.attrs.change({target:Object.assign(select,{value:mode==='form'?'manual':'form'})});expect(h.modal.attrs.title).toBe('Switch configuration source');h.modalButton('Cancel').click();expect(h.modal).toBeNull();
+ expect(h.calls.some(c=>c.method==='draft_save'||c.method==='config_apply')).toBe(false);
+});
+test('configuration file readonly permission disables source and export controls',async()=>{
+ const h=harness('configuration',[],{route:'config',readonly:true});await h.render();expect(h.pageNodes().find(n=>n.tag==='select').disabled).toBe(true);
+ for(const label of ['Refresh preview','Copy preview','Download preview'])expect(h.button(label).disabled).toBe(true);
+});
+
+test('configuration source can switch both ways and save the complete Caddyfile',async()=>{
+ const h=harness('configuration',[],{route:'config',config:{mode:'form',manual_caddyfile:'retained-private-file'}});await h.render();const select=h.pageNodes().find(n=>n.tag==='select'),manual=h.pageNodes().find(n=>n.tag==='textarea');
+ expect(manual.disabled).toBe(true);select.attrs.change({target:Object.assign(select,{value:'manual'})});h.modalButton('Switch source').click();expect(select.value).toBe('manual');expect(manual.disabled).toBe(false);
+ manual.value='edited-private-file';manual.events.input();await h.button('Save').click();const saved=h.calls.find(c=>c.method==='draft_save').args[0];expect(saved.mode).toBe('manual');expect(saved.manual_caddyfile).toBe('edited-private-file');
+ select.attrs.change({target:Object.assign(select,{value:'form'})});h.modalButton('Switch source').click();expect(select.value).toBe('form');expect(manual.disabled).toBe(true);await h.button('Save').click();expect(h.calls.filter(c=>c.method==='draft_save').at(-1).args[0].mode).toBe('form');
+});
+test('configuration export buttons use the protected preview for copy and download',async()=>{
+ const h=harness('configuration',[],{route:'config',config:{mode:'manual',manual_caddyfile:'private-canary'},preview:{protected:true}});await h.render();await h.button('Copy preview').click();await h.button('Download preview').click();expect(h.clipboard[0]).not.toContain('private-canary');expect(h.downloads[0].attrs.download).toBe('caddy-preview.redacted.json');expect(h.notifications).toHaveLength(0);
+});
+
+test('configuration controls disable during save and recover afterward',async()=>{
+ let release;const promise=new Promise(resolve=>{release=resolve;});const h=harness('configuration',[],{route:'config',config:{mode:'manual'},wait:{method:'draft_save',promise}});await h.render();
+ const manual=h.pageNodes().find(n=>n.tag==='textarea');manual.value='edited';manual.events.input();const operation=h.button('Save').click();
+ const select=h.pageNodes().find(n=>n.tag==='select');expect(select.disabled).toBe(true);for(const label of ['Refresh preview','Copy preview','Download preview'])expect(h.button(label).disabled).toBe(true);
+ release();await operation;expect(select.disabled).toBe(false);expect(manual.disabled).toBe(false);for(const label of ['Refresh preview','Copy preview','Download preview'])expect(h.button(label).disabled).toBe(false);
 });

@@ -25,7 +25,8 @@ return view.extend({
 		var mode = config.mode || 'form';
 		var manual = E('textarea',{'class':'cbi-input-textarea','rows':18,'spellcheck':'false','aria-label':_('Complete Caddyfile')},config.manual_caddyfile || '');
 		var sourceStatus = E('p',{'role':'status'});
-		var serviceControlsApi=null;
+		var serviceControlsApi=null,configControls=[];
+		function configControl(tag,attrs,children){var node=E(tag,attrs,children);configControls.push(node);return node;}
 		var formNode, serviceStrip, searchQuery='',statusFilter='all';
 		var siteCount=E('span',{'class':'count','role':'status'});
 		var map = new form.JSONMap({authelia:Object.assign({backend:'',uri:'/api/authz/forward-auth',portal:''},config.auth?.authelia),settings:Object.assign({},config.settings),sites:config.sites.map(function(site) {return Object.assign({},site);})});
@@ -183,14 +184,14 @@ return view.extend({
 		function createAccountEditor(users,readonly) {
 			var rows=E('div',{'class':'caddy-account-list'});
 			function add(user) {
-				var username=E('input',{'class':'cbi-input-text','placeholder':_('Username'),'aria-label':_('Username'),'value':user?.username || '',disabled:readonly,'autocomplete':'off'});
-				var password=E('input',{'class':'cbi-input-text','type':'password','placeholder':user ? _('Keep existing password') : _('New password'),'aria-label':_('New password'),'autocomplete':'new-password',disabled:readonly});
-				var row=E('div',{'class':'caddy-account-row'},[E('div',{'class':'field'},[E('label',{},_('Username')),username]),E('div',{'class':'field'},[E('label',{},_('New password')),password]),E('button',{'type':'button','class':'cbi-button','disabled':readonly,'click':function(){row.remove();}},_('Remove account'))]);
+				var username=E('input',{'class':'cbi-input-text','placeholder':_('Username'),'aria-label':_('Username'),'value':user?.username || '',disabled:readonly || null,'autocomplete':'off'});
+				var password=E('input',{'class':'cbi-input-text','type':'password','placeholder':user ? _('Keep existing password') : _('New password'),'aria-label':_('New password'),'autocomplete':'new-password',disabled:readonly || null});
+				var row=E('div',{'class':'caddy-account-row'},[E('div',{'class':'field'},[E('label',{},_('Username')),username]),E('div',{'class':'field'},[E('label',{},_('New password')),password]),E('button',{'type':'button','class':'cbi-button','disabled':readonly || null,'click':function(){row.remove();}},_('Remove account'))]);
 				row.account=function(){return Object.assign({username:username.value},password.value ? {password:password.value} : {retain:true});};
 				rows.appendChild(row);
 			}
 			users.forEach(add);if(!users.length)add();
-			return {node:E('div',{},[E('p',{},_('Leave an existing password blank to keep it. Apply saved changes to activate them.')),rows,E('button',{'type':'button','class':'cbi-button','disabled':readonly,'click':function(){add();}},_('Add account'))]),users:function(){return Array.from(rows.children).map(function(row){return row.account();});}};
+			return {node:E('div',{},[E('p',{},_('Leave an existing password blank to keep it. Apply saved changes to activate them.')),rows,E('button',{'type':'button','class':'cbi-button','disabled':readonly || null,'click':function(){add();}},_('Add account'))]),users:function(){return Array.from(rows.children).map(function(row){return row.account();});}};
 		}
 
 		function accountRow(user) {
@@ -217,6 +218,7 @@ return view.extend({
 				if(manualPanel)manualPanel.hidden=mode!='manual';
 				if(previewPanel)previewPanel.hidden=mode=='manual';
 			}
+			configControls.forEach(function(control){control.disabled=busy || map.readonly;});
 			manual.disabled = busy || map.readonly || mode != 'manual';
 			if(formNode) formNode.querySelectorAll('input,select,textarea,button').forEach(function(field) {field.disabled = busy || map.readonly || mode == 'manual';});
 			status.textContent = _('Saved draft revision') + ': ' + current.draft_revision + ' · ' + _('Active revision') + ': ' + current.active_revision + ' · ' + _('Active source') + ': ' + (current.active_source || _('No managed revision')) + (current.pending ? ' · ' + _('Saved changes pending application') : '') + ((dirty || serviceControlsApi?.pending()) ? ' · ' + _('Unsaved edits') : '') + (current.recovery_required ? ' · ' + _('Recovery required: start or restart Caddy') : '');
@@ -294,12 +296,12 @@ return view.extend({
 				content = [serviceControls,E('div',{'class':'info-note','hidden':mode!='manual'}, [sourceStatus]),node];
 			}
 			else if(page == 'config') {
-				content = [E('div',{'class':'field'},[E('label',{},_('Configuration source')),E('select',{'disabled':map.readonly,'change':function(event){var selected=event.target.value;event.target.value=mode;if(busy)return;if(selected==mode)return;ui.showModal(_('Switch configuration source'),[E('p',{},selected=='manual'?_('The complete Caddyfile will become the source after Save & Apply. Form content is preserved and becomes read-only.'):_('Retained form content will become the source after Save & Apply. Manual content is preserved.')),E('div',{'class':'right'},[E('button',{'class':'cbi-button','click':ui.hideModal},_('Cancel')),' ',E('button',{'class':'cbi-button cbi-button-action','click':function(){if(accountDirty){ui.hideModal();ui.addNotification(null,E('p',{},_('Save account edits before switching configuration source.')),'warning');return;}if(mode=='form')rememberForm();mode=selected;event.target.value=mode;dirty=true;update();ui.hideModal();}},_('Switch source'))])]);}},[E('option',{'value':'form','selected':mode=='form'},_('Form configuration')),E('option',{'value':'manual','selected':mode=='manual'},_('Complete Caddyfile'))]),sourceStatus]),
+				content = [E('div',{'class':'field'},[E('label',{},_('Configuration source')),configControl('select',{'disabled':map.readonly || null,'change':function(event){var selected=event.target.value;event.target.value=mode;if(busy || map.readonly)return;if(selected==mode)return;ui.showModal(_('Switch configuration source'),[E('p',{},selected=='manual'?_('The complete Caddyfile will become the source after Save & Apply. Form content is preserved and becomes read-only.'):_('Retained form content will become the source after Save & Apply. Manual content is preserved.')),E('div',{'class':'right'},[E('button',{'class':'cbi-button','click':ui.hideModal},_('Cancel')),' ',E('button',{'class':'cbi-button cbi-button-action','click':function(){if(accountDirty){ui.hideModal();ui.addNotification(null,E('p',{},_('Save account edits before switching configuration source.')),'warning');return;}if(mode=='form')rememberForm();mode=selected;event.target.value=mode;dirty=true;update();ui.hideModal();}},_('Switch source'))])]);}},[E('option',{'value':'form','selected':mode=='form' || null},_('Form configuration')),E('option',{'value':'manual','selected':mode=='manual' || null},_('Complete Caddyfile'))]),sourceStatus]),
 					layout.panel(_('Configuration file'), _('Form mode previews protected Caddy JSON; manual mode edits a Caddyfile. Copy and download always export the protected JSON preview.'), [
 						E('div',{'class':'field','hidden':mode!='manual'}, [E('label',{},_('Separate complete Caddyfile')), manual]),
 						E('div',{'class':'config-preview','hidden':mode=='manual'}, [code]),
 						E('p',{'class':'info-note'},_('Privileged server configuration: only trusted administrators should edit it. Local admin and managed filesystem storage are enforced; imports and environment expansion are unsupported.'))
-					], [E('button',{'class':'button','disabled':map.readonly,'click':function(){return showPreview(values()).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');});}},_('Refresh preview')),E('button',{'class':'button','disabled':map.readonly,'click':function(){return exportPreview(true);}},_('Copy preview')),E('button',{'class':'button','disabled':map.readonly,'click':function(){return exportPreview(false);}},_('Download preview'))])];
+					], [configControl('button',{'class':'button','disabled':map.readonly || null,'click':function(){return showPreview(values()).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');});}},_('Refresh preview')),configControl('button',{'class':'button','disabled':map.readonly || null,'click':function(){return exportPreview(true);}},_('Copy preview')),configControl('button',{'class':'button','disabled':map.readonly || null,'click':function(){return exportPreview(false);}},_('Download preview'))])];
 			}
 			else {
 				content = [serviceStrip=layout.serviceStrip(current),E('div',{'class':'info-note','hidden':mode!='manual'}, [sourceStatus, E('a',{'href':L.url('admin/services/caddy/config')},_('Configuration file'))]),
