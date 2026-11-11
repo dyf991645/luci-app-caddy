@@ -1,15 +1,17 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=caddy-binary
-PKG_VERSION:=2.11.8
-PKG_RELEASE:=5
+# Generated from the freshly downloaded executable by scripts/build.py.
+-include $(TOPDIR)/package/caddy-binary/upstream.mk
+PKG_VERSION:=$(CADDY_UPSTREAM_VERSION)
+PKG_RELEASE:=1
 PKG_LICENSE:=Apache-2.0
-PKG_SOURCE:=caddy-2.11.8-cloudflare-0.2.4-linux-arm64
+PKG_SOURCE:=caddy-$(PKG_VERSION)-cloudflare-linux-arm64
 PKG_SOURCE_URL:=https://caddyserver.com/api
-PKG_SOURCE_URL_FILE:=download?os=linux&arch=arm64&p=github.com%2Fcaddy-dns%2Fcloudflare%40v0.2.4
-PKG_HASH:=6d8d57926dd4bd5ce4894ec38b7e18c4bf5d18a569cd36826e8b8300d160f686
+PKG_SOURCE_URL_FILE:=download?os=linux&arch=arm64&p=github.com%2Fcaddy-dns%2Fcloudflare
+PKG_HASH:=skip
 
-# Keep the reviewed upstream executable byte-for-byte intact.
+# Keep the downloaded upstream executable byte-for-byte intact.
 RSTRIP:=:
 
 include $(INCLUDE_DIR)/package.mk
@@ -31,6 +33,7 @@ define Package/caddy-binary/conffiles
 endef
 
 define Build/Prepare
+	[ -n "$(CADDY_UPSTREAM_VERSION)" ]
 	[ "$(ARCH_PACKAGES)" = aarch64_cortex-a53 ]
 	$(INSTALL_DIR) $(PKG_BUILD_DIR)
 	$(CP) $(DL_DIR)/$(PKG_SOURCE) $(PKG_BUILD_DIR)/caddy

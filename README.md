@@ -1,6 +1,6 @@
 # luci-app-caddy
 
-官方 OpenWrt 的原生 LuCI Caddy 管理界面，入口为“服务 → Caddy”。首版目标为 **OpenWrt 25.12.4 r32933-4ccb782af7 / mediatek/filogic / aarch64_cortex-a53 / APK**，不能仅按 CPU 架构判断兼容性。包含 `caddy-binary`（Caddy 2.11.8 + Cloudflare 0.2.4）和 `luci-app-caddy` 两个包。版本、SDK、上游摘要见 [artifact-lock.json](artifact-lock.json)。
+官方 OpenWrt 的原生 LuCI Caddy 管理界面，入口为“服务 → Caddy”。首版目标为 **OpenWrt 25.12.4 r32933-4ccb782af7 / mediatek/filogic / aarch64_cortex-a53 / APK**，不能仅按 CPU 架构判断兼容性。包含 `caddy-binary`（官方 latest Caddy + Cloudflare 模块）和 `luci-app-caddy` 两个包。目标 SDK 与上游下载策略见 [artifact-lock.json](artifact-lock.json)。
 
 原生页面按预览分为概览、反向代理、TLS 证书、全局设置、配置文件和日志与诊断。站点采用列表加弹窗编辑，已有后端可直接修改，每条地址可添加、删除；保存与应用在页面底部常驻区，表单布局使用插件范围内的样式并继承 Bootstrap 的明暗变量。
 

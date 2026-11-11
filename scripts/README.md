@@ -16,8 +16,8 @@ The output contains both APKs, their actual metadata, Caddy version/modules/Go
 build information, artifact-lock.json, manifest.json, release notes and
 SHA256SUMS. The manifest includes source revision/dirty state, SDK and feed
 commits, actual upstream and packaged binary checksums, APK checksums and run
-URL. The build verifies APK integrity, architectures and the unmodified Caddy
-binary; qemu-aarch64 executes that packaged binary to verify core/module versions.
+URL. The build verifies APK integrity, architectures and the unmodified downloaded Caddy
+binary; qemu-aarch64 executes it to discover and verify actual core/module versions.
 It compiles the native Chinese catalog using the SDK's luci-base host po2lmo
 and checks the extracted LuCI APK contains that exact catalog.
 It does **not** install the APKs on a router. A successful SDK build cannot replace
@@ -31,31 +31,23 @@ After an authorized push, choose **Build OpenWrt APKs → Run workflow**. Downlo
 URL and manifest with the matching router installation evidence. No remote run
 or publish is performed by local tests.
 
-## Floating upstream download and reviewed cache
+## Official latest download
 
-The official custom-download URL pins Cloudflare v0.2.4 but does not guarantee a
-fixed Caddy core. The reviewed Caddy v2.11.8 artifact is locked by SHA256 in
-artifact-lock.json and the package Makefile. A changed response or failed download
-must fail the build. Never automatically change the lock to make CI green.
+Every build downloads the official Linux ARM64 custom executable with the
+Cloudflare module, without pinning the core/module version or an input SHA256.
+Caddy downloads are not restored from the Actions cache. The build runs the
+actual executable through qemu-aarch64 to obtain its core/module/build versions,
+generates upstream.mk in the temporary SDK package directory, and uses the
+observed core version for APK metadata. No Caddy source is compiled.
 
-The Actions cache key includes artifact-lock.json. It can preserve a previously
-verified download, but it is an expendable cache, not permanent artifact storage.
-Retain the original reviewed executable in controlled archival storage with its
-checksum and version/module/build-info evidence. For a cache miss after upstream
-changes, supply that reviewed archive URL through the manual
-`reviewed_caddy_url` input (or locally `--caddy-url URL`), or prepopulate
-`<cache>/caddy-linux-arm64`. Mirrors still must match the same locked SHA256.
-A corrupt existing cache is rejected; remove only the incorrect download in an
-isolated build cache before retrying. The manifest records the requested download
-URL; a cache hit may originate from an earlier verified retrieval.
+The manifest and SHA256SUMS still record actual bytes. The packaged executable
+must be identical to this build's download; these checks detect packaging changes,
+not upstream updates. The official OpenWrt SDK checksum and SDK feed commit pins
+remain fixed for the target firmware. Preserve completed build artifacts for
+rollback: a later latest download may contain a different Caddy version.
 
-For an intentional upgrade, independently review the downloaded executable on
-the target, record actual core/module/build-info, update artifact-lock.json and
-`packages/caddy-binary/Makefile` together (version, source name, URL and hash),
-then repeat APK installation and runtime acceptance. Preserve the old artifact
-for rollback. SDK updates require a new official SDK checksum and renewed target
-compatibility verification. Package signatures use the SDK's ephemeral key; this
-flow does not establish a trusted signing repository or reproducible output.
+Branch pushes to integration/caddy-v1 build attachments only. Manual dispatch
+requires the workflow on the default branch; v* tag pushes also publish a Release.
 
 ## Tags and releases
 
