@@ -146,7 +146,7 @@ msgid "Cloudflare module"
 msgstr "Cloudflare 模块"
 
 msgid "Complete Caddyfile"
-msgstr "完整 Caddyfile"
+msgstr "Caddyfile"
 
 msgid "Complete Caddyfile mode: TLS forms and credentials are read-only. The independent manual source is not rewritten by form credentials."
 msgstr "完整 Caddyfile 模式：TLS 表单与凭据只读。表单凭据不会改写独立的手动配置。"
@@ -1278,3 +1278,48 @@ msgstr "已有账号的密码留空可保留原密码；应用已保存的更改
 
 msgid "Leave an existing password blank to keep it. Use the page Save or Save & Apply buttons for account changes."
 msgstr "已有账号的密码留空可保留原密码；账号修改统一使用页面底部的“保存”或“保存并应用”。"
+
+msgid "Caddyfile"
+msgstr "Caddyfile"
+
+msgid "Active ports"
+msgstr "生效端口"
+
+msgid "Port checks"
+msgstr "端口检查"
+
+msgid "No matching logs."
+msgstr "暂无匹配的日志。"
+
+msgid "Time"
+msgstr "时间"
+
+msgid "Source"
+msgstr "来源"
+
+msgid "Event"
+msgstr "事件"
+
+msgid "Backend probe failed"
+msgstr "后端检测失败"
+
+msgid "No configured backends to check."
+msgstr "没有可检测的后端。"
+
+msgid "Only the first 8 backends are shown."
+msgstr "仅显示前 8 个后端的检测结果。"
+
+msgid "Check backends"
+msgstr "检测后端"
+
+msgid "Backend checks are unavailable in Caddyfile mode."
+msgstr "Caddyfile 模式下不提供表单后端检测。"
+
+msgid "Not checked yet. Click Check backends to test TCP connectivity."
+msgstr "尚未检测，点击“检测后端”查看 TCP 连通性。"
+
+msgid "Export filtered logs"
+msgstr "导出筛选后的日志"
+
+msgid "Runtime and access logs"
+msgstr "运行与访问日志"

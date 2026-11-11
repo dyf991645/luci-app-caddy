@@ -32,7 +32,7 @@ return view.extend({
     layout.row(_('Caddy version'),data.version?data.version.split(' ')[0]:_('Not installed')),
     layout.row(_('Cloudflare DNS'),(data.modules || []).find(function(m){return m.indexOf('dns.providers.cloudflare')==0;}) || _('Not installed')),
     layout.row(_('HTTP / HTTPS'),manual?_('Manual mode'):[settings.http_port || '—',settings.https_port || '—'].join(' / ')),
-    layout.row(_('Configuration source'),config?(manual?_('Complete Caddyfile'):_('Form configuration')):_('No managed revision')),
+    layout.row(_('Configuration source'),config?(manual?_('Caddyfile'):_('Form configuration')):_('No managed revision')),
     layout.row(_('Persistent storage directory'),manual?_('Managed filesystem'):settings.storage),
     E('details',{'class':'overview-details'},[
      E('summary',{},_('Version and module details')),

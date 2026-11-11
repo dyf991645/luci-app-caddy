@@ -337,3 +337,17 @@
 
 .caddy-app[data-page=tls] .tls-acme-row { margin-top:20px; }
 .caddy-app[data-page=tls] .tls-acme-row > label { align-self:start; padding-top:7px; }
+
+.caddy-app .diagnostic-filters { display:grid; grid-template-columns:130px 160px max-content; align-items:end; gap:12px; margin-bottom:18px; }
+.caddy-app .diagnostic-filters > label { display:grid; gap:6px; margin:0; font-size:12px; }
+.caddy-app .diagnostic-filters :is(select,button) { height:36px; min-height:36px; margin:0; }
+.caddy-app .diagnostic-filters select { width:100%; }
+.caddy-app .diagnostic-log-table { overflow:auto; max-height:32em; }
+.caddy-app .diagnostic-log-table .table { width:100%; min-width:650px; border-collapse:collapse; }
+.caddy-app .diagnostic-log-table :is(th,td) { text-align:left; padding:10px 12px; vertical-align:top; border-bottom:1px solid var(--line); }
+.caddy-app .diagnostic-log-table :is(th,td):first-child { white-space:nowrap; }
+.caddy-app .diagnostic-log-table td:nth-child(3) { overflow-wrap:anywhere; }
+@media(max-width:650px) {
+ .caddy-app .diagnostic-filters { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+ .caddy-app .diagnostic-filters > button { grid-column:1 / -1; justify-self:start; }
+}
