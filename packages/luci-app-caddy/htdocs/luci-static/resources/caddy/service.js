@@ -12,8 +12,8 @@ return baseclass.extend({
 	controls: function() {
 		return status().then(function(initial) {
 			var current=initial.desired || initial, busy=false, readonly=!L.hasViewPermission();
-			var running=E('input',{'type':'checkbox','aria-label':_('Run Caddy'),'checked':current.running || null});
-			var boot=E('input',{'type':'checkbox','aria-label':_('Start on boot'),'checked':current.enabled || null});
+			var running=E('input',{'id':'caddy-service-running','type':'checkbox','aria-label':_('Run Caddy'),'checked':current.running || null});
+			var boot=E('input',{'id':'caddy-service-boot','type':'checkbox','aria-label':_('Start on boot'),'checked':current.enabled || null});
 			var message=E('p',{'role':'status','aria-live':'polite'});
 			function pending() {return running.checked!==!!current.running || boot.checked!==!!current.enabled;}
 			function update() {
@@ -32,8 +32,8 @@ return baseclass.extend({
 			}},_('Save'));
 			running.addEventListener('change',update);boot.addEventListener('change',update);update();
 			return layout.panel(_('Service control'),_('Save service settings, then use LuCI Save & Apply to apply them. Starting uses the applied configuration.'),[
-				E('div',{'class':'field'},[E('label',{'class':'inline-check'},[running,_('Run Caddy')])]),
-				E('div',{'class':'field'},[E('label',{'class':'inline-check'},[boot,_('Start on boot')])]),
+				E('div',{'class':'settings-control-row'},[E('label',{'for':'caddy-service-running'},_('Run Caddy')),running]),
+				E('div',{'class':'settings-control-row'},[E('label',{'for':'caddy-service-boot'},_('Start on boot')),boot]),
 				E('div',{'class':'actions'},[apply]),message
 			]);
 		}).catch(function(error) {

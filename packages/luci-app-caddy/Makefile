@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-caddy
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=26
+PKG_RELEASE:=27
 PKG_LICENSE:=Apache-2.0
 PKG_BUILD_DEPENDS:=luci-base/host
 

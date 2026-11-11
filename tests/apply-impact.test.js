@@ -20,8 +20,8 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
  let rootMap,activeMap;
  const form={JSONMap:class {
   constructor(data){this.buffer=data;this.children=[];rootMap=this;this.data={get:(_,sid,key)=>key==null?this.buffer[sid]:this.buffer[sid]?.[key],set:(_,sid,key,v)=>{this.buffer[sid][key]=v;},sections:()=>this.buffer.sites.map((s,i)=>({...s,'.name':String(i)}))};this.buffer.sites.forEach((s,i)=>this.buffer[String(i)]=s);}
-  section(type,name){const m=this;const s={map:m,children:[],tabs:[],option(type,option,title){const o={map:this.map,section:this,option,title,choices:[],dependencies:[],cbid(sid){return sid+'.'+this.option;},getValidator(sid){return this.validate.bind(this,sid);},value(v){this.choices.push(v);},depends(key,value){this.dependencies.push(typeof key==='object'?key:{[key]:value});}};this.children.push(o);return o;},tab(name){this.tabs[name]={children:[]};},taboption(tab,...args){const o=this.option(...args);this.tabs[tab].children.push(o);return o;},getActiveModalMap(){return {instance:activeMap,parentNode:modal};},handleModalCancel(){modal=null;},handleAdd(){},handleRemove(){}};this.children.push(s);return s;}
-  parse(){return Promise.resolve();} render(){return Promise.resolve(E('form'));} load(){return Promise.resolve();}reset(){return Promise.resolve();}
+  section(type,name,sectionType,title){const m=this;const s={map:m,title,children:[],tabs:[],render(){return Promise.resolve(E('div',{},[this.title?E('h3',{},this.title):'',...this.children.map(o=>E('label',{},o.title))]));},option(type,option,title){const o={map:this.map,section:this,option,title,choices:[],dependencies:[],cbid(sid){return sid+'.'+this.option;},getValidator(sid){return this.validate.bind(this,sid);},value(v){this.choices.push(v);},depends(key,value){this.dependencies.push(typeof key==='object'?key:{[key]:value});}};this.children.push(o);return o;},tab(name){this.tabs[name]={children:[]};},taboption(tab,...args){const o=this.option(...args);this.tabs[tab].children.push(o);return o;},getActiveModalMap(){return {instance:activeMap,parentNode:modal};},handleModalCancel(){modal=null;},handleAdd(){},handleRemove(){}};this.children.push(s);return s;}
+  parse(){return Promise.resolve();} render(){return fixture.route==='settings'?Promise.all(this.children.map(s=>s.render())).then(nodes=>E('form',{},nodes)):Promise.resolve(E('form'));} load(){return Promise.resolve();}reset(){return Promise.resolve();}
  }};
 
  const values={backendList:{create(value){return {render(){return E('input',{value});}};}},navigator:{clipboard:{writeText:async text=>{clipboard.push(text);}}},dom:{findClassInstance:node=>node.instance},poll:{add(){}},E,_:s=>s,ui,rpc,view:{extend:x=>x},form,L:{hasViewPermission:()=>!fixture.readonly,url:x=>x,resource:x=>x,env:{dispatchpath:['admin','services','caddy',fixture.route || 'configuration']}},window:{addEventListener(){}},document:{createTextNode:s=>({textContent:s}),addEventListener(){},querySelector(){return null;},head:{appendChild(){}}},location:{href:''},baseclass:{extend:x=>x}};
@@ -31,7 +31,7 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
  values.service=evaluate(new URL('caddy/service.js',resources));
  function evaluate(file){return new Function(...Object.keys(values),readFileSync(file,'utf8'))(...Object.values(values));}
  const view=evaluate(new URL(`view/caddy/${page}.js`,resources));
- return {async openSite(){
+ return {editGlobal(section,key,value){rootMap.data.set('json',section,key,value);all(pageRoot).find(n=>n.tag==='form').events.input();},async openSite(){
    const grid=rootMap.children[0];
    activeMap={section:'0',data:rootMap.data,parent:rootMap,readonly:false,checkDepends(){},render:()=>Promise.resolve(E('form')),parse:async()=>{for(const o of section.children){if(o.input&&o.active()){const previous=o.cfgvalue?o.cfgvalue('0'):rootMap.data.get('json','0',o.option);if(o.forcewrite||JSON.stringify(previous)!==JSON.stringify(o.input.value)){if(o.write)o.write('0',o.input.value);else rootMap.data.set('json','0',o.option,o.input.value);}}}}};
    const section={...grid,map:activeMap,children:[],tabs:[]};
@@ -240,4 +240,14 @@ test('TLS webhook sends custom method/body and hides body controls for GET and H
 test('TLS notification history uses a modal and empty certificate inventory stays concise',async()=>{
  const h=harness('tls',[],{notification:{ok:true,webhook:{enabled:false},alerts:[],deliveries:[{event_id:'fixture-event',type:'expired',delivery:'sent',attempts:1}]}});await h.render();
  expect(h.pageNodes().some(n=>n.textContent==='No stored certificates.')).toBe(true);h.button('History').click();expect(h.modal.attrs.title).toBe('Notification history');expect(JSON.stringify(h.modal)).toContain('Sent');
+});
+
+test('global settings render three panels and grouped fields still save through the shared map',async()=>{
+ const h=harness('configuration',[],{route:'settings'});await h.render();
+ expect(h.pageNodes().filter(n=>n.tag==='h2').map(n=>n.textContent)).toEqual(['Service control','Service settings','Auth configuration']);
+ expect(h.pageNodes().filter(n=>n.tag==='h3').map(n=>n.textContent)).not.toContain('Global settings');
+ expect(h.pageNodes().some(n=>n.tag==='label'&&n.textContent==='HTTP port')).toBe(true);
+ expect(h.pageNodes().some(n=>n.tag==='label'&&n.textContent==='ACME contact email (optional)')).toBe(true);
+ h.editGlobal('settings','http_port',18080);h.editGlobal('authelia','backend','http://auth.example.test:9091');h.editGlobal('authelia','portal','https://login.example.test');await h.button('Save').click();
+ const saved=h.calls.find(c=>c.method==='draft_save').args[0];expect(saved.settings.http_port).toBe(18080);expect(saved.auth.authelia.backend).toBe('http://auth.example.test:9091');expect(saved.auth.authelia.uri).toBe('/api/authz/forward-auth');expect(h.calls.some(c=>c.method==='config_apply')).toBe(false);
 });

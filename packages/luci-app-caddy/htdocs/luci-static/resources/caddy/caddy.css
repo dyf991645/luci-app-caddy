@@ -308,3 +308,29 @@
 @media(max-width:650px) {
  .caddy-app[data-page=tls] .tls-form-row,.caddy-app.caddy-tls-modal .tls-form-row { grid-template-columns:100px minmax(0,1fr); gap:16px; }
 }
+
+/* Global settings use the same label/control columns as site and TLS forms. */
+.caddy-app[data-page=settings] .cbi-value,
+.caddy-app[data-page=settings] .settings-control-row,
+.caddy-app[data-page=settings] .account-row > .field {
+ display:grid; grid-template-columns:140px minmax(0,1fr); column-gap:24px;
+ align-items:start; margin:0 0 20px; min-width:0;
+}
+.caddy-app[data-page=settings] .cbi-value > label.cbi-value-title,
+.caddy-app[data-page=settings] .settings-control-row > label,
+.caddy-app[data-page=settings] .account-row .field-label {
+ display:block; float:none; width:auto; text-align:right; font-weight:normal;
+ margin:0; padding:7px 0 0; line-height:1.5;
+}
+.caddy-app[data-page=settings] .cbi-value > .cbi-value-field { width:auto; min-width:0; }
+.caddy-app[data-page=settings] .settings-control-row { align-items:center; }
+.caddy-app[data-page=settings] .settings-control-row > label { padding-top:0; }
+.caddy-app[data-page=settings] .settings-control-row > input { justify-self:start; margin:0; }
+.caddy-app[data-page=settings] .account-row { grid-template-columns:minmax(0,1fr); gap:0; border-bottom:1px solid var(--line); padding-bottom:16px; margin:16px 0; }
+.caddy-app[data-page=settings] .account-row > button { justify-self:end; }
+.caddy-app[data-page=settings] .form-section { margin-top:24px; }
+@media(max-width:650px) {
+ .caddy-app[data-page=settings] .cbi-value,
+ .caddy-app[data-page=settings] .settings-control-row,
+ .caddy-app[data-page=settings] .account-row > .field { grid-template-columns:100px minmax(0,1fr); column-gap:16px; }
+}

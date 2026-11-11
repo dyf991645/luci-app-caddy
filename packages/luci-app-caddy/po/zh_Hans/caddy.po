@@ -1254,3 +1254,21 @@ msgstr "首次记录此事件的 Unix 时间戳，单位为秒。"
 
 msgid "Put variables in JSON string values. A whole timestamp variable becomes a number; embedded variables become text."
 msgstr "在 JSON 字符串值中填写变量。完整的时间戳变量会替换为数字；嵌入文字的变量会替换为文本。"
+
+msgid "HTTP port"
+msgstr "HTTP 端口"
+
+msgid "Authelia"
+msgstr "Authelia"
+
+msgid "Auth configuration"
+msgstr "Auth 配置"
+
+msgid "ACME contact email (optional)"
+msgstr "ACME 联系邮箱（可选）"
+
+msgid "Used when registering an ACME certificate account. May be left blank; this does not configure notification delivery."
+msgstr "用于注册 ACME 证书账户，可以留空；此项不配置通知发送。"
+
+msgid "Public HTTP-01 requires Internet port 80 to reach the HTTP port. TLS-ALPN-01 requires Internet port 443 to reach the HTTPS port. This application does not configure NAT, firewall, DNS or uhttpd."
+msgstr "HTTP-01 要求公网 80 端口能访问 HTTP 端口；TLS-ALPN-01 要求公网 443 端口能访问 HTTPS 端口。本应用不配置 NAT、防火墙、DNS 或 uhttpd。"

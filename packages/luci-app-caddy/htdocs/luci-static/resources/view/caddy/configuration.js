@@ -113,18 +113,18 @@ return view.extend({
 		section.children.forEach(function(field) {
 			if(['enabled','domain','upstreams','challenge','authMode'].indexOf(field.option) < 0) field.modalonly = true;
 		});
-		section = map.section(form.NamedSection,'settings','settings',_('Global settings'));
-		section.description=_('Configure listening ports, certificate storage and access logging.');
-		[['http_port',_('Internal HTTP port')],['https_port',_('Internal HTTPS port')]].forEach(function(field) {var o=section.option(form.Value,field[0],field[1]);o.datatype='port';o.rmempty=false;});
+		section = map.section(form.NamedSection,'settings','settings','');
+		var settingsSection=section;
+		[['http_port',_('HTTP port')],['https_port',_('HTTPS port')]].forEach(function(field) {var o=section.option(form.Value,field[0],field[1]);o.datatype='port';o.rmempty=false;});
 		option=section.option(form.Flag,'access_log',_('Access logs'),_('Optional status-only access evidence in the bounded system RAM log. Requests, headers and URLs are omitted from this viewer.'));
 		option.cfgvalue=function(){return map.data.get('json','settings','access_log')===true ? '1':'0';};
 		option.write=function(sid,value){map.data.set('json',sid,'access_log',value==='1');};
-		option=section.option(form.DummyValue,'certificate_storage_heading',_('Certificate and storage'));option.renderWidget=function(){return E('span',{'class':'hint'},_('ACME account and persistent certificate data'));};
-		option = section.option(form.Value,'email',_('ACME contact email'));
+		option = section.option(form.Value,'email',_('ACME contact email (optional)'),_('Used when registering an ACME certificate account. May be left blank; this does not configure notification delivery.'));
 		option.validate = function(sid,value) {return !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || _('Invalid email');};
 		option = section.option(form.Value,'storage',_('Persistent storage directory'),_('Stores ACME accounts, certificates and private keys. Use a directory retained across reboot and upgrades.'));option.rmempty=false;
 		option.validate = function(sid,value) {return /^\/[a-zA-Z0-9_\/-]+$/.test(value) && !value.includes('..') && value != '/' || _('Use an absolute directory without parent segments');};
-		section=map.section(form.NamedSection,'authelia','authelia',_('Global Authelia configuration'));
+		section=map.section(form.NamedSection,'authelia','authelia',_('Authelia'));
+		var authSection=section;
 		section.description=_('Use a router-reachable HTTP(S) backend with an explicit port, /api/authz/forward-auth, and an HTTP(S) login portal URL. The portal site must use no additional authentication. Configure users, MFA, session cookie domain/authelia_url, and access policies in external Authelia. An unreachable service fails closed.');
 		[['backend',_('Authelia backend')],['uri',_('Authorization interface')],['portal',_('Login portal URL')]].forEach(function(field){var o=section.option(form.Value,field[0],field[1]);o.rmempty=true;});
 		var accountDirty = false;
@@ -273,6 +273,11 @@ return view.extend({
 			ui.showModal(_('Unsaved edits'),[E('p',{},_('Save this draft before leaving, or discard unsaved edits?')),E('div',{'class':'right'},[E('button',{'class':'cbi-button','click':ui.hideModal},_('Cancel')),' ',E('button',{'class':'cbi-button','click':function(){dirty=false;ui.hideModal();location.href=link.href;}},_('Discard and leave')),' ',E('button',{'class':'button primary cbi-button cbi-button-save','click':function(){ui.hideModal();perform(false).then(function(saved){if(saved)location.href=link.href;});}},_('Save and leave'))])]);
 		});
 		update();
+		if(page=='settings') {
+			var renderSettings=settingsSection.render,renderAuth=authSection.render;
+			settingsSection.render=function(){return Promise.resolve(renderSettings.apply(this,arguments)).then(function(node){return layout.panel(_('Service settings'),'',node);});};
+			authSection.render=function(){return Promise.resolve(renderAuth.apply(this,arguments)).then(function(node){return layout.panel(_('Auth configuration'),'', [node,accountsNode]);});};
+		}
 		return Promise.all([map.render(),page=='settings' ? service.controls() : Promise.resolve(null)]).then(function(rendered) {
 			var node=rendered[0],serviceControls=rendered[1];
 			formNode=node;update();
@@ -282,8 +287,8 @@ return view.extend({
 			if(initial.draft && !map.readonly) showPreview(initial.draft).catch(function(){});
 			var content;
 			if(page == 'settings') {
-				content = [serviceControls,E('div',{'class':'info-note','hidden':mode!='manual'}, [sourceStatus]), layout.panel(_('Service settings'), _('Manage listening ports, persistent storage and shared authentication.'), [node, accountsNode]),
-					E('p',{'class':'info-note'},_('Public HTTP-01 requires Internet port 80 to reach the internal HTTP port. TLS-ALPN-01 requires Internet port 443 to reach the internal HTTPS port. This application does not configure NAT, firewall, DNS or uhttpd.'))];
+				content = [serviceControls,E('div',{'class':'info-note','hidden':mode!='manual'}, [sourceStatus]), node,
+					E('p',{'class':'info-note'},_('Public HTTP-01 requires Internet port 80 to reach the HTTP port. TLS-ALPN-01 requires Internet port 443 to reach the HTTPS port. This application does not configure NAT, firewall, DNS or uhttpd.'))];
 			}
 			else if(page == 'config') {
 				content = [E('div',{'class':'field'},[E('label',{},_('Configuration source')),E('select',{'disabled':map.readonly,'change':function(event){var selected=event.target.value;event.target.value=mode;if(busy)return;if(selected==mode)return;ui.showModal(_('Switch configuration source'),[E('p',{},selected=='manual'?_('The complete Caddyfile will become the source after Save & Apply. Form content is preserved and becomes read-only.'):_('Retained form content will become the source after Save & Apply. Manual content is preserved.')),E('div',{'class':'right'},[E('button',{'class':'cbi-button','click':ui.hideModal},_('Cancel')),' ',E('button',{'class':'cbi-button cbi-button-action','click':function(){if(accountDirty){ui.hideModal();ui.addNotification(null,E('p',{},_('Save account edits before switching configuration source.')),'warning');return;}if(mode=='form')rememberForm();mode=selected;event.target.value=mode;dirty=true;update();ui.hideModal();}},_('Switch source'))])]);}},[E('option',{'value':'form','selected':mode=='form'},_('Form configuration')),E('option',{'value':'manual','selected':mode=='manual'},_('Complete Caddyfile'))]),sourceStatus]),
