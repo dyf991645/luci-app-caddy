@@ -291,8 +291,7 @@ return view.extend({
 			if(initial.draft && !map.readonly) showPreview(initial.draft).catch(function(){});
 			var content;
 			if(page == 'settings') {
-				content = [serviceControls,E('div',{'class':'info-note','hidden':mode!='manual'}, [sourceStatus]), node,
-					E('p',{'class':'info-note'},_('Public HTTP-01 requires Internet port 80 to reach the HTTP port. TLS-ALPN-01 requires Internet port 443 to reach the HTTPS port. This application does not configure NAT, firewall, DNS or uhttpd.'))];
+				content = [serviceControls,E('div',{'class':'info-note','hidden':mode!='manual'}, [sourceStatus]),node];
 			}
 			else if(page == 'config') {
 				content = [E('div',{'class':'field'},[E('label',{},_('Configuration source')),E('select',{'disabled':map.readonly,'change':function(event){var selected=event.target.value;event.target.value=mode;if(busy)return;if(selected==mode)return;ui.showModal(_('Switch configuration source'),[E('p',{},selected=='manual'?_('The complete Caddyfile will become the source after Save & Apply. Form content is preserved and becomes read-only.'):_('Retained form content will become the source after Save & Apply. Manual content is preserved.')),E('div',{'class':'right'},[E('button',{'class':'cbi-button','click':ui.hideModal},_('Cancel')),' ',E('button',{'class':'cbi-button cbi-button-action','click':function(){if(accountDirty){ui.hideModal();ui.addNotification(null,E('p',{},_('Save account edits before switching configuration source.')),'warning');return;}if(mode=='form')rememberForm();mode=selected;event.target.value=mode;dirty=true;update();ui.hideModal();}},_('Switch source'))])]);}},[E('option',{'value':'form','selected':mode=='form'},_('Form configuration')),E('option',{'value':'manual','selected':mode=='manual'},_('Complete Caddyfile'))]),sourceStatus]),
