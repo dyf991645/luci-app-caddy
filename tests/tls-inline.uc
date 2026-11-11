@@ -15,6 +15,12 @@ for(let selected in [{'unknown.example.test':'dns-01'},{'*.example.test':'unsupp
 }
 assert(!manager.tls_save({default_challenge:'dns-01',site_challenges:{},expected_revision:before.draft_revision}).ok,'scoped save rejects stale revision');
 assert(manager.tls_save({default_challenge:'dns-01',expected_revision:unchanged.draft_revision}).ok,'existing scoped API without site choices remains compatible');
+let beforeEmail=manager.draft_get();
+let withEmail=manager.tls_save({default_challenge:'dns-01',email:'owner@example.test',expected_revision:beforeEmail.draft_revision});
+assert(withEmail.ok && withEmail.draft.settings.email=='owner@example.test','TLS email saved');
+let retained=manager.tls_save({default_challenge:'dns-01',expected_revision:withEmail.draft_revision});assert(retained.ok && retained.draft.settings.email=='owner@example.test','older scoped clients retain email');
+assert(!manager.tls_save({default_challenge:'dns-01',email:'invalid',expected_revision:retained.draft_revision}).ok,'invalid email rejected');
+let cleared=manager.tls_save({default_challenge:'dns-01',email:'',expected_revision:retained.draft_revision});assert(cleared.ok && cleared.draft.settings.email=='','TLS email cleared explicitly');
 assert(manager.credential_save({token:'tlsInlineTestToken',expected_revision:manager.draft_get().draft_revision}).ok,'synthetic DNS credential stays private');
 assert(manager.apply({expected_revision:manager.draft_get().draft_revision}).ok,'real Caddy validates final scoped choices and retained snippet offline');
 print('PASS atomic default/site TLS settings, wildcard rejection, retained private snippet and stale revision handling\n');

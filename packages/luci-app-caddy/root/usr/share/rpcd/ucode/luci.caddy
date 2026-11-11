@@ -31,7 +31,7 @@ return {
 		notification_status: {call:function(request) {return loadfile('/usr/share/caddy-manager/notifications.uc')()({store:loadfile('/usr/share/caddy-manager/uci-store.uc')()({session:request?.args?.ubus_rpc_session})}).status();}},
 		notification_save: {args:{enabled:false,url:'',headers:{},method:'',body_mode:'',body:''},call:function(request) {return loadfile('/usr/share/caddy-manager/notifications.uc')()({store:loadfile('/usr/share/caddy-manager/uci-store.uc')()({session:request?.args?.ubus_rpc_session})}).save({enabled:request.args.enabled,url:request.args.url,headers:request.args.headers,method:request.args.method,body_mode:request.args.body_mode,body:request.args.body});}},
 		basic_profile_save: {args:{scope:'',config:{},users:[],expected_revision:0},call:function(request) {return manager(request).basic_profile_save(request.args);}},
-		tls_save: {args:{default_challenge:'',expected_revision:0,site_challenges:{}},call:function(request) {return manager(request).tls_save(request.args);}},
+		tls_save: {args:{default_challenge:'',expected_revision:0,site_challenges:{},email:'',update_email:false},call:function(request) {return manager(request).tls_save({default_challenge:request.args.default_challenge,expected_revision:request.args.expected_revision,site_challenges:request.args.site_challenges,...(request.args.update_email?{email:request.args.email}:{})});}},
 		credential_status: {call:function(request) {return manager(request).credential_status();}},
 		credential_save: {args:{token:'',expected_revision:0},call:function(request) {return manager(request).credential_save(request.args);}},
 		draft_edit: {call: function(request) {return manager(request).draft_edit();}},

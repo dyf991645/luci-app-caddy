@@ -25,6 +25,7 @@ return view.extend({
 		var mode = config.mode || 'form';
 		var manual = E('textarea',{'class':'cbi-input-textarea','rows':18,'spellcheck':'false','aria-label':_('Complete Caddyfile')},config.manual_caddyfile || '');
 		var sourceStatus = E('p',{'role':'status'});
+		var serviceControlsApi=null;
 		var formNode, serviceStrip, searchQuery='',statusFilter='all';
 		var siteCount=E('span',{'class':'count','role':'status'});
 		var map = new form.JSONMap({authelia:Object.assign({backend:'',uri:'/api/authz/forward-auth',portal:''},config.auth?.authelia),settings:Object.assign({},config.settings),sites:config.sites.map(function(site) {return Object.assign({},site);})});
@@ -119,8 +120,6 @@ return view.extend({
 		option=section.option(form.Flag,'access_log',_('Access logs'),_('Optional status-only access evidence in the bounded system RAM log. Requests, headers and URLs are omitted from this viewer.'));
 		option.cfgvalue=function(){return map.data.get('json','settings','access_log')===true ? '1':'0';};
 		option.write=function(sid,value){map.data.set('json',sid,'access_log',value==='1');};
-		option = section.option(form.Value,'email',_('ACME contact email (optional)'),_('Used when registering an ACME certificate account. May be left blank; this does not configure notification delivery.'));
-		option.validate = function(sid,value) {return !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || _('Invalid email');};
 		option = section.option(form.Value,'storage',_('Persistent storage directory'),_('Stores ACME accounts, certificates and private keys. Use a directory retained across reboot and upgrades.'));option.rmempty=false;
 		option.validate = function(sid,value) {return /^\/[a-zA-Z0-9_\/-]+$/.test(value) && !value.includes('..') && value != '/' || _('Use an absolute directory without parent segments');};
 		section=map.section(form.NamedSection,'authelia','authelia',_('Authelia'));
@@ -218,9 +217,11 @@ return view.extend({
 			}
 			manual.disabled = busy || map.readonly || mode != 'manual';
 			if(formNode) formNode.querySelectorAll('input,select,textarea,button').forEach(function(field) {field.disabled = busy || map.readonly || mode == 'manual';});
-			status.textContent = _('Saved draft revision') + ': ' + current.draft_revision + ' · ' + _('Active revision') + ': ' + current.active_revision + ' · ' + _('Active source') + ': ' + (current.active_source || _('No managed revision')) + (current.pending ? ' · ' + _('Saved changes pending application') : '') + (dirty ? ' · ' + _('Unsaved edits') : '') + (current.recovery_required ? ' · ' + _('Recovery required: start or restart Caddy') : '');
-			saveButton.disabled = busy || map.readonly || !dirty;
-			applyButton.disabled = busy || map.readonly || (!dirty && !current.pending);
+			status.textContent = _('Saved draft revision') + ': ' + current.draft_revision + ' · ' + _('Active revision') + ': ' + current.active_revision + ' · ' + _('Active source') + ': ' + (current.active_source || _('No managed revision')) + (current.pending ? ' · ' + _('Saved changes pending application') : '') + ((dirty || serviceControlsApi?.pending()) ? ' · ' + _('Unsaved edits') : '') + (current.recovery_required ? ' · ' + _('Recovery required: start or restart Caddy') : '');
+			if(serviceControlsApi)serviceControlsApi.setBusy(busy);
+			var pendingService=serviceControlsApi?.pending();
+			saveButton.disabled = busy || map.readonly || (!dirty && !pendingService);
+			applyButton.disabled = busy || map.readonly || (!dirty && !pendingService && !current.pending);
 		}
 		function filterSites() {
 			if(!formNode || page!='configuration')return;
@@ -236,7 +237,7 @@ return view.extend({
 		function values() {
 			function get(section,key) {return map.data.get('json',section,key) || '';}
 			var auth=Object.assign({},config.auth);if(get('authelia','backend') || get('authelia','portal'))auth.authelia={backend:get('authelia','backend'),uri:get('authelia','uri') || '/api/authz/forward-auth',portal:get('authelia','portal')};else delete auth.authelia;
-			return Object.assign({},config,{auth:auth,mode:mode,manual_caddyfile:manual.value,version:2,settings:Object.assign({},config.settings,{access_log:map.data.get('json','settings','access_log')===true,http_port:+get('settings','http_port'),https_port:+get('settings','https_port'),email:get('settings','email'),storage:get('settings','storage')}),sites:map.data.sections('json','sites').map(function(site) {return {name:site.name || '',enabled:site.enabled!==false,domain:site.domain || '',upstreams:site.upstreams || [],balance:site.balance || 'round_robin',path:site.path || '',strip:site.strip === true || site.strip === 'true' || site.strip === '1',challenge:site.challenge || 'global',advanced_snippet:site.advanced_snippet || '',auth:site.auth || {mode:'none'}};})});
+			return Object.assign({},config,{auth:auth,mode:mode,manual_caddyfile:manual.value,version:2,settings:Object.assign({},config.settings,{access_log:map.data.get('json','settings','access_log')===true,http_port:+get('settings','http_port'),https_port:+get('settings','https_port'),storage:get('settings','storage')}),sites:map.data.sections('json','sites').map(function(site) {return {name:site.name || '',enabled:site.enabled!==false,domain:site.domain || '',upstreams:site.upstreams || [],balance:site.balance || 'round_robin',path:site.path || '',strip:site.strip === true || site.strip === 'true' || site.strip === '1',challenge:site.challenge || 'global',advanced_snippet:site.advanced_snippet || '',auth:site.auth || {mode:'none'}};})});
 		}
 		function validateConfig(data) {
 			if(data.mode=='manual')return data;
@@ -258,19 +259,19 @@ return view.extend({
 			busy=true;update();
 			return (mode == 'manual' ? Promise.resolve() : map.parse()).then(function() {
 				return dirty ? (accountDirty ? saveBasic(scope.value,values(),Array.from(accountRows.children).map(function(row){return row.account();}),current.draft_revision) : saveDraft(validateConfig(values()),current.draft_revision)).then(result).then(function(saved) {current=saved;config=Object.assign(values(),saved.draft,{manual_caddyfile:manual.value});syncAuth();dirty=false;accountDirty=false;loadAccounts();}) : null;
-			}).then(function() {return wantApply ? caddyApply.confirmImpact(current).then(function(){return apply(current.draft_revision);}).then(result).then(function(active) {current=active;}) : null;})
+			}).then(function(){return serviceControlsApi?.pending()?serviceControlsApi.save().then(function(){return getDraft().then(function(saved){current=saved;});}):null;}).then(function() {return wantApply ? caddyApply.confirmImpact(current).then(function(){return apply(current.draft_revision);}).then(result).then(function(active) {current=active;}) : null;})
 				.then(function() {return showPreview(values());})
 				.catch(function(error) {ui.addNotification(null,E('p',{},error.message),'error');return getDraft().then(function(saved) {current=saved;});})
-				.finally(function() {busy=false;update();caddyApply.refreshChanges();}).then(function() {return !dirty;});
+				.finally(function() {busy=false;update();caddyApply.refreshChanges();}).then(function() {return !dirty && !serviceControlsApi?.pending();});
 		}
 		saveButton=E('button',{'class':'button primary cbi-button cbi-button-save','click':function(){return perform(false);}},_('Save'));
 		applyButton=E('button',{'class':'button primary cbi-button cbi-button-apply','click':function(){return perform(true);}},_('Save & Apply'));
-		window.addEventListener('beforeunload',function(event) {if(dirty) {event.preventDefault();event.returnValue='';}});
+		window.addEventListener('beforeunload',function(event) {if(dirty || serviceControlsApi?.pending()) {event.preventDefault();event.returnValue='';}});
 		document.addEventListener('click',function(event) {
 			var link=event.target.closest('a[href]');
-			if(!dirty || !link || event.defaultPrevented || event.ctrlKey || event.metaKey || link.target=='_blank' || link.href==location.href) return;
+			if((!dirty && !serviceControlsApi?.pending()) || !link || event.defaultPrevented || event.ctrlKey || event.metaKey || link.target=='_blank' || link.href==location.href) return;
 			event.preventDefault();
-			ui.showModal(_('Unsaved edits'),[E('p',{},_('Save this draft before leaving, or discard unsaved edits?')),E('div',{'class':'right'},[E('button',{'class':'cbi-button','click':ui.hideModal},_('Cancel')),' ',E('button',{'class':'cbi-button','click':function(){dirty=false;ui.hideModal();location.href=link.href;}},_('Discard and leave')),' ',E('button',{'class':'button primary cbi-button cbi-button-save','click':function(){ui.hideModal();perform(false).then(function(saved){if(saved)location.href=link.href;});}},_('Save and leave'))])]);
+			ui.showModal(_('Unsaved edits'),[E('p',{},_('Save this draft before leaving, or discard unsaved edits?')),E('div',{'class':'right'},[E('button',{'class':'cbi-button','click':ui.hideModal},_('Cancel')),' ',E('button',{'class':'cbi-button','click':function(){dirty=false;serviceControlsApi?.reset();ui.hideModal();location.href=link.href;}},_('Discard and leave')),' ',E('button',{'class':'button primary cbi-button cbi-button-save','click':function(){ui.hideModal();perform(false).then(function(saved){if(saved)location.href=link.href;});}},_('Save and leave'))])]);
 		});
 		update();
 		if(page=='settings') {
@@ -278,8 +279,9 @@ return view.extend({
 			settingsSection.render=function(){return Promise.resolve(renderSettings.apply(this,arguments)).then(function(node){return layout.panel(_('Service settings'),'',node);});};
 			authSection.render=function(){return Promise.resolve(renderAuth.apply(this,arguments)).then(function(node){return layout.panel(_('Auth configuration'),'', [node,accountsNode]);});};
 		}
-		return Promise.all([map.render(),page=='settings' ? service.controls() : Promise.resolve(null)]).then(function(rendered) {
+		return Promise.all([map.render(),page=='settings' ? service.controls(update) : Promise.resolve(null)]).then(function(rendered) {
 			var node=rendered[0],serviceControls=rendered[1];
+			serviceControlsApi=serviceControls?.serviceControls;
 			formNode=node;update();
 			manual.addEventListener('input',function(){dirty=true;update();});
 			node.addEventListener('input',function(){dirty=true;update();});

@@ -107,15 +107,16 @@ return function(options) {
   }
   source('config',value?.manual_caddyfile);
   if(value?.auth!=null) {c.set('caddy','auth','auth');set('auth','basic_profile',value.auth.basic?.profile);put('auth',autheliaFields,value.auth.authelia);} else c.delete('caddy','auth');
-  let order=0;
+  let order=[];
   for(let site in value?.sites) {
    let id=existing[site.domain];
    if(!id || used[id]) {let n=1;while(c.get('caddy','site_'+n) || used['site_'+n])n++;id='site_'+n;}
-   used[id]=true;c.set('caddy',id,'site');put(id,siteFields,site);c.set('caddy',id,'upstream',site.upstreams);
+   used[id]=true;c.set('caddy',id,'site');put(id,siteFields,site);if(sprintf('%J',c.get('caddy',id,'upstream'))!=sprintf('%J',site.upstreams))c.set('caddy',id,'upstream',site.upstreams);
    put(id,{mode:'auth_mode',source:'auth_source',profile:'basic_profile'},site.auth);put(id,autheliaFields,site.auth?.authelia);source(id,site.advanced_snippet);
-   c.reorder('caddy',id,order++);
+   push(order,id);
   }
   for(let id in old)if(!used[id])c.delete('caddy',id);
+  if(sprintf('%J',old)!=sprintf('%J',order))for(let i,id in order)c.reorder('caddy',id,i);
  }
  function snapshot(ref) {
   if(!match(''+ref,/^[0-9]+$/))die('Invalid legacy revision');

@@ -249,3 +249,18 @@ unknown sites/methods and incompatible wildcard changes reject the whole edit.
 The scope preserves private snippets and manual content without fetching them
 into the TLS page. Notification settings and certificate details open on that
 page in native modals; legacy inventory/notification routes render the TLS view.
+
+
+The TLS page also owns the optional ACME account email. `tls_save` accepts an
+optional `email` in the manager API. The public RPC updates it only when
+`update_email=true`, so older clients omitting the new field retain their email;
+`email=''` plus that flag explicitly clears it. Email changes use the same
+validation, session staging, stale-revision checks and Apply as TLS defaults.
+Global settings retain the email without exposing another editor.
+
+Service control checkbox edits participate in the Global settings page's shared
+Save / Save & Apply flow. The service panel has no separate save button. A
+service-only save stages only desired service options and never rewrites form
+configuration. Unchanged upstream lists and site order are not rewritten during
+encoding: native del/add_list/reorder deltas occur only for actual changes.
+Previously staged native deltas remain intact until the user applies or reverts.

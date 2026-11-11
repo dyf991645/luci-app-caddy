@@ -366,6 +366,7 @@ return function(options) {
 					sites[0].challenge=method;
 				}
 				current.draft.settings.default_challenge = request.default_challenge;
+				if(request.email!=null)current.draft.settings.email=request.email;
 				let error=check(current.draft);
 				if (error) return {ok:false,error};
 				write('draft.json',{revision:current.draft_revision+1,config:current.draft});

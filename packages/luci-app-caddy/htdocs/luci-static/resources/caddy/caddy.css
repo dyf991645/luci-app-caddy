@@ -334,3 +334,6 @@
  .caddy-app[data-page=settings] .settings-control-row,
  .caddy-app[data-page=settings] .account-row > .field { grid-template-columns:100px minmax(0,1fr); column-gap:16px; }
 }
+
+.caddy-app[data-page=tls] .tls-acme-row { margin-top:20px; }
+.caddy-app[data-page=tls] .tls-acme-row > label { align-self:start; padding-top:7px; }

@@ -1,0 +1,15 @@
+import {mkdir,writefile} from 'fs';
+import {cursor} from 'uci';
+let root=ARGV[0],modules=ARGV[1];mkdir(root,0700);mkdir(root+'/config',0700);
+writefile(root+'/config/caddy',"config manager 'config'\n");
+let store=loadfile(modules+'/uci-store.uc')()({root,confdir:root+'/config',savedir:root+'/session'});
+let config={version:2,settings:{http_port:10080,https_port:10443,email:'',storage:root+'/data',default_challenge:'http-01'},sites:[{domain:'one.example.test',upstreams:['http://127.0.0.1:80','http://127.0.0.1:81'],balance:'round_robin',path:'',strip:false,challenge:'global'},{domain:'two.example.test',upstreams:['http://127.0.0.1:82'],balance:'round_robin',path:'',strip:false,challenge:'global'}]};
+store.write({config});assert(store.commit(),'initial commit');
+store.write({config:store.read().config});assert(!store.hasChanges(),'unchanged save creates no UCI changes');
+let next=store.read().config;next.settings.email='test@example.test';store.write({config:next});
+let c=cursor(root+'/config',root+'/session'),delta=sprintf('%J',c.changes('caddy'));
+assert(index(delta,'email')>=0 && index(delta,'upstream')<0,'email edit does not rewrite backend lists');
+assert(c.revert('caddy'),'revert email');next=store.read().config;next.sites[0].upstreams=reverse(next.sites[0].upstreams);store.write({config:next});
+assert(store.read().config.sites[0].upstreams[0]=='http://127.0.0.1:81','backend order changes persist');assert(store.commit(),'commit ordered list');
+store.write({config:store.read().config});assert(!store.hasChanges(),'repeated save remains clean after list reorder');
+print('PASS no-op UCI saves, scoped email changes and real backend list ordering\n');

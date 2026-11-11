@@ -226,7 +226,7 @@ test('TLS default verification has no per-site controls or pending label',async(
  expect(h.pageNodes().some(n=>n.textContent==='Pending application')).toBe(false);
  expect(h.pageNodes().some(n=>n.attrs?.['aria-label']==='app.example.test Certificate verification')).toBe(false);
  const radio=h.nodes.find(n=>n.attrs.name==='default-challenge'&&n.attrs.value==='dns-01');radio.events.change();await h.button('Save').click();
- expect(h.calls.filter(c=>c.method==='tls_save')).toEqual([{method:'tls_save',args:['dns-01',4]}]);
+ expect(h.calls.filter(c=>c.method==='tls_save')).toEqual([{method:'tls_save',args:['dns-01',4,'',true]}]);
 });
 test('TLS webhook sends custom method/body and hides body controls for GET and HEAD',async()=>{
  const h=harness('tls',[],{notification:{ok:true,webhook:{enabled:true,configured:true,method:'PATCH',body_mode:'custom',body_configured:true}}});await h.render();h.button('Configure').click();
@@ -247,7 +247,28 @@ test('global settings render three panels and grouped fields still save through 
  expect(h.pageNodes().filter(n=>n.tag==='h2').map(n=>n.textContent)).toEqual(['Service control','Service settings','Auth configuration']);
  expect(h.pageNodes().filter(n=>n.tag==='h3').map(n=>n.textContent)).not.toContain('Global settings');
  expect(h.pageNodes().some(n=>n.tag==='label'&&n.textContent==='HTTP port')).toBe(true);
- expect(h.pageNodes().some(n=>n.tag==='label'&&n.textContent==='ACME contact email (optional)')).toBe(true);
+ expect(h.pageNodes().some(n=>n.tag==='label'&&n.textContent==='ACME contact email (optional)')).toBe(false);
  h.editGlobal('settings','http_port',18080);h.editGlobal('authelia','backend','http://auth.example.test:9091');h.editGlobal('authelia','portal','https://login.example.test');await h.button('Save').click();
  const saved=h.calls.find(c=>c.method==='draft_save').args[0];expect(saved.settings.http_port).toBe(18080);expect(saved.auth.authelia.backend).toBe('http://auth.example.test:9091');expect(saved.auth.authelia.uri).toBe('/api/authz/forward-auth');expect(h.calls.some(c=>c.method==='config_apply')).toBe(false);
+});
+
+for(const mode of ['form','manual'])test(`service checkboxes use page Save in ${mode} mode without rewriting the form`,async()=>{
+ const h=harness('configuration',[],{route:'settings',config:{mode}});await h.render();
+ expect(h.pageNodes().filter(n=>n.tag==='button'&&n.textContent==='Save')).toHaveLength(1);
+ const checkbox=h.pageNodes().find(n=>n.attrs?.id==='caddy-service-running');checkbox.checked=true;checkbox.events.change();expect(h.button('Save').disabled).toBe(false);
+ await h.button('Save').click();expect(h.calls.filter(c=>c.method==='service_save')).toEqual([{method:'service_save',args:[true,false]}]);
+ expect(h.calls.some(c=>c.method==='draft_save'||c.method==='config_apply')).toBe(false);expect(h.button('Save').disabled).toBe(true);
+});
+test('failed shared service save retains edits for retry and makes no runtime call',async()=>{
+ const h=harness('configuration',[],{route:'settings',fail:'service_save'});await h.render();const checkbox=h.pageNodes().find(n=>n.attrs?.id==='caddy-service-boot');checkbox.checked=true;checkbox.events.change();await h.button('Save').click();
+ expect(checkbox.checked).toBe(true);expect(h.button('Save').disabled).toBe(false);expect(h.calls.some(c=>c.method==='config_apply')).toBe(false);
+});
+test('TLS page saves and clears the ACME email with the scoped TLS RPC',async()=>{
+ const h=harness('tls',[],{config:{settings:{http_port:10080,https_port:10443,email:'old@example.test',storage:'/etc/caddy/data'}}});await h.render();const email=h.pageNodes().find(n=>n.attrs?.id==='caddy-acme-email');expect(email.value).toBe('old@example.test');
+ email.value='';email.events.input();await h.button('Save').click();expect(h.calls.find(c=>c.method==='tls_save').args).toEqual(['http-01',4,'',true]);expect(h.calls.some(c=>c.method==='draft_save')).toBe(false);
+});
+
+test('service edits use shared Save & Apply after staging and do not save form fields',async()=>{
+ const h=harness('configuration',[],{route:'settings'});await h.render();const checkbox=h.pageNodes().find(n=>n.attrs?.id==='caddy-service-running');checkbox.checked=true;checkbox.events.change();await h.button('Save & Apply').click();
+ expect(h.calls.filter(c=>['service_save','config_apply','draft_save'].includes(c.method)).map(c=>c.method)).toEqual(['service_save','config_apply']);
 });
