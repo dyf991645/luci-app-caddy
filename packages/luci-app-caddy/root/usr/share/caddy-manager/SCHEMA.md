@@ -242,3 +242,10 @@ to snippets too. Each source is limited to 64KiB.
 `settings.access_log` is an optional boolean, default false. Apply enables HTTP
 server access logs in the existing bounded logd RAM ring. Diagnostic RPC and
 export expose safe event/status evidence only; see DIAGNOSTICS.md.
+
+`tls_save` also accepts an optional `site_challenges` object keyed by existing
+site domain. Global and site verification choices validate/stage atomically;
+unknown sites/methods and incompatible wildcard changes reject the whole edit.
+The scope preserves private snippets and manual content without fetching them
+into the TLS page. Notification settings and certificate details open on that
+page in native modals; legacy inventory/notification routes render the TLS view.

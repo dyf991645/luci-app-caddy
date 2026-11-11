@@ -41,7 +41,7 @@
     "order": 35,
     "action": {
       "type": "view",
-      "path": "caddy/certificates"
+      "path": "caddy/tls"
     },
     "depends": {
       "acl": [
@@ -53,7 +53,7 @@
     "order": 36,
     "action": {
       "type": "view",
-      "path": "caddy/notifications"
+      "path": "caddy/tls"
     },
     "depends": {
       "acl": [

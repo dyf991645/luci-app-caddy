@@ -354,3 +354,8 @@ and idempotence. Run each with a fresh `/tmp/<root>` and module directory.
 for all sixteen runtime/boot transitions and failed/unknown state cases.
 `uci-store-router.sh` runs real Caddy on loopback to verify field application,
 rollback and validation failure; it does not apply installed user configuration.
+
+`tls-inline.uc <fresh-root> <module-directory>` checks atomic global/site
+verification choices through the production UCI store, wildcard validation,
+private snippet retention and stale edits. Frontend modal save/cancel/error and
+certificate table/detail boundaries are exercised by `apply-impact.test.js`.

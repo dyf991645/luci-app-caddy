@@ -281,3 +281,28 @@
 .caddy-site-editor .caddy-backend-row > button { padding:0; }
 
 .caddy-site-editor .caddy-backend-row > div { width:100%; min-width:0; }
+
+/* TLS settings stay on one page; detailed certificate and notification fields use native modals. */
+.caddy-app[data-page=tls] .tls-form-row,.caddy-app.caddy-tls-modal .tls-form-row {
+ display:grid; grid-template-columns:140px minmax(0,1fr); gap:24px; align-items:center; margin:0 0 18px;
+}
+.caddy-app[data-page=tls] .tls-form-row:last-child,.caddy-app.caddy-tls-modal .tls-form-row:last-child { margin-bottom:0; }
+.caddy-app[data-page=tls] .tls-form-row > label,.caddy-app.caddy-tls-modal .tls-form-row > label { margin:0; text-align:right; overflow-wrap:anywhere; }
+.caddy-app[data-page=tls] .tls-form-row :is(input,select),.caddy-app.caddy-tls-modal .tls-form-row :is(input,textarea) { box-sizing:border-box; margin:0; min-width:0; }
+.caddy-app[data-page=tls] .tls-form-row input[type=password] { width:100%; max-width:520px; }
+.caddy-app[data-page=tls] #caddy-cf-token + span { display:block; margin-top:8px; font-size:12px; }
+.caddy-app[data-page=tls] .tls-site-settings { border-top:1px solid var(--line); margin-top:20px; padding-top:16px; }
+.caddy-app[data-page=tls] .tls-site-methods { margin-top:18px; }
+.caddy-app[data-page=tls] .tls-site-methods select { width:100%; max-width:260px; }
+.caddy-app[data-page=tls] .tls-certificate-table { overflow-x:auto; }
+.caddy-app[data-page=tls] .tls-certificate-table .table { width:100%; min-width:600px; border-collapse:collapse; }
+.caddy-app[data-page=tls] .tls-certificate-table :is(th,td) { padding:12px; text-align:left; vertical-align:middle; }
+.caddy-app[data-page=tls] .tls-certificate-table td:first-child { overflow-wrap:anywhere; }
+.caddy-app[data-page=tls] .tls-certificate-table :is(th,td):last-child { text-align:right; white-space:nowrap; }
+.caddy-app.caddy-tls-modal { padding:8px 0 16px; }
+.caddy-app.caddy-tls-modal .tls-form-row input[type=checkbox] { justify-self:start; }
+.caddy-app.caddy-tls-modal .tls-form-row :is(input[type=password],textarea) { width:100%; }
+.caddy-app.caddy-tls-modal .detail-row > :last-child { max-width:75%; }
+@media(max-width:650px) {
+ .caddy-app[data-page=tls] .tls-form-row,.caddy-app.caddy-tls-modal .tls-form-row { grid-template-columns:100px minmax(0,1fr); gap:16px; }
+}

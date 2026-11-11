@@ -1095,3 +1095,105 @@ msgstr "保存服务设置后，使用 LuCI 的保存并应用使其生效。启
 
 msgid "Notification settings saved; apply the pending UCI changes to activate them."
 msgstr "通知设置已保存，应用待处理的 UCI 更改后生效。"
+
+msgid "API Token"
+msgstr "API Token"
+
+msgid "Actions"
+msgstr "操作"
+
+msgid "Certificate details"
+msgstr "证书详情"
+
+msgid "Certificate notifications"
+msgstr "证书通知"
+
+msgid "Certificate scan is incomplete."
+msgstr "证书扫描未完成。"
+
+msgid "Configure"
+msgstr "设置"
+
+msgid "Configured"
+msgstr "已配置"
+
+msgid "Details"
+msgstr "详情"
+
+msgid "Domains"
+msgstr "域名"
+
+msgid "Enable webhook"
+msgstr "启用 Webhook"
+
+msgid "Expires"
+msgstr "到期时间"
+
+msgid "History"
+msgstr "记录"
+
+msgid "Leave blank to keep the saved token"
+msgstr "留空保留已保存的令牌"
+
+msgid "No certificate alerts."
+msgstr "暂无证书告警。"
+
+msgid "No notification history."
+msgstr "暂无通知记录。"
+
+msgid "No stored certificates."
+msgstr "暂无已存储证书。"
+
+msgid "Notification history"
+msgstr "通知记录"
+
+msgid "Notification settings"
+msgstr "通知设置"
+
+msgid "Recovered"
+msgstr "已恢复"
+
+msgid "Request headers"
+msgstr "请求头"
+
+msgid "Requires Zone DNS Edit and Zone Read for the selected zones."
+msgstr "需要目标域名的 Zone DNS Edit 和 Zone Read 权限。"
+
+msgid "Requires public port 443 to reach Caddy directly."
+msgstr "公网 443 端口须直达 Caddy。"
+
+msgid "Requires public port 80."
+msgstr "需要公网 80 端口。"
+
+msgid "Save a site configuration first."
+msgstr "请先保存站点配置。"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "TLS settings are managed by the Caddyfile."
+msgstr "TLS 设置由 Caddyfile 管理。"
+
+msgid "Uses Cloudflare; supports wildcard domains."
+msgstr "使用 Cloudflare，支持通配符域名。"
+
+msgid "Valid"
+msgstr "有效"
+
+msgid "Valid from"
+msgstr "生效时间"
+
+msgid "Webhook"
+msgstr "Webhook"
+
+msgid "Webhook URL"
+msgstr "Webhook 地址"
+
+msgid "Pending"
+msgstr "待发送"
+
+msgid "Sent"
+msgstr "已发送"
+
+msgid "Failed"
+msgstr "失败"

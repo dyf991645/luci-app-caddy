@@ -358,6 +358,13 @@ return function(options) {
 				if (!current.draft) return {ok:false,error:'Save a site draft before changing TLS defaults'};
 				if (current.draft.mode == 'manual') return {ok:false,error:'TLS forms are read-only in complete Caddyfile mode'};
 				if (index(['http-01','dns-01','tls-alpn-01'],request.default_challenge) < 0) return {ok:false,error:'Unsupported default verification method'};
+				let selected=request.site_challenges ?? {};
+				if(type(selected)!='object')return {ok:false,error:'Invalid site verification settings'};
+				for(let domain,method in selected) {
+					let sites=filter(current.draft.sites,s=>s.domain==domain);
+					if(length(sites)!=1 || index(['global','http-01','dns-01','tls-alpn-01'],method)<0)return {ok:false,error:'Invalid site verification settings'};
+					sites[0].challenge=method;
+				}
 				current.draft.settings.default_challenge = request.default_challenge;
 				let error=check(current.draft);
 				if (error) return {ok:false,error};

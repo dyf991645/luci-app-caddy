@@ -4,7 +4,7 @@ const resources=new URL('../packages/luci-app-caddy/htdocs/luci-static/resources
 // Executes the shipped LuCI views. DOM, JSONMap and RPC are host adapters only;
 // clicks, asynchronous save responses and the confirmation gate are real view code.
 function harness(page, affected=['basic.example.test','authelia.example.test'], fixture={}) {
- const nodes=[]; let modal=null,changeRefreshes=0; const calls=[],notifications=[],clipboard=[];
+ const nodes=[]; let modal=null,pageRoot=null,changeRefreshes=0; const calls=[],notifications=[],clipboard=[];
  function E(tag,attrs={},children=[]) {
   const node={tag,attrs,children:[],value:attrs.value || '',disabled:attrs.disabled || false,textContent:typeof children==='string'?children:'',events:{},
    addEventListener(name,fn){this.events[name]=fn;},appendChild(n){this.children.push(n);Object.defineProperty(n,'parentNode',{value:this,writable:true,configurable:true});},replaceChildren(...n){this.children=n;},
@@ -16,7 +16,7 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
  Object.assign(config,fixture.config || {});
  let state={ok:true,basic_profiles:fixture.basic_profiles || {},draft:config,draft_revision:4,active_revision:3,pending:true,affected_domains:affected};
  const ui={changes:{init(){changeRefreshes++;return Promise.resolve();}},showModal(title,body){modal=E('modal',{title},body);},hideModal(){modal=null;},addNotification(...args){notifications.push(args);}};
- const rpc={declare({method}){return async (...args)=>{calls.push({method,args});if(fixture.fail===method)return {ok:false,error:'Revision conflict'};if(method==='status')return {installed:true,running:false,enabled:false};if(method==='credential_status')return {ok:true};if(method==='config_preview')return {ok:true,config:fixture.preview || {}};if(method==='config_apply'){state={...state,active_revision:state.draft_revision,pending:false,affected_domains:[]};return state;}if(method==='basic_profile_save'||method==='draft_save')state={...state,draft:args[method==='basic_profile_save'?1:0]};if(['tls_save','credential_save','draft_save','basic_profile_save'].includes(method))state={...state,draft_revision:state.draft_revision+1,affected_domains:['latest.example.test']};return state;};}};
+ const rpc={declare({method}){return async (...args)=>{calls.push({method,args});if(fixture.fail===method)return {ok:false,error:'Revision conflict'};if(method==='status')return {installed:true,running:false,enabled:false};if(method==='credential_status')return {ok:true,configured:!!fixture.credential};if(method==='certificates')return fixture.certificates||{ok:true,complete:true,certificates:[]};if(method==='notification_status')return fixture.notification||{ok:true,webhook:{enabled:false,configured:false},alerts:[],deliveries:[]};if(method==='notification_save')return {ok:true,webhook:{enabled:args[0],configured:!!args[1]},alerts:[],deliveries:[]};if(method==='config_preview')return {ok:true,config:fixture.preview || {}};if(method==='config_apply'){state={...state,active_revision:state.draft_revision,pending:false,affected_domains:[]};return state;}if(method==='basic_profile_save'||method==='draft_save')state={...state,draft:args[method==='basic_profile_save'?1:0]};if(['tls_save','credential_save','draft_save','basic_profile_save'].includes(method))state={...state,draft_revision:state.draft_revision+1,affected_domains:['latest.example.test']};return state;};}};
  let rootMap,activeMap;
  const form={JSONMap:class {
   constructor(data){this.buffer=data;this.children=[];rootMap=this;this.data={get:(_,sid,key)=>key==null?this.buffer[sid]:this.buffer[sid]?.[key],set:(_,sid,key,v)=>{this.buffer[sid][key]=v;},sections:()=>this.buffer.sites.map((s,i)=>({...s,'.name':String(i)}))};this.buffer.sites.forEach((s,i)=>this.buffer[String(i)]=s);}
@@ -24,7 +24,7 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
   parse(){return Promise.resolve();} render(){return Promise.resolve(E('form'));} load(){return Promise.resolve();}reset(){return Promise.resolve();}
  }};
 
- const values={backendList:{create(value){return {render(){return E('input',{value});}};}},navigator:{clipboard:{writeText:async text=>{clipboard.push(text);}}},dom:{findClassInstance:node=>node.instance},poll:{add(){}},E,_:s=>s,ui,rpc,view:{extend:x=>x},form,L:{hasViewPermission:()=>true,url:x=>x,resource:x=>x,env:{dispatchpath:['admin','services','caddy',fixture.route || 'configuration']}},window:{addEventListener(){}},document:{createTextNode:s=>({textContent:s}),addEventListener(){},querySelector(){return null;},head:{appendChild(){}}},location:{href:''},baseclass:{extend:x=>x}};
+ const values={backendList:{create(value){return {render(){return E('input',{value});}};}},navigator:{clipboard:{writeText:async text=>{clipboard.push(text);}}},dom:{findClassInstance:node=>node.instance},poll:{add(){}},E,_:s=>s,ui,rpc,view:{extend:x=>x},form,L:{hasViewPermission:()=>!fixture.readonly,url:x=>x,resource:x=>x,env:{dispatchpath:['admin','services','caddy',fixture.route || 'configuration']}},window:{addEventListener(){}},document:{createTextNode:s=>({textContent:s}),addEventListener(){},querySelector(){return null;},head:{appendChild(){}}},location:{href:''},baseclass:{extend:x=>x}};
  const helper=new URL('caddy/apply.js',resources);
  if(existsSync(helper))values.caddyApply=evaluate(helper);values.applyFlow=values.caddyApply;
  values.layout=evaluate(new URL('caddy/layout.js',resources));
@@ -44,7 +44,7 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
    }
    ui.showModal('Edit site',body);
    return {validate(name,value){return section.children.find(o=>o.option===name).validate('0',value);},field(name){return section.children.find(o=>o.option===name).input;},visible(name){return section.children.find(o=>o.option===name).active();},button(label){return all(modal).find(n=>n.tag==='button'&&n.textContent===label);},inputs(){return all(modal).filter(n=>n.tag==='input');},save(){return grid.handleModalSave(activeMap);},cancel(){grid.handleModalCancel(activeMap);}};
-  },async render(){await view.render(page==='tls'?[state,{ok:true}]:page==='overview'?[{installed:true,running:false,enabled:false},state]:state);},button(label){return nodes.find(n=>n.tag==='button'&&n.textContent===label);},get modal(){return modal;},modalButton(label){return all(modal).find(n=>n.tag==='button'&&n.textContent===label);},nodes,calls,notifications,clipboard,get changeRefreshes(){return changeRefreshes;}};
+  },async render(){pageRoot=await view.render(page==='tls'?[state,{ok:true,configured:!!fixture.credential},fixture.certificates||{ok:true,complete:true,certificates:[]},fixture.notification||{ok:true,webhook:{enabled:false,configured:false},alerts:[],deliveries:[]}]:page==='overview'?[{installed:true,running:false,enabled:false},state]:state);},button(label){return nodes.find(n=>n.tag==='button'&&n.textContent===label);},get modal(){return modal;},modalButton(label){return all(modal).find(n=>n.tag==='button'&&n.textContent===label);},nodes,calls,notifications,clipboard,pageNodes:()=>all(pageRoot),modalField:id=>all(modal).find(n=>n.attrs?.id===id),get changeRefreshes(){return changeRefreshes;}};
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 test('TLS pending Apply lists shared authentication impact and cancellation sends no apply',async()=>{
@@ -194,10 +194,40 @@ test('site and TLS saves refresh the native LuCI UCI change indicator',async()=>
  const tls=harness('tls',[]);await tls.render();tls.nodes.find(n=>n.tag==='input'&&n.attrs.type==='radio').events.change();await tls.button('Save').click();expect(tls.changeRefreshes).toBeGreaterThan(0);
 });
 
-test('notification saves refresh native UCI changes and editable controls omit disabled',async()=>{
- const h=harness('notifications');await h.render();
- const button=h.button('Save');expect(button).toBeDefined();expect(button.attrs.disabled==null).toBe(true);
- const url=h.nodes.find(n=>n.attrs.id==='notify-url'),headers=h.nodes.find(n=>n.attrs.id==='notify-headers');
- url.value='https://notify.example.test/private';headers.value='{"Authorization":"test"}';
- button.events.click();await tick();expect(h.calls.some(c=>c.method==='notification_save')).toBe(true);expect(h.changeRefreshes).toBe(1);
+test('TLS certificate inventory stays compact and opens details without navigation',async()=>{
+ const cert={domains:['app.example.test'],sites:['app.example.test'],issuer:'Example CA',not_before:1700000000,not_after:1900000000,validity:'valid',fingerprint:'private-detail-fingerprint'};
+ const h=harness('tls',[],{certificates:{ok:true,complete:true,certificates:[cert]}});await h.render();
+ expect(h.pageNodes().filter(n=>n.tag==='a')).toHaveLength(0);expect(h.pageNodes().some(n=>n.textContent==='Example CA')).toBe(true);
+ expect(h.pageNodes().some(n=>n.textContent==='private-detail-fingerprint')).toBe(false);
+ expect(h.pageNodes().some(n=>n.textContent.includes('Renewal history is partial'))).toBe(false);
+ h.button('Details').click();expect(h.modal.attrs.title).toBe('Certificate details');expect(JSON.stringify(h.modal)).toContain('private-detail-fingerprint');
+ h.modalButton('Close').click();expect(h.modal).toBeNull();expect(h.calls.some(c=>c.method==='config_apply')).toBe(false);
+});
+test('TLS page opens notification settings and stages save without leaving the page',async()=>{
+ const h=harness('tls',[]);await h.render();h.button('Configure').click();expect(h.modal.attrs.title).toBe('Notification settings');
+ h.modalField('tls-notify-enabled').checked=true;h.modalField('tls-notify-url').value='https://notify.example.test/private';h.modalField('tls-notify-headers').value='{"Authorization":"test"}';
+ expect(h.modalButton('Save').attrs.disabled==null).toBe(true);await h.modalButton('Save').click();
+ expect(h.calls.filter(c=>c.method==='notification_save')).toEqual([{method:'notification_save',args:[true,'https://notify.example.test/private',{Authorization:'test'}]}]);
+ expect(h.changeRefreshes).toBe(1);expect(h.modal).toBeNull();expect(h.calls.some(c=>c.method==='config_apply')).toBe(false);
+});
+test('TLS notification modal cancellation and failed saves preserve editable fields',async()=>{
+ for(const fail of [false,true]) {
+  const h=harness('tls',[],{fail:fail?'notification_save':null});await h.render();h.button('Configure').click();h.modalField('tls-notify-url').value='https://notify.example.test/private';
+  if(!fail){h.modalButton('Cancel').click();expect(h.calls.some(c=>c.method==='notification_save')).toBe(false);expect(h.modal).toBeNull();}
+  else {await h.modalButton('Save').click();expect(h.modal).not.toBeNull();expect(h.modalField('tls-notify-url').value).toBe('https://notify.example.test/private');expect(JSON.stringify(h.modal)).toContain('Revision conflict');}
+ }
+});
+test('TLS readonly forms disable notification saves and credential inputs',async()=>{
+ const h=harness('tls',[],{readonly:true});await h.render();expect(h.nodes.find(n=>n.attrs.id==='caddy-cf-token').disabled).toBe(true);
+ h.button('Configure').click();expect(h.modalButton('Save').disabled).toBe(true);await h.modalButton('Save').click();expect(h.calls.some(c=>c.method==='notification_save')).toBe(false);
+});
+test('TLS site verification edits use scoped save alongside the global method',async()=>{
+ const h=harness('tls',[]);await h.render();const select=h.nodes.find(n=>n.tag==='select'&&n.attrs['aria-label']==='app.example.test Certificate verification');
+ select.value='tls-alpn-01';select.events.change();await h.button('Save').click();
+ expect(h.calls.filter(c=>c.method==='tls_save')).toEqual([{method:'tls_save',args:['http-01',4,{'app.example.test':'tls-alpn-01'}]}]);
+ expect(h.calls.some(c=>c.method==='draft_save')).toBe(false);expect(h.changeRefreshes).toBeGreaterThan(0);
+});
+test('TLS notification history uses a modal and empty certificate inventory stays concise',async()=>{
+ const h=harness('tls',[],{notification:{ok:true,webhook:{enabled:false},alerts:[],deliveries:[{event_id:'fixture-event',type:'expired',delivery:'sent',attempts:1}]}});await h.render();
+ expect(h.pageNodes().some(n=>n.textContent==='No stored certificates.')).toBe(true);h.button('History').click();expect(h.modal.attrs.title).toBe('Notification history');expect(JSON.stringify(h.modal)).toContain('Sent');
 });
