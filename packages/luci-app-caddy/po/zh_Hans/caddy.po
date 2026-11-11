@@ -1232,7 +1232,7 @@ msgid "Description"
 msgstr "说明"
 
 msgid "Notification summary."
-msgstr "通知摘要。"
+msgstr "通知摘要（英文），例如 Stored certificate expired（证书已到期）。"
 
 msgid "Certificate domain names. A whole JSON value becomes an array; embedded values use comma-separated text."
 msgstr "证书包含的域名。在 JSON 中作为完整值时替换为数组；嵌入文字时用逗号分隔。"

@@ -25,7 +25,7 @@ return view.extend({
   var busy=false,dirty=false,permission=L.hasViewPermission(),readonly=!permission || current.draft?.mode=='manual';
   var method=current.draft?.settings.default_challenge || 'http-01';
   var token=E('input',{id:'caddy-cf-token',type:'password',autocomplete:'new-password','class':'cbi-input-text',disabled:readonly || null,placeholder:_('Leave blank to keep the saved token')});
-  var credentialStatus=E('span',{'class':'muted'});
+  var credentialStatus=E('span',{'class':'muted tls-field-status'});
   var methodHelp=E('p',{'class':'hint'});
   var help={'http-01':_('Requires public port 80.'),'dns-01':_('Uses Cloudflare; supports wildcard domains.'),'tls-alpn-01':_('Requires public port 443 to reach Caddy directly.')};
   var descriptions={'http-01':_('Public port 80'),'dns-01':_('Cloudflare DNS'),'tls-alpn-01':_('Public port 443')};
@@ -156,8 +156,10 @@ return view.extend({
     choices,methodHelp
    ]),
    layout.panel(_('Cloudflare DNS credentials'),'',[
-    E('div',{'class':'tls-form-row'},[E('label',{for:'caddy-cf-token'},_('API Token')),E('div',{},[token,credentialStatus])]),
-    E('p',{'class':'hint'},_('Requires Zone DNS Edit and Zone Read for the selected zones.'))
+    E('div',{'class':'tls-form-row tls-credential-row'},[
+     E('label',{for:'caddy-cf-token'},_('API Token')),token,credentialStatus,
+     E('p',{'class':'hint'},_('Requires Zone DNS Edit and Zone Read for the selected zones.'))
+    ])
    ]),
    layout.panel(_('Certificate notifications'),'',notificationBody,[
     E('button',{'class':'button',click:notificationSettings},_('Configure')),

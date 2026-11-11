@@ -290,7 +290,9 @@
 .caddy-app[data-page=tls] .tls-form-row > label,.caddy-app.caddy-tls-modal .tls-form-row > label { margin:0; text-align:right; overflow-wrap:anywhere; }
 .caddy-app[data-page=tls] .tls-form-row :is(input,select),.caddy-app.caddy-tls-modal .tls-form-row :is(input,textarea) { box-sizing:border-box; margin:0; min-width:0; }
 .caddy-app[data-page=tls] .tls-form-row input[type=password] { width:100%; max-width:520px; }
-.caddy-app[data-page=tls] #caddy-cf-token + span { display:block; margin-top:8px; font-size:12px; }
+.caddy-app[data-page=tls] .tls-credential-row { row-gap:8px; }
+.caddy-app[data-page=tls] .tls-credential-row > :is(.tls-field-status,.hint) { grid-column:2; }
+.caddy-app[data-page=tls] .tls-field-status { font-size:12px; }
 .caddy-app[data-page=tls] .tls-site-settings { border-top:1px solid var(--line); margin-top:20px; padding-top:16px; }
 .caddy-app[data-page=tls] .tls-site-methods { margin-top:18px; }
 .caddy-app[data-page=tls] .tls-site-methods select { width:100%; max-width:260px; }
