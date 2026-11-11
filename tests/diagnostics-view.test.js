@@ -1,12 +1,12 @@
 import {test,expect} from 'bun:test';
 import {readFileSync} from 'node:fs';
 function harness(options={}) {
- const nodes=[],calls=[],downloads=[];
+ const nodes=[],calls=[],downloads=[];let readingLogs=false;
  const info={ok:true,source:options.manual?'manual':'form',binary:{version:'2',modules:[],cloudflare:true},package:{version:'1'},architecture:{},permissions:{},retention:{},active_ports:[],ports:[],listeners:[]};
  function E(tag,attrs={},children=[]) {
   const n={tag,attrs,children:Array.isArray(children)?children:[children],disabled:attrs.disabled!=null,value:attrs.value??(tag==='select'?'all':''),events:{},addEventListener(k,f){this.events[k]=f;},replaceChildren(...c){this.children=c;},appendChild(c){this.children.push(c);},remove(){},click(){if(!this.disabled)return this.attrs.click?.();}};nodes.push(n);return n;
  }
- const rpc={declare({method}){return async(...args)=>{calls.push([method,...args]);if(method==='diagnostics')return info;if(method==='logs')return {ok:true,entries:(options.entries||[]).filter(e=>e.kind===args[1])};return options.result||{ok:true,backends:[]};};}};
+ const rpc={declare({method}){return async(...args)=>{calls.push([method,...args]);if(method==='diagnostics')return info;if(method==='logs'){if(readingLogs)throw new Error('Log reader is busy');readingLogs=true;await Promise.resolve();readingLogs=false;return {ok:true,entries:(options.entries||[]).filter(e=>e.kind===args[1])};}return options.result||{ok:true,backends:[]};};}};
  const layout={row:(...c)=>E('row',{},c),panel:(...c)=>E('panel',{},c),page:(...c)=>E('page',{},c)};
  const view=new Function('view','rpc','ui','layout','E','_','L','URL','Blob','document','setTimeout',readFileSync(new URL('../packages/luci-app-caddy/htdocs/luci-static/resources/view/caddy/diagnostics.js',import.meta.url),'utf8'))({extend:x=>x},rpc,{addNotification(){}},layout,E,s=>s,{hasViewPermission:()=>!options.readonly},{createObjectURL(blob){downloads.push(blob);return 'blob:test';},revokeObjectURL(){}},Blob,{body:E('body')},f=>f());
  return {calls,nodes,downloads,async render(){view.render(await view.load());},button(text){return nodes.find(n=>n.tag==='button'&&n.children.includes(text));},text(){function read(n){return typeof n==='string'?n:(Array.isArray(n)?n:(n?.children||[])).map(read).join(' ');}return nodes.filter(n=>n.tag==='page').map(read).join(' ');}};
@@ -31,5 +31,5 @@ test('runtime and access panels independently filter and export their own entrie
  const level=h.nodes.find(n=>n.attrs['aria-label']==='Runtime logs · Log level');level.value='error';await level.events.change();expect(h.calls).toContainEqual(['logs','error','runtime']);expect(h.calls.filter(c=>c[0]==='logs'&&c[2]==='access').length).toBe(1);
  const exports=h.nodes.filter(n=>n.tag==='button'&&n.children.includes('Export filtered logs'));exports[0].click();exports[1].click();
  expect(JSON.parse(await h.downloads[0].text())).toMatchObject({kind:'runtime',entries:[entries[1]]});expect(JSON.parse(await h.downloads[1].text())).toMatchObject({kind:'access',entries:[entries[0]]});
- expect(h.text()).not.toContain('Runtime and access logs');
+ expect(h.text()).not.toContain('Runtime and access logs');await h.button('Refresh').click();expect(h.calls.filter(c=>c[0]==='logs'&&c[2]==='access').length).toBe(2);
 });

@@ -7,7 +7,7 @@ var diagnostics=rpc.declare({object:'luci.caddy',method:'diagnostics',expect:{''
 var logs=rpc.declare({object:'luci.caddy',method:'logs',params:['level','kind'],expect:{'':{}}});
 var probe=rpc.declare({object:'luci.caddy',method:'backend_probe',params:['confirm'],expect:{'':{}}});
 return view.extend({
- load:function(){return Promise.all([diagnostics(),logs('all','runtime'),logs('all','access')]);},
+ load:function(){return diagnostics().then(function(info){return logs('all','runtime').then(function(runtime){return logs('all','access').then(function(access){return [info,runtime,access];});});});},
  render:function(initial){
   var info=E('div',{'class':'two-column'}),feedback=E('p',{'role':'status','aria-live':'polite'}),probeResult=E('div'),busy=false,source=initial[0]?.source;
   var levelNames={all:_('All'),debug:_('Debug'),info:_('Info'),warn:_('Warning'),error:_('Error')};
@@ -51,7 +51,7 @@ return view.extend({
   }
   var runtime=logPanel('runtime',_('Runtime logs'),initial[1]),access=logPanel('access',_('Access logs'),initial[2]);
   function working(task){if(busy)return;busy=true;feedback.textContent=_('Reading local evidence…');refresh.disabled=true;probeButton.disabled=true;return task().catch(function(e){ui.addNotification(null,E('p',{},e.message),'error');}).finally(function(){busy=false;feedback.textContent=_('Read complete');refresh.disabled=false;probeButton.disabled=!L.hasViewPermission() || source=='manual';});}
-  var refresh=E('button',{'class':'button cbi-button','click':function(){return working(function(){return Promise.all([diagnostics(),runtime.refresh(),access.refresh()]).then(function(data){showDiagnostic(data[0]);});});}},_('Refresh'));
+  var refresh=E('button',{'class':'button cbi-button','click':function(){return working(function(){return Promise.all([diagnostics(),runtime.refresh().then(access.refresh)]).then(function(data){showDiagnostic(data[0]);});});}},_('Refresh'));
   var probeButton=E('button',{'class':'button cbi-button','disabled':(!L.hasViewPermission() || source=='manual') || null,'click':function(){
    if(!L.hasViewPermission() || source=='manual')return Promise.resolve();
    return working(function(){return probe(true).then(function(data){
