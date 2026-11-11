@@ -359,3 +359,25 @@ rollback and validation failure; it does not apply installed user configuration.
 verification choices through the production UCI store, wildcard validation,
 private snippet retention and stale edits. Frontend modal save/cancel/error and
 certificate table/detail boundaries are exercised by `apply-impact.test.js`.
+
+## Native LuCI menu/CGI regression
+
+The target dispatcher reads menus with `json(open(path, 'r'))`, not
+`json(readfile(path))`. On the observed target, r22's valid JSON ended exactly
+at byte2048, followed by a newline; streaming parsing rejected it as trailing
+garbage and silently omitted every Caddy menu node. Keep menu formatting in
+LuCI's tab-indented style and validate with the actual target loader:
+
+```sh
+ucode menu-registration.uc /usr/share/luci/menu.d/luci-app-caddy.json /www/luci-static/resources
+ucode luci-cgi-router.uc
+```
+
+Run only on the authorized installed test router; the second script uses
+`/tmp/luci-caddy-environment`, creates a temporary authenticated session with
+Caddy/base access groups, and makes local GET requests. It asserts HTTP200 and
+the exact `ui.instantiateView()` target for the parent and all eight children,
+including both TLS aliases. Cookie/HTML files are mode0600 and removed, and the
+session is destroyed. It does not access passwords, apply configuration, invoke
+service actions or operate a browser. Passing public static-resource hashes or
+unauthenticated HTTP403 is insufficient to establish menu registration.
