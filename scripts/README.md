@@ -49,14 +49,17 @@ rollback: a later latest download may contain a different Caddy version.
 Ordinary branch pushes (including integration/caddy-v1), pull requests and schedules
 do not trigger this workflow. Manual dispatch builds attachments only, even when
 run against a tag; it requires the workflow on the default branch. Only v* tag
-push events build and publish a Release. Same-ref builds queue instead of cancelling
+push events build and create a draft Release. Same-ref builds queue instead of cancelling
 a running build. No automatic retries are configured.
 
 ## Tags and releases
 
-`v*` tags build the same attachments and publish a GitHub Release after checksum
-verification. The Release contains version notes, both APKs and every
-provenance/checksum attachment. Manual dispatch uploads artifacts only.
+`v*` tags build the same attachments and create a draft GitHub Release after checksum
+verification. Download that run's artifacts, verify and install those exact APKs on
+the target router, then publish the draft after acceptance. Publishing the draft
+does not trigger this workflow, so acceptance and publication use one build.
+The Release contains version notes, both APKs and every provenance/checksum
+attachment. Manual dispatch uploads artifacts only.
 
 Push a release tag only after release acceptance and explicit publication
 authorization. No tag, push, remote workflow run or Release is authorized by

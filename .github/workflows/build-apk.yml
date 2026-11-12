@@ -51,9 +51,9 @@ jobs:
       - name: Verify attachments
         working-directory: dist-apk
         run: sha256sum --check SHA256SUMS
-      - name: Publish approved tag
+      - name: Create release draft for installation acceptance
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release create "$RELEASE_TAG" --verify-tag --title "$RELEASE_TAG" --notes-file dist-apk/RELEASE-NOTES.md dist-apk/*
+        run: gh release create "$RELEASE_TAG" --draft --verify-tag --title "$RELEASE_TAG" --notes-file dist-apk/RELEASE-NOTES.md dist-apk/*

@@ -4,7 +4,7 @@ PKG_NAME:=caddy-binary
 # Generated from the freshly downloaded executable by scripts/build.py.
 -include $(TOPDIR)/package/caddy-binary/upstream.mk
 PKG_VERSION:=$(CADDY_UPSTREAM_VERSION)
-PKG_RELEASE:=1
+PKG_RELEASE:=6
 PKG_LICENSE:=Apache-2.0
 PKG_SOURCE:=caddy-$(PKG_VERSION)-cloudflare-linux-arm64
 PKG_SOURCE_URL:=https://caddyserver.com/api
