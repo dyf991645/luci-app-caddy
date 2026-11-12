@@ -46,8 +46,11 @@ not upstream updates. The official OpenWrt SDK checksum and SDK feed commit pins
 remain fixed for the target firmware. Preserve completed build artifacts for
 rollback: a later latest download may contain a different Caddy version.
 
-Branch pushes to integration/caddy-v1 build attachments only. Manual dispatch
-requires the workflow on the default branch; v* tag pushes also publish a Release.
+Ordinary branch pushes (including integration/caddy-v1), pull requests and schedules
+do not trigger this workflow. Manual dispatch builds attachments only, even when
+run against a tag; it requires the workflow on the default branch. Only v* tag
+push events build and publish a Release. Same-ref builds queue instead of cancelling
+a running build. No automatic retries are configured.
 
 ## Tags and releases
 
