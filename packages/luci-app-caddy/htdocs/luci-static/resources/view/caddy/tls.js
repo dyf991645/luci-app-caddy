@@ -25,7 +25,7 @@ return view.extend({
   var busy=false,dirty=false,permission=L.hasViewPermission(),readonly=!permission || current.draft?.mode=='manual';
   var method=current.draft?.settings.default_challenge || 'http-01';
   var email=E('input',{id:'caddy-acme-email',type:'email',autocomplete:'email',value:current.draft?.settings.email || '',disabled:readonly || null});
-  var wildcards=E('textarea',{id:'caddy-wildcard-domains',rows:2,placeholder:'*.home.wirerope.fun',disabled:readonly || null},(current.draft?.settings.wildcard_domains || []).join('\n'));
+  var wildcards=E('textarea',{id:'caddy-wildcard-domains',rows:2,placeholder:'*.example.com',disabled:readonly || null},(current.draft?.settings.wildcard_domains || []).join('\n'));
   var token=E('input',{id:'caddy-cf-token',type:'password',autocomplete:'new-password','class':'cbi-input-text',disabled:readonly || null,placeholder:_('Leave blank to keep the saved token')});
   var credentialStatus=E('span',{'class':'muted tls-field-status'});
   var methodHelp=E('p',{'class':'hint'});

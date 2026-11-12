@@ -1,6 +1,7 @@
+import {fixtureFactory} from './fixture-store.uc';
 // Public manager save/read/preview boundary. Tokens are write-only.
-let manager=loadfile(ARGV[0])()({root:ARGV[1],admin:'127.0.0.1:25019',command:ARGV[2]});
-let config={version:1,settings:{http_port:25080,https_port:25443,email:'',storage:ARGV[1]+'/data',default_challenge:'dns-01'},sites:[{domain:'*.example.test',backend:'http://127.0.0.1:25081',challenge:'dns-01'}]};
+let manager=fixtureFactory(ARGV[0])({root:ARGV[1],admin:'127.0.0.1:25019',command:ARGV[2]});
+let config={version:2,settings:{http_port:25080,https_port:25443,email:'',storage:ARGV[1]+'/data',default_challenge:'dns-01'},sites:[{domain:'*.example.test',upstreams:['http://127.0.0.1:25081'],balance:'round_robin',path:'',strip:false,challenge:'dns-01'}]};
 assert(manager.draft_save({config,expected_revision:0}).ok,'wildcard DNS draft saves');
 let token='ticket05!invalid-private-canary';
 let saved=manager.credential_save({token,expected_revision:1});

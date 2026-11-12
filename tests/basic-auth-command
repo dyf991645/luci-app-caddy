@@ -8,5 +8,5 @@ elif [ "$1" = request ]; then
  status=$(curl -ks --max-time 10 --retry 5 --retry-all-errors --retry-delay 1 --noproxy '*' --resolve "$3:27443:127.0.0.1" -o "$2" -w '%{http_code}' ${5:+-u} ${5:+"$5"} "https://$3:27443$4" < /dev/null)
  [ "$status" = "$6" ]
 else
- exec /tmp/luci-caddy-ticket07/caddy-command "$@"
+ exec "$(dirname "$0")/caddy-command" "$@"
 fi

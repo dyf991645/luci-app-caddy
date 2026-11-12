@@ -1,6 +1,7 @@
+import {fixtureFactory} from './fixture-store.uc';
 // Public manager seam; command fixture validates only and never loads Caddy.
 import { readfile } from 'fs';
-let manager=loadfile(ARGV[0])()({root:ARGV[1],admin:'127.0.0.1:25019',command:ARGV[2],disable_certificates:true});
+let manager=fixtureFactory(ARGV[0])({root:ARGV[1],admin:'127.0.0.1:25019',command:ARGV[2],disable_certificates:true});
 let config={version:2,mode:'form',settings:{http_port:25080,https_port:25443,email:'',storage:ARGV[1]+'/data'},sites:[{domain:'global.example.test',upstreams:['http://127.0.0.1:25081'],balance:'round_robin',path:'',strip:false,challenge:'global'}]};
 let saved=manager.draft_save({config,expected_revision:0});
 assert(saved.ok && saved.draft.sites[0].challenge=='global','global reference saves without materializing fallback');
@@ -61,13 +62,12 @@ assert(manager.apply({expected_revision:current.draft_revision}).ok,'latest glob
 active=json(readfile(ARGV[1]+'/active.json'));
 assert(active.apps.tls.automation.policies[0].subjects[0]=='global.example.test' && active.apps.tls.automation.policies[0].issuers[0].challenges.dns.provider.api_token==token,'successful apply promotes latest resolved global policy');
 let legacy={version:1,settings:{http_port:25080,https_port:25443,email:'',storage:ARGV[1]+'/data',default_challenge:'dns-01'},sites:[{domain:'legacy.example.test',backend:'http://127.0.0.1:25081',challenge:'tls-alpn-01'}]};
-let migrated=manager.draft_save({config:legacy,expected_revision:current.draft_revision});
-assert(migrated.ok && migrated.draft.version==2 && migrated.draft.sites[0].challenge=='tls-alpn-01','legacy explicit method survives migration');
-config=migrated.draft;
+assert(!manager.draft_save({config:legacy,expected_revision:current.draft_revision}).ok,'old model is not migrated');
+config=manager.draft_edit().draft;
 config.mode='manual';
 config.manual_caddyfile='http://127.0.0.1:25999 {\n respond "manual-source"\n}';
 config.sites[0].challenge='global';
-let manual=manager.draft_save({config,expected_revision:migrated.draft_revision});
+let manual=manager.draft_save({config,expected_revision:current.draft_revision});
 assert(manual.ok && !manager.tls_save({default_challenge:'http-01',expected_revision:manual.draft_revision}).ok,'complete Caddyfile keeps TLS forms read-only');
 assert(manager.draft_edit().draft.manual_caddyfile==config.manual_caddyfile,'manual source preserved');
-print('PASS inherited selectors, explicit overrides, fallback, wildcard atomic rejection, private credential, staged/apply revisions, legacy migration and manual source\n');
+print('PASS inherited selectors, explicit overrides, fallback, wildcard atomic rejection, private credential, staged/apply revisions, old model rejection and manual source\n');

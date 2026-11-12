@@ -19,13 +19,14 @@ created. Passwords accept1–72bytes and exclude CR/LF/NUL. Existing advanced
 hash input accepts bcrypt cost4–16. Hashes never leave the manager via RPC,
 including writer `draft_edit`, preview, mutation responses and errors.
 
-Private mode0600 immutable `basic` sections in `/etc/config/caddy_secrets`
-contain ordered `list username` and `list hash` fields. The package has no public
-LuCI UCI ACL; legacy JSON files are migration inputs only. Public drafts contain
-only references. Old versions are retained for last-active/recovery stability;
-this ticket does not garbage-collect profiles. Saving never rewrites an active
-profile. A failed validate/load therefore retains old credentials, including
-service restart/reload from durable active.json. Generated active/candidate JSON
+Storage schema 3 keeps ordered `list basic_username` and `list basic_hash`
+directly on the global `auth` section or the independent site's section in
+`/etc/config/caddy` (0600). The logical profile identifiers are computed from
+account content for RPC compatibility; no profile number is stored in UCI.
+Saving stages direct fields, so native revert also restores accounts. UCI change
+details can show hashes. A failed validate/load retains old credentials in
+last-successful `active.json`, including service restart/reload.
+Generated active/candidate JSON
 necessarily contains hashes and remains private; generated preview substitutes
 `[private hash]`. No export method reads active/candidate JSON.
 

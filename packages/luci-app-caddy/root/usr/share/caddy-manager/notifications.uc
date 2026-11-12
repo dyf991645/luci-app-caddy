@@ -1,7 +1,8 @@
 'use strict';
 import {open,readfile,chmod,rename,unlink,lstat,realpath} from 'fs';
 return function(options) {
- let root=options?.root || '/etc/caddy', file=root+'/notifications.json', ledger=root+'/notification-state.json';
+ let root=options?.root || '/etc/caddy', ledger=root+'/notification-state.json';
+ let store=options?.store || loadfile(options?.store_module || '/usr/share/caddy-manager/uci-store.uc')()({root,confdir:options?.confdir,savedir:options?.savedir});
  let now=options?.now ?? time();
  let runtime=options?.root?root+'/notification-runtime.json':'/var/run/caddy-monitor-status.json';
  function fail() {return {ok:false,error:'Notification state or configuration is unavailable'};}
@@ -13,7 +14,7 @@ return function(options) {
  function putText(path,value) {
   let f=open(path+'.tmp','w',0600);if(!f) die('Notification write failed');
   f.write(value);f.close();if(!chmod(path+'.tmp',0600) || !rename(path+'.tmp',path)) die('Notification commit failed');
-  if((path==ledger || path==file) && system(['/bin/sync'],10000)!=0)die('Notification sync failed');
+  if(path==ledger && system(['/bin/sync'],10000)!=0)die('Notification sync failed');
  }
  function put(path,value) {putText(path,sprintf('%J',value));}
  function locked(fn) {
@@ -22,7 +23,7 @@ return function(options) {
   if(!lock || !lock.lock('xn')) {lock?.close();return {ok:false,error:'Notification worker is busy'};}
   let result;try {result=fn();} catch(e) {result=fail();} lock.close();return result;
  }
- function settings() {return options?.store ? options.store.notifications() : read(file,{enabled:false,url:'',headers:{}});}
+ function settings() {return store.notifications();}
  function state() {let s=read(ledger,{version:1,serial:0,episodes:{},events:[],observations:{},last_check:0});if(s.version!=1 || type(s.episodes)!='object' || type(s.events)!='array') die('Invalid ledger');return s;}
  function publicState(s,c) {return {ok:true,webhook:{enabled:c.enabled,configured:length(c.url)>0,method:c.method||'POST',body_mode:c.body_mode||'default',body_configured:length(c.body||'')>0},last_check:read(runtime,{last_check:s.last_check}).last_check,history:'partial_bounded_logd_window',alerts:values(s.episodes),deliveries:map(s.events,e=>({event_id:e.event_id,type:e.type,attempts:e.attempts,delivery:e.delivery,next_due:e.next_due})),interval:s.interval||300};}
  function renderBody(template,payload) {
@@ -60,7 +61,7 @@ return function(options) {
   if(body_mode=='custom' && method!='GET' && method!='HEAD' && !length(body))return {ok:false,error:'Enter a custom request body'};
   try {renderBody(body,{});} catch(e) {return {ok:false,error:'Invalid webhook body variable'};}
   let value={enabled:args.enabled,url,headers,method,body_mode,body};
-  if(options?.store)options.store.saveNotifications(value);else put(file,value);return publicState(state(),settings());
+  store.saveNotifications(value);return publicState(state(),settings());
  });}
  function event(s,ep,type,cert) {
   let id=ep.episode_id+':'+type;

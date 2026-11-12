@@ -1,7 +1,7 @@
 let plugin=loadfile(ARGV[0])()['luci.caddy'];
 let initial=plugin.draft_get.call({args:{}});
 assert(initial.ok && initial.draft_revision==0,'RPC reads initial draft');
-let config={version:1,settings:{http_port:22080,https_port:22443,email:'',storage:'/tmp/luci-caddy-ticket02/rpc-data-'+ARGV[1]},sites:[{domain:'rpc.example.test',backend:'http://127.0.0.1:22081',challenge:'http-01'}]};
+let config={version:2,settings:{http_port:22080,https_port:22443,email:'',storage:'/tmp/luci-caddy-ticket02/rpc-data-'+ARGV[1]},sites:[{domain:'rpc.example.test',upstreams:['http://127.0.0.1:22081'],balance:'round_robin',path:'',strip:false,challenge:'http-01'}]};
 let saved=plugin.draft_save.call({args:{config,expected_revision:0}});
 assert(saved.ok && saved.pending && saved.active_revision==0,'RPC save only persists draft');
 assert(!plugin.draft_save.call({args:{config,expected_revision:0}}).ok,'RPC rejects stale saves');

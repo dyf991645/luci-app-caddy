@@ -353,3 +353,11 @@
 }
 
 .caddy-app .diagnostic-log-filters { grid-template-columns: 160px max-content; }
+.caddy-app .caddy-middleware-order { display:grid; gap:10px; margin-bottom:14px; }
+.caddy-app .caddy-middleware-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:10px 12px; border:1px solid var(--line); background:var(--subtle); }
+.caddy-app .caddy-middleware-row > .mono { overflow-wrap:anywhere; min-width:0; }
+.caddy-app .caddy-middlewares select { min-width:160px; max-width:100%; }
+.caddy-app .middleware-fields .field { display:grid; grid-template-columns:120px minmax(0,1fr); align-items:start; gap:20px; margin-bottom:20px; }
+.caddy-app .middleware-fields .field > label { padding-top:7px; }
+.caddy-app .middleware-fields textarea { width:100%; font-family:var(--font-mono,ui-monospace,monospace); }
+@media(max-width:600px){.caddy-app .middleware-fields .field { grid-template-columns:90px minmax(0,1fr); gap:12px; }}

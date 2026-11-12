@@ -5,39 +5,29 @@ import { readfile, writefile, mkdir, chmod, rename, open, unlink, popen } from '
 return function(options) {
 	let root = options?.root || '/etc/caddy';
 	let admin = options?.admin || '127.0.0.1:2019';
+	let store=options?.store || loadfile(options?.store_module || '/usr/share/caddy-manager/uci-store.uc')()({root,confdir:options?.confdir,savedir:options?.savedir});
 	mkdir(root, 0700);
 	chmod(root, 0700);
-	mkdir(root + '/credentials', 0700);
-	chmod(root + '/credentials', 0700);
 	function read(name, fallback) {
 		let text = readfile(root + '/' + name);
 		return text == null ? fallback : json(text);
 	}
 	function write(name, value) {
-		if(name=='draft.json' && options?.store) {options.store.write(value);return;}
 		let path = root + '/' + name;
 		if (writefile(path + '.tmp', sprintf('%J', value)) == null || !chmod(path + '.tmp', 0600) || !rename(path + '.tmp', path))
 			die('Unable to persist configuration');
 		if (system(['/bin/sync'], 10000) != 0) die('Unable to sync configuration');
 	}
-	function migrate(config) {
-		if (config?.version != 1 || type(config.sites) != 'array') return config;
-		return {...config,version:2,sites:map(config.sites,function(site) {
-			let next={...site,upstreams:[site.backend],balance:'round_robin',path:'',strip:false};
-			delete next.backend;
-			return next;
-		})};
-	}
 	function profile(ref) {
-		return type(ref)=='string' && match(ref,/^basic-[0-9]+-[0-9]+$/) ? (options?.store ? options.store.secret('basic',ref) : read('basic-profiles/'+ref+'.json',null)) : null;
+		return type(ref)=='string' && match(ref,/^basic-[0-9]+-[0-9]+$/) ? store.secret('basic',ref) : null;
 	}
 	function state(private) {
-		let draft = options?.store ? options.store.read() : read('draft.json', { revision: 0, config: null });
+		let draft = store.read();
 		let active = read('active-state.json', { revision: 0, config: null });
-		draft.config = migrate(draft.config);
 		let public_config = draft.config == null ? null : json(sprintf('%J', draft.config));
 		if (!private && public_config) {
 			delete public_config.manual_caddyfile;
+			for(let m in [...(public_config.middlewares || []),...(public_config.global_middlewares || [])])delete m.snippet;
 			for (let site in public_config.sites) delete site.advanced_snippet;
 		}
 		let affected_domains=[];
@@ -49,7 +39,7 @@ return function(options) {
 		let refs=[draft.config?.auth?.basic?.profile];
 		for (let site in draft.config?.sites) push(refs,site.auth?.profile);
 		for (let ref in refs) {let users=profile(ref);if(users) basic_profiles[ref]=map(users,u=>({username:u.username}));}
-		return { ok: true, basic_profiles, affected_domains, draft: private ? draft.config : public_config, draft_revision: draft.revision, active_revision: active.revision, active_source: active.config ? (active.config.mode || 'form') : null, pending: options?.store ? (draft.signature!=null && active.signature!=null ? draft.signature!=active.signature : (!options.store.equivalent(draft.config,active.config) || options.store.hasChanges())) : draft.revision != active.revision, recovery_required: read('transaction.json', null) != null };
+		return { ok: true, basic_profiles, affected_domains, draft: private ? draft.config : public_config, draft_revision: draft.revision, active_revision: active.revision, active_source: active.config ? (active.config.mode || 'form') : null, pending: draft.signature!=null && active.signature!=null ? draft.signature!=active.signature : (!store.equivalent(draft.config,active.config) || store.hasChanges()), recovery_required: read('transaction.json', null) != null };
 	}
 	function source_check(text) {
 		if (type(text) != 'string' || length(text) > 65536) return 'Caddyfile content must be text up to 64 KiB';
@@ -102,6 +92,12 @@ return function(options) {
 	function effective_challenge(site, settings) {
 		return site.challenge == 'global' ? (settings.default_challenge || 'http-01') : site.challenge;
 	}
+	function middleware_references(refs, catalog) {
+		if(refs==null)return null;
+		if(type(refs)!='array')return 'Middlewares must be an ordered list';
+		let seen={};for(let id in refs){if(type(id)!='string' || !catalog[id])return 'Referenced middleware does not exist';if(seen[id])return 'Duplicate middleware reference';seen[id]=true;}
+		return null;
+	}
 	function check(config) {
 		if (config?.mode != null && index(['form', 'manual'], config.mode) < 0) return 'Select form or manual configuration source';
 		if (config?.manual_caddyfile != null) {
@@ -115,15 +111,27 @@ return function(options) {
 			}
 		}
 		let g = config?.settings;
-		if (!known_keys(config,['version','settings','sites','mode','manual_caddyfile','auth']) || !known_keys(g,['http_port','https_port','email','storage','default_challenge','cloudflare_credential','access_log','wildcard_domains'])) return 'Unsupported configuration field';
+		if (!known_keys(config,['version','settings','sites','mode','manual_caddyfile','auth','middlewares','global_middlewares']) || !known_keys(g,['http_port','https_port','email','storage','default_challenge','cloudflare_credential','access_log','wildcard_domains'])) return 'Unsupported configuration field';
 		if (config.version != 2 || type(config.sites) != 'array')
 			return 'Configure a site list using the supported schema';
+		let catalog={};
+		for(let scope in ['middlewares','global_middlewares']){
+			let seen={};if(config[scope]!=null && (type(config[scope])!='array' || length(config[scope])>128))return 'Configure up to 128 middlewares';
+			for(let m in config[scope]){
+				if(!known_keys(m,['id','snippet']) || type(m.id)!='string' || !match(m.id,/^[a-z][a-z0-9_]{0,63}$/) || index(['config','auth','service','notifications'],m.id)>=0)return 'Invalid middleware identifier';
+				if(seen[m.id])return 'Duplicate middleware identifier';seen[m.id]=true;
+				let error=source_check(m.snippet);if(error)return error;if(!length(trim(m.snippet)))return 'Enter a Caddyfile snippet';
+			}
+			if(scope=='middlewares')catalog=seen;
+		}
 		if(config.auth != null && !known_keys(config.auth,['basic','authelia'])) return 'Unsupported global authentication field';
 		if(config.auth?.basic != null && (!known_keys(config.auth.basic,['profile']) || type(config.auth.basic.profile)!='string' || !match(config.auth.basic.profile,/^basic-[0-9]+-[0-9]+$/) || (config.mode!='manual' && !profile(config.auth.basic.profile)))) return 'Invalid global Basic Auth profile';
 		if(config.auth?.authelia != null) {let error=authelia_check(config.auth.authelia);if(error) return error;}
 		let domains={};
 		for (let s in config.sites) {
-			if (!known_keys(s,['name','enabled','domain','upstreams','balance','path','strip','challenge','advanced_snippet','auth'])) return 'Unsupported configuration field';
+			if (!known_keys(s,['name','enabled','domain','upstreams','balance','path','strip','challenge','advanced_snippet','auth','middlewares','use_global_middlewares'])) return 'Unsupported configuration field';
+			let middlewareError=middleware_references(s.middlewares,catalog);if(middlewareError)return middlewareError;
+			if(s.use_global_middlewares!=null && type(s.use_global_middlewares)!='bool')return 'Global middleware inheritance must be enabled or disabled';
 			if(s.name!=null && (type(s.name)!='string' || length(s.name)>240 || match(s.name,/[[:cntrl:]]/))) return 'Site name must be text up to 240 bytes without control characters';
 			if(s.enabled!=null && type(s.enabled)!='bool') return 'Site enabled must be a boolean';
 			if (s.auth != null) {
@@ -205,7 +213,7 @@ return function(options) {
 		function certificate_policy(domain,challenge) {
 			let issuer={module:'acme',email:g.email,challenges:{http:{disabled:challenge!='http-01'},'tls-alpn':{disabled:challenge!='tls-alpn-01'}}};
 			if (challenge == 'dns-01') {
-				let credential = private_config ? (options?.store ? options.store.secret('credential',g.cloudflare_credential) : read('credentials/' + g.cloudflare_credential + '.json',null)) : null;
+				let credential = private_config ? store.secret('credential',g.cloudflare_credential) : null;
 				if (private_config && !credential) die('Missing Cloudflare credential');
 				issuer.challenges.dns = {provider:{name:'cloudflare',api_token:credential ? credential.token : '[REDACTED: Cloudflare credential]'}};
 			}
@@ -281,27 +289,39 @@ return function(options) {
 			return candidate;
 		}
 		let generated = generate(config,private_config);
-		for (let site in config.sites) {
-			if (site.enabled===false || !length(trim(site.advanced_snippet || ''))) continue;
-			let snippet = adapt('http://snippet.invalid {\n' + site.advanced_snippet + '\n}\n','advanced_snippet',1);
-			if (length(keys(snippet.apps || {})) != 1 || !snippet.apps.http || length(keys(snippet.apps.http.servers || {})) != 1 || snippet.apps.http.servers.srv0.tls_connection_policies != null || snippet.apps.http.servers.srv0.automatic_https != null)
-				die('Advanced snippets support HTTP routing directives only');
-			let server = snippet.apps.http.servers.srv0;
-			if (sprintf('%J',server.listen) != sprintf('%J',[':80']) || length(server.routes) != 1 || server.routes[0].match?.[0]?.host?.[0] != 'snippet.invalid') die('Unsupported snippet scope');
-			for (let key in keys(server)) if (index(['listen','routes'],key) < 0) die('Unsupported snippet server option');
-			let routes = server.routes[0].handle?.[0]?.routes;
-			if (type(routes) != 'array') die('Unsupported advanced snippet');
-			for (let name, server in generated.apps.http.servers) {
-				for (let route in server.routes) {
-					if (route.match?.[0]?.host?.[0] != site.domain || name == 'redirect') continue;
-					let scoped = route.handle[0].routes[0];
-					let proxy = scoped.handle;
-					let auth = [];
-					while(proxy[0]?.handler=='authentication' || proxy[0]?.handler=='headers' || (proxy[0]?.handler=='reverse_proxy' && proxy[0]?.handle_response)) push(auth,shift(proxy));
-					scoped.handle = [...auth,{handler:'subroute',routes:[...routes,{handle:proxy}]}];
-				}
+		let definitions={};for(let m in config.middlewares)definitions['site_'+m.id]=m.snippet;for(let m in config.global_middlewares)definitions['global_'+m.id]=m.snippet;
+		let adapted={};
+		function snippet_routes(text,source,id) {
+			let snippet;
+			try {snippet=adapt('http://snippet.invalid {\n'+text+'\n}\n',source,1);}
+			catch(e){if(syntax_diagnostic && source=='middleware')syntax_diagnostic.middleware=id;die(e);}
+			if (length(keys(snippet.apps || {})) != 1 || !snippet.apps.http || length(keys(snippet.apps.http.servers || {})) != 1 || snippet.apps.http.servers.srv0.tls_connection_policies != null || snippet.apps.http.servers.srv0.automatic_https != null)die('Middlewares and snippets support HTTP routing directives only');
+			let server=snippet.apps.http.servers.srv0;
+			if (sprintf('%J',server.listen)!=sprintf('%J',[':80']) || length(server.routes)!=1 || server.routes[0].match?.[0]?.host?.[0]!='snippet.invalid')die('Unsupported snippet scope');
+			for(let key in keys(server))if(index(['listen','routes'],key)<0)die('Unsupported snippet server option');
+			let routes=server.routes[0].handle?.[0]?.routes;if(type(routes)!='array')die('Unsupported advanced snippet');
+			// Caddyfile adaptation starts route-group IDs at group0 each time.
+			// Groups are request-scoped, including across nested subroutes.
+			function namespace(value){if(type(value)=='array'){for(let item in value)namespace(item);}else if(type(value)=='object'){if(type(value.handle)=='array' && type(value.group)=='string')value.group=source+'_'+id+'_'+value.group;for(let key,item in value)namespace(item);}}
+			namespace(routes);return routes;
+		}
+		function handler(id){if(adapted[id]==null)adapted[id]=snippet_routes(definitions[id],'middleware',id);return {handler:'subroute',routes:json(sprintf('%J',adapted[id]))};}
+		for(let site in config.sites){
+			if(site.enabled===false)continue;
+			let globals=site.use_global_middlewares===false?[]:map(config.global_middlewares || [],m=>m.id);
+			let selected=site.middlewares || [];
+			let globalHandlers=map(globals,id=>handler('global_'+id)),siteHandlers=map(selected,id=>handler('site_'+id));
+			if(length(trim(site.advanced_snippet || '')))push(siteHandlers,{handler:'subroute',routes:snippet_routes(site.advanced_snippet,'advanced_snippet',site.domain)});
+			for(let name,server in generated.apps.http.servers)for(let route in server.routes){
+				if(route.match?.[0]?.host?.[0]!=site.domain)continue;
+				if(name=='redirect'){route.handle=[...globalHandlers,...route.handle];continue;}
+				let scoped=route.handle[0].routes[0],proxy=scoped.handle,auth=[];
+				while(proxy[0]?.handler=='authentication' || proxy[0]?.handler=='headers' || (proxy[0]?.handler=='reverse_proxy' && proxy[0]?.handle_response))push(auth,shift(proxy));
+				scoped.handle=[...auth,...siteHandlers,...proxy];
+				route.handle=[...globalHandlers,...route.handle];
 			}
 		}
+
 		return generated;
 	}
 
@@ -332,7 +352,7 @@ return function(options) {
 			return locked(function() {
 				let current=state(true);
 				if(request.expected_revision != current.draft_revision) return {ok:false,error:'Draft changed; reload before saving'};
-				let config=migrate(request.config || current.draft);
+				let config=request.config || current.draft;
 				if (!config || config.mode=='manual') return {ok:false,error:'Authentication forms are read-only in manual mode'};
 				if (request.scope!='global' && !length(filter(config.sites,s=>s.domain==request.scope))) return {ok:false,error:'Unknown authentication scope'};
 				if(type(request.users)!='array' || !length(request.users) || length(request.users)>32) return {ok:false,error:'Configure between 1 and 32 accounts'};
@@ -356,17 +376,12 @@ return function(options) {
 					if(type(hash)!='string' || !match(hash,/^\$2[aby]\$[0-9]{2}\$[a-zA-Z0-9./]{53}$/) || +substr(hash,4,2)<4 || +substr(hash,4,2)>16) return {ok:false,error:'Supply a password (1–72 bytes), retained account, or valid bcrypt hash (cost 4–16)'};
 					push(users,{username:user.username,hash});
 				}
-				mkdir(root+'/basic-profiles',0700);chmod(root+'/basic-profiles',0700);
-				let ref=options?.store ? options.store.saveProfile(users) : 'basic-'+(current.draft_revision+1)+'-'+time();
-				// Exclusive file creation makes profile versions immutable even on abandoned saves.
-				let file=options?.store ? null : open(root+'/basic-profiles/'+ref+'.json','wx',0600);
-				if(!options?.store && !file) return {ok:false,error:'Unable to create private authentication profile'};
-				if(file){file.write(sprintf('%J',users));file.close();}
+				let ref=store.saveProfile(users);
 				config=json(sprintf('%J',config));
 				if(request.scope=='global') {config.auth ||= {};config.auth.basic={profile:ref};}
 				else for(let site in config.sites) if(site.domain==request.scope) site.auth={mode:'basic',source:'independent',profile:ref};
 				let error=check(config);if(error) return {ok:false,error};
-				write('draft.json',{revision:current.draft_revision+1,config});
+				store.write({revision:current.draft_revision+1,config});
 				return state();
 			});
 		},
@@ -391,7 +406,7 @@ return function(options) {
 				if(request.wildcard_domains!=null)current.draft.settings.wildcard_domains=request.wildcard_domains;
 				let error=check(current.draft);
 				if (error) return {ok:false,error};
-				write('draft.json',{revision:current.draft_revision+1,config:current.draft});
+				store.write({revision:current.draft_revision+1,config:current.draft});
 				return state();
 			});
 		},
@@ -406,12 +421,9 @@ return function(options) {
 				if (!current.draft) return {ok:false,error:'Save a draft before adding credentials'};
 				if (current.draft.mode == 'manual') return {ok:false,error:'Cloudflare form credentials are read-only in complete Caddyfile mode'};
 				if (type(request.token) != 'string' || length(request.token) < 1 || length(request.token) > 4096 || match(request.token, /[[:space:][:cntrl:]]/)) return {ok:false,error:'Enter a Cloudflare API Token without whitespace'};
-				// Immutable versions preserve the last active secret across failed applies.
-				let revision;
-				if(options?.store)revision=options.store.saveCredential(request.token);
-				else {revision=read('credentials/sequence.json',{revision:0}).revision+1;write('credentials/sequence.json',{revision});write('credentials/'+revision+'.json',{token:request.token});}
+				let revision=store.saveCredential(request.token);
 				current.draft.settings.cloudflare_credential = revision;
-				write('draft.json',{revision:current.draft_revision+1,config:current.draft});
+				store.write({revision:current.draft_revision+1,config:current.draft});
 				return state();
 			});
 		},
@@ -437,7 +449,7 @@ return function(options) {
 				write('candidate.json', candidate);
 				if (!command('validate','candidate.json')) return {ok:false,error:'Caddy rejected the generated configuration; active configuration is unchanged'};
 				let next = {revision:current.draft_revision,config:current.draft};
-				if(options?.store)next.signature=options.store.read().signature;
+				next.signature=store.read().signature;
 				let previous = read('active-state.json',{revision:0,config:null});
 				write('transaction.json',{previous,next,next_json:candidate});
 				if (!options?.offline && !command('reload','candidate.json')) {
@@ -457,16 +469,16 @@ return function(options) {
 					recover(!options?.offline);
 					return {ok:false,error:'Configuration commit interrupted; recovery required'};
 				}
-				if(options?.store && !options.store.commit()) return {ok:false,error:'Configuration loaded but UCI commit failed; saved changes retained'};
+				if(!store.commit()) return {ok:false,error:'Configuration loaded but UCI commit failed; saved changes retained'};
 				return state();
 			});
 		},
 		preview: function(request) {
 			return locked(function() {
-				let config = migrate(request.config || state(true).draft);
+				let config = request.config || state(true).draft;
 				let error = check(config);
 				if (error) return {ok:false,error};
-				if (config.mode == 'manual' || length(filter(config.sites, s => s.enabled!==false && length(s.advanced_snippet || '') > 0))) {
+				if (config.mode == 'manual' || length(filter(config.sites, s => s.enabled!==false && (length(s.advanced_snippet || '') > 0 || length(s.middlewares || []) || (s.use_global_middlewares!==false && length(config.global_middlewares || [])))))) {
 					try {
 						write('preview.json', compile(config,true));
 						if (!command('validate','preview.json')) die('Validation failed');
@@ -480,10 +492,10 @@ return function(options) {
 			return locked(function() {
 				let previous = state();
 				if (request.expected_revision != previous.draft_revision) return { ok: false, error: 'Draft changed; reload before saving' };
-				let config = migrate(request.config);
+				let config = request.config;
 				let error = check(config);
 				if (error) return { ok: false, error };
-				write('draft.json', { revision: previous.draft_revision + 1, config });
+				store.write( { revision: previous.draft_revision + 1, config });
 				return state();
 			});
 		}

@@ -6,19 +6,31 @@ function harness(options={}) {
  function E(tag,attrs={},children=[]) {
   const n={tag,attrs,children:Array.isArray(children)?children:[children],disabled:attrs.disabled!=null,value:attrs.value??(tag==='select'?'all':''),events:{},addEventListener(k,f){this.events[k]=f;},replaceChildren(...c){this.children=c;},appendChild(c){this.children.push(c);},remove(){},click(){if(!this.disabled)return this.attrs.click?.();}};nodes.push(n);return n;
  }
- const rpc={declare({method}){return async(...args)=>{calls.push([method,...args]);if(method==='diagnostics')return info;if(method==='logs'){if(readingLogs)throw new Error('Log reader is busy');readingLogs=true;await Promise.resolve();readingLogs=false;return {ok:true,entries:(options.entries||[]).filter(e=>e.kind===args[1])};}return options.result||{ok:true,backends:[]};};}};
+ const rpc={declare({method}){return async(...args)=>{calls.push([method,...args]);if(method==='diagnostics')return info;if(method==='logs'){if(readingLogs)throw new Error('Log reader is busy');readingLogs=true;await Promise.resolve();readingLogs=false;return {ok:true,entries:(options.entries||[]).filter(e=>e.kind===args[1])};}return typeof options.result==='function'?options.result(...args):(options.result||{ok:true,complete:true,backends:[]});};}};
  const layout={row:(...c)=>E('row',{},c),panel:(...c)=>E('panel',{},c),page:(...c)=>E('page',{},c)};
  const view=new Function('view','rpc','ui','layout','E','_','L','URL','Blob','document','setTimeout',readFileSync(new URL('../packages/luci-app-caddy/htdocs/luci-static/resources/view/caddy/diagnostics.js',import.meta.url),'utf8'))({extend:x=>x},rpc,{addNotification(){}},layout,E,s=>s,{hasViewPermission:()=>!options.readonly},{createObjectURL(blob){downloads.push(blob);return 'blob:test';},revokeObjectURL(){}},Blob,{body:E('body')},f=>f());
  return {calls,nodes,downloads,async render(){view.render(await view.load());},button(text){return nodes.find(n=>n.tag==='button'&&n.children.includes(text));},text(){function read(n){return typeof n==='string'?n:(Array.isArray(n)?n:(n?.children||[])).map(read).join(' ');}return nodes.filter(n=>n.tag==='page').map(read).join(' ');}};
 }
 test('backend checks are explicit, enabled with native boolean semantics, and show empty results',async()=>{
- const h=harness();await h.render();expect(h.calls.some(c=>c[0]==='backend_probe')).toBe(false);expect(h.text()).toContain('Not checked yet.');const b=h.button('Check backends');expect(b.disabled).toBe(false);await b.click();expect(h.calls.filter(c=>c[0]==='backend_probe')).toEqual([['backend_probe',true]]);expect(h.text()).toContain('No configured backends to check.');expect(b.disabled).toBe(false);
+ const h=harness();await h.render();expect(h.calls.some(c=>c[0]==='backend_probe')).toBe(false);expect(h.text()).toContain('Not checked yet.');const b=h.button('Check backends');expect(b.disabled).toBe(false);await b.click();expect(h.calls.filter(c=>c[0]==='backend_probe')).toEqual([['backend_probe',true,0]]);expect(h.text()).toContain('No configured backends to check.');expect(b.disabled).toBe(false);
 });
 test('manual and readonly modes prevent backend checks',async()=>{
  for(const options of [{manual:true},{readonly:true}]){const h=harness(options);await h.render();expect(h.button('Check backends').disabled).toBe(true);await h.button('Check backends').click();expect(h.calls.some(c=>c[0]==='backend_probe')).toBe(false);if(options.manual)expect(h.text()).toContain('Backend checks are unavailable in Caddyfile mode.');}
 });
-test('probe results distinguish TCP success, failure and partial results',async()=>{
- const h=harness({result:{ok:true,complete:false,backends:[{url:'http://127.0.0.1:80',state:'tcp_reachable'},{url:'http://127.0.0.1:81',state:'unreachable'}]}});await h.render();await h.button('Check backends').click();expect(h.text()).toContain('TCP reachable');expect(h.text()).toContain('Unreachable or timed out');expect(h.text()).toContain('Only the first 8 backends');
+test('all backends are automatically checked and displayed across batches',async()=>{
+ const targets=Array.from({length:22},(_,i)=>({url:'http://backend'+i+':80',state:i%2?'unreachable':'tcp_reachable'}));
+ const h=harness({result:(_confirm,offset)=>({ok:true,total:22,complete:offset+8>=22,next_offset:offset+8>=22?null:offset+8,backends:targets.slice(offset,offset+8)})});
+ await h.render();await h.button('Check backends').click();
+ expect(h.calls.filter(c=>c[0]==='backend_probe')).toEqual([['backend_probe',true,0],['backend_probe',true,8],['backend_probe',true,16]]);
+ for(const target of targets)expect(h.text()).toContain(target.url);
+ expect(h.text()).toContain('TCP reachable');expect(h.text()).toContain('Unreachable or timed out');expect(h.text()).not.toContain('Only the first');
+});
+test('later batch failure preserves completed results and permits retry',async()=>{
+ const h=harness({result:(_confirm,offset)=>offset?{ok:false,error:'probe unavailable'}:{ok:true,total:9,complete:false,next_offset:1,backends:[{url:'http://backend:80',state:'tcp_reachable'}]}});
+ await h.render();await h.button('Check backends').click();expect(h.text()).toContain('http://backend:80');expect(h.text()).toContain('probe unavailable');expect(h.button('Check backends').disabled).toBe(false);
+});
+test('invalid pagination stops rather than repeatedly probing the same targets',async()=>{
+ const h=harness({result:{ok:true,complete:false,next_offset:0,backends:[]}});await h.render();await h.button('Check backends').click();expect(h.calls.filter(c=>c[0]==='backend_probe')).toHaveLength(1);expect(h.text()).toContain('Backend probe failed');
 });
 test('failed probe displays the error and allows retry',async()=>{
  const h=harness({result:{ok:false,error:'probe unavailable'}});await h.render();await h.button('Check backends').click();expect(h.text()).toContain('probe unavailable');expect(h.button('Check backends').disabled).toBe(false);

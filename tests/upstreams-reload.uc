@@ -1,4 +1,5 @@
-let create=loadfile(ARGV[0])();
+import {fixtureFactory} from './fixture-store.uc';
+let create=fixtureFactory(ARGV[0]);
 let manager=create({root:ARGV[1],admin:'127.0.0.1:23019',bind:'127.0.0.1',internal_tls:true,command:ARGV[2]});
 let state=manager.draft_get();
 let config={...state.draft,sites:map(state.draft.sites,function(site) {return {...site,balance:'least_conn'};})};

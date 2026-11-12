@@ -1,7 +1,8 @@
+import {fixtureFactory} from './fixture-store.uc';
 // Public save/read seam must never persist unknown fields into readable drafts.
-let create=loadfile(ARGV[0])();
+let create=fixtureFactory(ARGV[0]);
 let manager=create({root:ARGV[1],admin:'127.0.0.1:22019'});
-let config={version:1,settings:{http_port:22080,https_port:22443,email:'',storage:ARGV[1]+'/data'},sites:[{domain:'proxy.example.test',backend:'http://127.0.0.1:22081',challenge:'http-01'}]};
+let config={version:2,settings:{http_port:22080,https_port:22443,email:'',storage:ARGV[1]+'/data'},sites:[{domain:'proxy.example.test',upstreams:['http://127.0.0.1:22081'],balance:'round_robin',path:'',strip:false,challenge:'http-01'}]};
 let saved=manager.draft_save({config,expected_revision:0});
 assert(saved.ok,'known public model saves');
 for (let candidate in [

@@ -1,5 +1,6 @@
+import {fixtureFactory} from './fixture-store.uc';
 // Host validation at the public draft-save seam for proxy and Authelia backends.
-let manager=loadfile(ARGV[0])()({root:ARGV[1],admin:'127.0.0.1:32019'});
+let manager=fixtureFactory(ARGV[0])({root:ARGV[1],admin:'127.0.0.1:32019'});
 let site={domain:'app.example.test',upstreams:['http://localhost:8080'],balance:'round_robin',path:'',strip:false,challenge:'http-01'};
 let config={version:2,settings:{http_port:32080,https_port:32443,email:'',storage:ARGV[1]+'/data'},sites:[site]};
 let revision=0;

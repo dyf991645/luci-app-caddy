@@ -4,6 +4,7 @@ import {connect} from 'ubus';
 // Constructor overrides are private local fixtures, never RPC parameters.
 return function(options) {
  let root=options?.root || '/etc/caddy';
+ let store=options?.store || loadfile(options?.store_module || '/usr/share/caddy-manager/uci-store.uc')()({root,confdir:options?.confdir,savedir:options?.savedir});
  function bounded(path,limit) {
   let s=lstat(path);if(s?.type!='file' || s.size>limit || realpath(path)!=path) return null;
   let f=open(path,'r');if(!f)return null;let data=f.read(limit+1);f.close();
@@ -74,7 +75,7 @@ return function(options) {
     let owner=match(m[3],/^[0-9]+\/caddy$/)?'caddy':match(m[3],/^[0-9]+\/uhttpd$/)?'uhttpd':m[3]=='-'?'unknown':'other';
     push(listeners,{address:m[1],port:+m[2],owner});
    }
-   let draft=(options?.store ? options.store.read() : stored('draft.json'))?.config,active=stored('active.json'),ports=[];
+   let draft=store.read()?.config,active=stored('active.json'),ports=[];
    if(draft?.mode!='manual')for(let field in ['http_port','https_port']) {
     let port=draft?.settings?.[field];if(type(port)!='int' || port<1 || port>65535)continue;
     let found=filter(listeners,l=>l.port==port);
@@ -101,21 +102,26 @@ return function(options) {
   let result;try{result=collect();}catch(e){result={ok:false,error:'Deployment evidence is unavailable'};}lock.close();return result;
  }
  function probe(request) {
-  if(type(request)!='object' || request.confirm!==true || length(keys(request))!=1)return {ok:false,error:'Explicit configured-backend probe confirmation is required'};
-  let draft=(options?.store ? options.store.read() : stored('draft.json'))?.config;
+  if(type(request)!='object' || request.confirm!==true || length(filter(keys(request),k=>k!='confirm' && k!='offset'))>0)return {ok:false,error:'Explicit configured-backend probe confirmation is required'};
+  let offset=request.offset ?? 0;
+  if(type(offset)!='int' || offset<0)return {ok:false,error:'Invalid backend probe offset'};
+  let draft=store.read()?.config;
   if(!draft || draft.mode=='manual')return {ok:false,error:'Configured form backends are unavailable in this source'};
   let lock=open(root+'/diagnostics-probe.lock','a',0600);
   if(!lock || !lock.lock('xn')){lock?.close();return {ok:false,error:'Backend probe is busy'};}
-  let backends=[],targets={};
+  let backends=[],targets={},ordered=[];
   for(let site in draft.sites)for(let url in site.upstreams) {
    let m=type(url)=='string'?match(url,/^https?:\/\/([a-zA-Z0-9][a-zA-Z0-9.-]*|\[[a-fA-F0-9:]+\]):([0-9]{1,5})$/):null;
    if(!m || +m[2]<1 || +m[2]>65535 || targets[url])continue;
-   targets[url]=true;if(length(backends)>=8)continue;
-   let host=replace(replace(m[1],/^\[/,''),/\]$/,'');
-   let code=system([options?.command || '/usr/share/caddy-manager/diagnostic-command','probe',host,m[2]],2500);
+   targets[url]=true;push(ordered,{url,host:m[1],port:m[2]});
+  }
+  for(let target in slice(ordered,offset,offset+8)) {
+   let url=target.url;
+   let host=replace(replace(target.host,/^\[/,''),/\]$/,'');
+   let code=system([options?.command || '/usr/share/caddy-manager/diagnostic-command','probe',host,target.port],2500);
    push(backends,{url,state:code==0?'tcp_reachable':'unreachable'});
   }
-  lock.close();return {ok:true,source:'configured_draft_backends_tcp_only',backends,limit:8,complete:length(keys(targets))<=8,public_reachability:'unverified'};
+  lock.close();return {ok:true,source:'configured_draft_backends_tcp_only',backends,total:length(ordered),next_offset:offset+length(backends)<length(ordered)?offset+length(backends):null,complete:offset+length(backends)>=length(ordered),public_reachability:'unverified'};
  }
  return {logs,status,probe};
 };

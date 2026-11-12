@@ -2,7 +2,7 @@
 import { cursor } from 'uci';
 import { mkdir,writefile,readfile } from 'fs';
 let root=ARGV[0],modules=ARGV[1],confdir=root+'/config';mkdir(confdir,0700);
-writefile(confdir+'/caddy',"config manager 'config'\n option schema '2'\n");
+writefile(confdir+'/caddy',"config manager 'config'\n option schema '3'\n");
 let store=loadfile(modules+'/uci-store.uc')()({root,confdir,savedir:root+'/session'});
 let make=loadfile(modules+'/config.uc')(),manager=make({root,store,admin:'127.0.0.1:38519',bind:'127.0.0.1'});
 let cfg={version:2,settings:{http_port:38580,https_port:38543,email:'',storage:root+'/data',default_challenge:'http-01'},sites:[]};

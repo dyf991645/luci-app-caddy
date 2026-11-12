@@ -79,7 +79,7 @@ service. Webhooks stay disabled until explicitly configured and enabled.
 Production settings now stage in `caddy.notifications` (enabled and webhook
 reference, method and body_mode), with private URL/header/body fields in `caddy_secrets`. The worker
 reads only committed UCI settings. Save refreshes LuCI native pending changes;
-Apply/revert controls activation. Legacy notifications.json is imported once.
+Apply/revert controls activation. Old notifications.json is not read or imported.
 The notification ledger and runtime check evidence remain operational files.
 
 ## Request method and body

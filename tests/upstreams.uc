@@ -1,5 +1,6 @@
+import {fixtureFactory} from './fixture-store.uc';
 import {writefile} from 'fs';
-let create=loadfile(ARGV[0])();
+let create=fixtureFactory(ARGV[0]);
 let manager=create({root:ARGV[1],admin:'127.0.0.1:23019',bind:'127.0.0.1',internal_tls:true,command:ARGV[2]});
 let config={version:2,settings:{http_port:23080,https_port:23443,email:'',storage:ARGV[1]+'/data'},sites:[
  {domain:'group.example.test',upstreams:['http://127.0.0.1:23081','http://127.0.0.1:23082'],balance:'round_robin',path:'/media/*',strip:true,challenge:'http-01'},
@@ -46,8 +47,6 @@ if (ARGV[3] == 'extended') {
 
 let legacy=create({root:ARGV[1]+'/legacy',admin:'127.0.0.1:23019'});
 let v1={version:1,settings:config.settings,sites:[{domain:'legacy.example.test',backend:'http://127.0.0.1:23081',challenge:'http-01'}]};
-assert(legacy.draft_save({config:v1,expected_revision:0}).ok,'version1 model saves with migration');
-let migrated=legacy.draft_get();
-assert(migrated.draft.version==2 && migrated.draft.sites[0].upstreams[0]=='http://127.0.0.1:23081' && migrated.draft_revision==1 && migrated.active_revision==0,'migration preserves backend and draft/active revision semantics');
-assert(legacy.preview({config:v1}).ok,'version1 preview migrates without applying');
-print('PASS version1 backend migrates to version2 group without activation\n');
+assert(!legacy.draft_save({config:v1,expected_revision:0}).ok,'v1 model rejected');
+assert(!legacy.preview({config:v1}).ok,'v1 preview rejected');
+print('PASS obsolete v1 model rejected without migration\n');

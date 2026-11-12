@@ -6,6 +6,7 @@
 'require dom';
 'require caddy.apply as caddyApply';
 'require caddy.backends as backendList';
+'require caddy.middlewares as middlewareList';
 'require caddy.layout as layout';
 'require caddy.service as service';
 
@@ -44,14 +45,16 @@ return view.extend({
 			modalSection.tab('connection',_('Connection'));
 			modalSection.tab('verification',_('Certificate request'));
 			modalSection.tab('authentication',_('Access authentication'));
+			modalSection.tab('middlewares',_('Middlewares'));
 			modalSection.tab('advanced',_('Advanced'));
 			modalSection.children.forEach(function(field) {
 				// Grid-only presentation flags must not hide dependency sources in the dialog.
 				field.modalonly = false;
 				field.retain = true;
-				field.tab = field.option=='advanced_snippet' ? 'advanced' : field.option=='challenge' ? 'verification' : /^(auth|authelia_)/.test(field.option) ? 'authentication' : 'connection';
+				field.tab = /^(middlewares|use_global_middlewares)$/.test(field.option) ? 'middlewares' : field.option=='advanced_snippet' ? 'advanced' : field.option=='challenge' ? 'verification' : /^(auth|authelia_)/.test(field.option) ? 'authentication' : 'connection';
 				modalSection.tabs[field.tab].children.push(field);
 			});
+			var inherited=modalSection.taboption('middlewares',form.DummyValue,'global_middleware_reference',_('Global middlewares'));inherited.depends('use_global_middlewares','1');inherited.renderWidget=function(){return E('span',{},(config.global_middlewares || []).map(function(m){return m.id;}).join(' → ') || _('No middlewares selected'));};
 			var reference=modalSection.taboption('authentication',form.DummyValue,'global_auth_reference',_('Global authentication'));
 			reference.depends({authMode:'basic',authSource:'global'});reference.depends({authMode:'authelia',authSource:'global'});
 			reference.renderWidget=function(){return E('a',{'href':L.url('admin/services/caddy/settings')},_('Manage shared authentication in Global settings'));};
@@ -70,13 +73,13 @@ return view.extend({
 				return node;
 			});};
 		};
-		var option=section.option(form.Value,'name',_('Site name'));option.rmempty=true;option.datatype='maxlength(80)';
+		var option;
 		option=section.option(form.Flag,'enabled',_('Enabled'));option.default='1';option.rmempty=false;option.editable=true;
 		option.cfgvalue=function(sid){return this.map.data.get('json',sid,'enabled')===false?'0':'1';};
 		option.write=function(sid,value){this.map.data.set('json',sid,'enabled',value==='1');};
 		option = section.option(form.Value,'domain',_('Domain'));
 		option.rmempty = false;
-		option.textvalue=function(sid){var site=this.map.data.get('json',sid);return E('div',{'class':'site-cell'},[E('strong',{},site.name || site.domain || '—'),site.name?E('small',{'class':'hint'},site.domain):'']);};
+		option.textvalue=function(sid){var site=this.map.data.get('json',sid);return E('div',{'class':'site-cell'},[E('strong',{},site.domain || '—')]);};
 		option.validate = function(sid,value) {return /^(?=.{1,253}$)(?:\*\.)?[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(value) && value.split('.').every(function(label) {return label.length <= 63;}) || _('Enter a valid domain; wildcards require DNS-01');};
 		option = section.option(form.DynamicList,'upstreams',_('Backends'),_('Use explicit ports. All backends in a site must use the same protocol. HTTPS certificates are verified.'));
 		option.rmempty = false; option.default = 'http://127.0.0.1:8080';
@@ -108,7 +111,13 @@ return view.extend({
 			o.cfgvalue=function(sid){return this.map.data.get('json',sid,'auth')?.authelia?.[field[0]] || (field[0]=='uri'?'/api/authz/forward-auth':'');};
 			o.write=function(sid,value){var auth=this.map.data.get('json',sid,'auth') || {};this.map.data.set('json',sid,'auth',Object.assign({},auth,{authelia:Object.assign({},auth.authelia,{[field[0]]:value})}));};
 		});
-		option = section.option(form.TextValue,'advanced_snippet',_('Advanced HTTP routing snippet'));option.rows=5;
+		option=section.option(form.Flag,'use_global_middlewares',_('Use global middlewares'));option.default='1';option.rmempty=false;
+		option.cfgvalue=function(sid){return map.data.get('json',sid,'use_global_middlewares')===false?'0':'1';};
+		option.write=function(sid,value){map.data.set('json',sid,'use_global_middlewares',value==='1');};
+		option=section.option(form.DynamicList,'middlewares',_('Site middlewares'));option.rmempty=true;
+		option.renderWidget=function(sid,index,value){return middlewareList.create(value || [],config.middlewares || [],{id:this.cbid(sid),disabled:this.readonly!=null?this.readonly:this.map.readonly}).render();};
+		option.validate=function(sid,value){return !value || (config.middlewares || []).some(function(m){return m.id===value;}) || _('Referenced middleware does not exist');};
+		option = section.option(form.TextValue,'advanced_snippet',_('Site supplemental snippet'));option.rows=5;
 		option.description=_('Additional directives inside this site and path boundary. Imports and environment expansion are unsupported.');
 		var enabledField=section.children.splice(section.children.findIndex(function(field){return field.option=='enabled';}),1)[0];
 		section.children.splice(section.children.findIndex(function(field){return field.option=='authMode';})+1,0,enabledField);
@@ -169,7 +178,7 @@ return view.extend({
 					? saveBasic(map.data.get('json',sid,'domain'),data,activeMap.accountEditor.users(),current.draft_revision)
 					: saveDraft(data,current.draft_revision)).then(result);
 			}).then(function(saved) {
-				current=saved;config=Object.assign(values(),saved.draft,{manual_caddyfile:manual.value});syncAuth();dirty=false;
+				current=saved;config=Object.assign(values(),saved.draft,{manual_caddyfile:manual.value,middlewares:config.middlewares,global_middlewares:config.global_middlewares});syncAuth();dirty=false;
 				return map.load().then(function(){return map.reset();}).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');}).then(function(){return siteSection.handleModalCancel(modalMap,ev,true);});
 			}).catch(function(error) {dirty=true;ui.addNotification(null,E('p',{},error.message),'error');})
 			.finally(function(){controls.forEach(function(entry){entry[0].disabled=entry[1];});busy=false;update();caddyApply.refreshChanges();});
@@ -241,7 +250,7 @@ return view.extend({
 		function values() {
 			function get(section,key) {return map.data.get('json',section,key) || '';}
 			var auth=Object.assign({},config.auth);if(get('authelia','backend') || get('authelia','portal'))auth.authelia={backend:get('authelia','backend'),uri:get('authelia','uri') || '/api/authz/forward-auth',portal:get('authelia','portal')};else delete auth.authelia;
-			return Object.assign({},config,{auth:auth,mode:mode,manual_caddyfile:manual.value,version:2,settings:Object.assign({},config.settings,{access_log:map.data.get('json','settings','access_log')===true,http_port:+get('settings','http_port'),https_port:+get('settings','https_port'),storage:get('settings','storage')}),sites:map.data.sections('json','sites').map(function(site) {return {name:site.name || '',enabled:site.enabled!==false,domain:site.domain || '',upstreams:site.upstreams || [],balance:site.balance || 'round_robin',path:site.path || '',strip:site.strip === true || site.strip === 'true' || site.strip === '1',challenge:site.challenge || 'global',advanced_snippet:site.advanced_snippet || '',auth:site.auth || {mode:'none'}};})});
+			return Object.assign({},config,{auth:auth,mode:mode,manual_caddyfile:manual.value,version:2,settings:Object.assign({},config.settings,{access_log:map.data.get('json','settings','access_log')===true,http_port:+get('settings','http_port'),https_port:+get('settings','https_port'),storage:get('settings','storage')}),sites:map.data.sections('json','sites').map(function(site) {return {middlewares:site.middlewares || [],use_global_middlewares:site.use_global_middlewares!==false,enabled:site.enabled!==false,domain:site.domain || '',upstreams:site.upstreams || [],balance:site.balance || 'round_robin',path:site.path || '',strip:site.strip === true || site.strip === 'true' || site.strip === '1',challenge:site.challenge || 'global',advanced_snippet:site.advanced_snippet || '',auth:site.auth || {mode:'none'}};})});
 		}
 		function validateConfig(data) {
 			if(data.mode=='manual')return data;
@@ -252,7 +261,7 @@ return view.extend({
 				if(site.strip && !site.path.endsWith('/*')) throw new Error(_('Prefix removal requires a path ending in /*'));
 			}); return data;
 		}
-		function result(response) {if (!response.ok) throw new Error((response.error || _('Configuration operation failed'))+(response.diagnostic?.line ? ' · '+(response.diagnostic.source=='advanced_snippet'?_('Advanced snippet line'):_('Caddyfile line'))+' '+response.diagnostic.line : ''));return response;}
+		function result(response) {if (!response.ok) throw new Error((response.error || _('Configuration operation failed'))+(response.diagnostic?.line ? ' · '+(response.diagnostic.source=='middleware'?_('Middlewares')+' '+response.diagnostic.middleware+' · '+_('Line'):response.diagnostic.source=='advanced_snippet'?_('Advanced snippet line'):_('Caddyfile line'))+' '+response.diagnostic.line : ''));return response;}
 		function showPreview(data) {var n=++sequence;return Promise.resolve().then(function(){return preview(validateConfig(data));}).then(result).then(function(response) {if(n==sequence) code.textContent=JSON.stringify(response.config,null,2);return JSON.stringify(response.config,null,2);});}
 		function exportPreview(copy) {
 			if(map.readonly || busy)return Promise.resolve();
@@ -262,7 +271,7 @@ return view.extend({
 		function perform(wantApply) {
 			busy=true;update();
 			return (mode == 'manual' ? Promise.resolve() : map.parse()).then(function() {
-				return dirty ? (accountDirty ? saveBasic(scope.value,values(),Array.from(accountRows.children).map(function(row){return row.account();}),current.draft_revision) : saveDraft(validateConfig(values()),current.draft_revision)).then(result).then(function(saved) {current=saved;config=Object.assign(values(),saved.draft,{manual_caddyfile:manual.value});syncAuth();dirty=false;accountDirty=false;loadAccounts();}) : null;
+				return dirty ? (accountDirty ? saveBasic(scope.value,values(),Array.from(accountRows.children).map(function(row){return row.account();}),current.draft_revision) : saveDraft(validateConfig(values()),current.draft_revision)).then(result).then(function(saved) {current=saved;config=Object.assign(values(),saved.draft,{manual_caddyfile:manual.value,middlewares:config.middlewares,global_middlewares:config.global_middlewares});syncAuth();dirty=false;accountDirty=false;loadAccounts();}) : null;
 			}).then(function(){return serviceControlsApi?.pending()?serviceControlsApi.save().then(function(){return getDraft().then(function(saved){current=saved;});}):null;}).then(function() {return wantApply ? caddyApply.confirmImpact(current).then(function(){return apply(current.draft_revision);}).then(result).then(function(active) {current=active;}) : null;})
 				.then(function() {return showPreview(values());})
 				.catch(function(error) {ui.addNotification(null,E('p',{},error.message),'error');return getDraft().then(function(saved) {current=saved;});})

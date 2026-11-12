@@ -112,5 +112,18 @@
 				"luci-app-caddy"
 			]
 		}
+	},
+	"admin/services/caddy/middlewares": {
+		"title": "Middlewares",
+		"order": 25,
+		"action": {
+			"type": "view",
+			"path": "caddy/middlewares"
+		},
+		"depends": {
+			"acl": [
+				"luci-app-caddy"
+			]
+		}
 	}
 }

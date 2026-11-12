@@ -10,6 +10,8 @@ let rpc=loadfile(root+'/rpc.uc')()['luci.caddy'];
 let args={confirm:true,ubus_rpc_session:'fixture-session'};
 let result=rpc.backend_probe.call({args});
 assert(result.ok && length(result.backends)==0,'authenticated probe accepts confirmation with transport session');
+assert(rpc.backend_probe.call({args:{confirm:true,offset:0,ubus_rpc_session:'fixture-session'}}).ok,'batch offset accepted');
+assert(!rpc.backend_probe.call({args:{confirm:true,offset:-1,ubus_rpc_session:'fixture-session'}}).ok,'negative batch offset rejected');
 assert(args.ubus_rpc_session=='fixture-session','caller args preserved');
 assert(!rpc.backend_probe.call({args:{confirm:false,ubus_rpc_session:'fixture-session'}}).ok,'missing confirmation rejected');
 assert(!rpc.backend_probe.call({args:{confirm:true,ubus_rpc_session:'fixture-session',url:'http://arbitrary.invalid:80'}}).ok,'arbitrary targets still rejected');

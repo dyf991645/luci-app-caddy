@@ -123,7 +123,7 @@ Run `sh /tmp/luci-caddy-ticket03/upstreams-router.sh` for the standalone fixture
 loopback admin23019, HTTP23080, HTTPS23443, backends23081/23082. It verifies real
 round-robin distribution, stripped prefix, exact wildcard boundary404, separate
 domain routing, invalid-input retention and real alternate-policy validation.
-Version1 migration is tested without activation.
+Version1 requests are rejected without activation.
 
 The optional `extended` fixture additionally needs controlled loopback backends:
 create a one-day self-signed CA/server certificate with IP127.0.0.1 SAN; run
@@ -342,14 +342,12 @@ All fixture files stay under `/tmp`; no installed RPC or service is replaced.
 
 `bun test tests/apply-impact.test.js tests/service-controls.test.js` checks the shipped view save/apply seams, metadata and disabled flags, search/filter counts and protected preview clipboard export. These adapter tests do not replace native browser visual acceptance.
 
-## Full UCI field migration
+## Current UCI fields
 
 `uci-fields.uc` verifies actual scalar/list options, direct CLI field edits,
 canonical model round trips, native deltas, two savedirs, revert/commit,
 private Basic/Cloudflare/webhook fields and desired service state.
-`uci-migration.uc` verifies committed and pending snapshot import, retained
-manual source and credentials, native revert, interrupted-session recovery
-and idempotence. Run each with a fresh `/tmp/<root>` and module directory.
+Run each with a fresh `/tmp/<root>` and module directory.
 `service-state.uc <service-state.uc module>` uses isolated service adapters
 for all sixteen runtime/boot transitions and failed/unknown state cases.
 `uci-store-router.sh` runs real Caddy on loopback to verify field application,
@@ -397,3 +395,24 @@ staging/commit/revert, invalid/stale edit rejection, empty-list restoration, one
 coverage, exact Host routing, identical wildcard SAN certificates for two sites,
 proxy 200, unknown-host 404 and redirect 308. It never requests a public certificate,
 changes installed services, configures trust, or modifies firewall/DNS.
+
+## Single-file UCI storage (r36)
+
+### Reusable middlewares
+
+`bun test` covers the ordered reference selector, site inheritance opt-out, definition create/cancel/failure, referenced site-definition deletion blocking, read-only/manual state and Save & Apply revision flow. `middlewares-router.sh MODULE_DIR` runs `middlewares.uc` against the real UCI binding and Caddy on loopback ports 39019/39080/39443/39081. It checks catalog/reference session isolation and revert, missing/duplicate IDs, source redaction, failed-apply preservation, actual rewrite/header order and route-group isolation, global ordering persistence, independent global/site catalogs (including identical IDs), opt-out, terminal responses, authentication precedence and global headers on redirects/401. It uses a fixture internal CA, with no public issuance or trust installation.
+
+
+## UCI-only configuration (r43)
+
+`uci-only.uc MODULE_DIR TEMP_ROOT` uses real OpenWrt UCI to verify token and
+Basic Auth saves, apply, session isolation, revert and boot recovery. Old JSON
+files are ignored; old schema/model/session formats are rejected without mutation.
+Only schema3 fixtures are supported; migration tests have been retired.
+
+Standalone manager, notification and diagnostic fixtures import
+`fixture-store.uc` alongside the test file. It is a test-only injected store with
+deterministic revisions and private fixture persistence; it is never packaged.
+When copying those tests to OpenWrt, also copy that helper to the same directory.
+Actual UCI storage and session behavior are tested separately by uci-only,
+uci-fields, uci-idempotent, uci-site-names, tls-inline and the middleware suite.

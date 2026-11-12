@@ -1,6 +1,6 @@
 import {readfile,mkdir,writefile} from 'fs';
 let root=ARGV[0],modules=ARGV[1];mkdir(root,0700);mkdir(root+'/config',0700);
-writefile(root+'/config/caddy',"config manager 'config'\n option schema 'legacy'\n");
+writefile(root+'/config/caddy',"config manager 'config'\n option schema '3'\n");
 let store=loadfile(modules+'/uci-store.uc')()({root,confdir:root+'/config',savedir:root+'/session'});
 let manager=loadfile(modules+'/config.uc')()({root,store,offline:true,internal_tls:true,command:'/usr/share/caddy-manager/caddy-command'});
 let config={version:2,settings:{http_port:28080,https_port:28443,email:'',storage:root+'/data',default_challenge:'dns-01'},sites:[{domain:'*.example.test',upstreams:['http://127.0.0.1:28081'],balance:'round_robin',path:'',strip:false,challenge:'global',advanced_snippet:'header X-Test retained'}]};

@@ -1,4 +1,5 @@
-let create=loadfile(ARGV[0])();
+import {fixtureFactory} from './fixture-store.uc';
+let create=fixtureFactory(ARGV[0]);
 let manager=create({root:ARGV[1],admin:'127.0.0.1:28019',bind:'127.0.0.1',internal_tls:true,command:ARGV[2]});
 let global={backend:'http://127.0.0.1:28082',uri:'/api/authz/forward-auth',portal:'https://auth.example.test:28443/'};
 let site={domain:'app.example.test',upstreams:['http://127.0.0.1:28081'],balance:'round_robin',path:'/media/*',strip:true,challenge:'http-01',auth:{mode:'authelia',source:'global'}};

@@ -1306,8 +1306,8 @@ msgstr "后端检测失败"
 msgid "No configured backends to check."
 msgstr "没有可检测的后端。"
 
-msgid "Only the first 8 backends are shown."
-msgstr "仅显示前 8 个后端的检测结果。"
+msgid "Checked backends"
+msgstr "已检测后端"
 
 msgid "Check backends"
 msgstr "检测后端"
@@ -1338,3 +1338,111 @@ msgstr "每行一个，使用 DNS-01。匹配的站点共用证书；留空则�
 
 msgid "Shared wildcard"
 msgstr "共用泛域名证书"
+
+msgid "Add middleware"
+msgstr "添加中间件"
+
+msgid "Caddyfile snippet"
+msgstr "Caddyfile 片段"
+
+msgid "Configuration applied"
+msgstr "配置已生效"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "Duplicate middleware identifier"
+msgstr "中间件标识重复"
+
+msgid "Edit"
+msgstr "编辑"
+
+msgid "Edit middleware"
+msgstr "编辑中间件"
+
+msgid "Enter a Caddyfile snippet"
+msgstr "请输入 Caddyfile 片段"
+
+msgid "Form configuration is read-only in Caddyfile mode"
+msgstr "Caddyfile 模式下表单配置只读"
+
+msgid "Global"
+msgstr "全局"
+
+msgid "Global middlewares"
+msgstr "全局中间件"
+
+msgid "Identifier"
+msgstr "标识"
+
+msgid "Line"
+msgstr "行"
+
+msgid "Middleware definitions"
+msgstr "中间件定义"
+
+msgid "Middlewares"
+msgstr "中间件"
+
+msgid "Move down"
+msgstr "下移"
+
+msgid "Move up"
+msgstr "上移"
+
+msgid "No middlewares configured"
+msgstr "尚未配置中间件"
+
+msgid "No middlewares selected"
+msgstr "未选择中间件"
+
+msgid "No sites reference this middleware"
+msgstr "没有站点引用此中间件"
+
+msgid "Read only"
+msgstr "只读"
+
+msgid "Referenced middleware does not exist"
+msgstr "引用的中间件不存在"
+
+msgid "Referenced sites"
+msgstr "引用站点"
+
+msgid "Remove"
+msgstr "移除"
+
+msgid "Remove references before deleting this middleware"
+msgstr "请先解除引用再删除中间件"
+
+msgid "Run before site authentication; sites inherit this list by default."
+msgstr "在站点认证前执行，站点默认继承此列表。"
+
+msgid "Select middleware"
+msgstr "选择中间件"
+
+msgid "Selected globally"
+msgstr "已设为全局中间件"
+
+msgid "Site middlewares"
+msgstr "站点中间件"
+
+msgid "Site supplemental snippet"
+msgstr "站点补充片段"
+
+msgid "Snippet"
+msgstr "片段"
+
+msgid "Use an identifier starting with a lowercase letter, followed by lowercase letters, digits or underscores"
+msgstr "标识以小写字母开头，只能包含小写字母、数字和下划线"
+
+msgid "Use global middlewares"
+msgstr "使用全局中间件"
+
+msgid "Add global middleware"
+msgstr "添加全局中间件"
+
+msgid "Applied in order to all inheriting sites; configured separately from site middlewares."
+msgstr "按顺序作用于继承全局配置的站点，与站点中间件分开配置。"
+
+msgid "Only these definitions can be selected by individual sites."
+msgstr "供站点选择引用，与全局中间件互不关联。"

@@ -1,0 +1,30 @@
+import {cursor} from 'uci';
+import {mkdir,writefile} from 'fs';
+let root=ARGV[0],modules=ARGV[1];mkdir(root,0700);mkdir(root+'/config',0700);
+writefile(root+'/config/caddy',"config manager 'config'\n option schema '3'\n");
+let store=loadfile(modules+'/uci-store.uc')()({root,confdir:root+'/config',savedir:root+'/session'});
+let cfg={version:2,settings:{http_port:18080,https_port:18443,email:'',storage:root+'/data'},sites:[]};
+let domains=['media.example.test','media.other.test','aria2-pro.example.test','auth.example.test','123.example.test','*.example.test'];
+let ids=['media','media_2','aria2_pro','auth_2','site_123','wildcard'];
+for(let i,domain in domains)push(cfg.sites,{name:'Ignored display name',domain,upstreams:['http://127.0.0.1:'+(8000+i)],balance:'round_robin',path:'',strip:false,challenge:'global'});
+store.write({config:cfg});assert(store.commit(),'save domain-named sites');
+let c=cursor(root+'/config',root+'/session');
+for(let i,id in ids){assert(c.get('caddy',id,'domain')==domains[i],'first label / collision / reserved / numeric / wildcard');assert(c.get('caddy',id,'name')==null,'no display name persisted');}
+store.write({config:store.read().config});assert(!store.hasChanges(),'no-op save has no changes');
+// Simulate existing arbitrary IDs, including a swap of canonical targets.
+assert(c.rename('caddy','media','temp') && c.rename('caddy','aria2_pro','media') && c.rename('caddy','temp','aria2_pro'),'swap old IDs');
+c.set('caddy','media','custom_option','preserve');c.set('caddy','media','advanced_snippet','header X-Test preserved');
+c.set('caddy','media','basic_username',['alice']);c.set('caddy','media','basic_hash',['opaque-test-hash']);
+c.set('caddy','media','auth_mode','basic');c.set('caddy','media','auth_source','independent');
+c.set('caddy','aria2_pro','name','Legacy name');
+assert(c.rename('caddy','media_2','site_2'),'legacy generated ID');assert(c.save('caddy'),'stage legacy IDs');
+let before=store.read().config;store.write({config:before});assert(store.commit(),'migrate IDs on save');c=cursor(root+'/config',root+'/session');
+assert(c.get('caddy','media','domain')==domains[0] && c.get('caddy','aria2_pro','domain')==domains[2],'swap preserves domain association');
+assert(c.get('caddy','media_2','domain')==domains[1] && c.get('caddy','site_2')==null,'legacy ID renamed');
+assert(c.get('caddy','aria2_pro','upstream')[0]=='http://127.0.0.1:8002','backend survives rename');
+assert(c.get('caddy','aria2_pro','custom_option')=='preserve' && c.get('caddy','aria2_pro','advanced_snippet')=='header X-Test preserved','all other options preserved');
+assert(c.get('caddy','aria2_pro','basic_username')[0]=='alice' && c.get('caddy','aria2_pro','basic_hash')[0]=='opaque-test-hash','auth preserved');
+assert(c.get('caddy','media','name')==null,'legacy display name removed');
+store.write({config:store.read().config});assert(!store.hasChanges(),'migrated no-op save has no changes');
+let next=store.read().config;next.sites=filter(next.sites,s=>s.domain!=domains[2]);store.write({config:next});assert(store.commit(),'remove renamed site');assert(cursor(root+'/config',root+'/session').get('caddy','aria2_pro')==null,'removed site deleted');
+print('PASS domain-label UCI IDs, collisions, legacy/swapped IDs, name removal, unknown fields/auth/backend preservation, deletion and no-op saves\n');

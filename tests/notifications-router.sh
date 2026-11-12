@@ -24,8 +24,12 @@ if [ "${1:-}" = delivery ]; then
  exit
 fi
 if [ "${1:-}" = worker ]; then
+ cat > "$base/worker-fixture.uc" <<UC
+import {fixtureFactory} from './fixture-store.uc';
+return fixtureFactory('$base/notifications.uc');
+UC
  cat > "$root/worker-options.json" <<JSON
-{"module":"$base/notifications.uc","root":"$root","interval":1,"now":$(( $(date +%s) + 691200 )),"certificate_module":"$base/certificates.uc","certificate_options":{"root":"$root","now":$(( $(date +%s) + 691200 )),"command":"$base/certificate-command","logfile":"$root/events"}}
+{"module":"$base/worker-fixture.uc","root":"$root","interval":1,"now":$(( $(date +%s) + 691200 )),"certificate_module":"$base/certificates.uc","certificate_options":{"root":"$root","now":$(( $(date +%s) + 691200 )),"command":"$base/certificate-command","logfile":"$root/events"}}
 JSON
  ucode "$base/notification-worker.uc" "$root/worker-options.json" &
  pid=$!

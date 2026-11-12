@@ -1,4 +1,5 @@
-let manager=loadfile(ARGV[0])()({root:ARGV[1],admin:'127.0.0.1:25019'});
+import {fixtureFactory} from './fixture-store.uc';
+let manager=fixtureFactory(ARGV[0])({root:ARGV[1],admin:'127.0.0.1:25019'});
 let config={version:2,mode:'form',manual_caddyfile:'http://127.0.0.1:25999 {\n respond "retained-private-source"\n}',settings:{http_port:25080,https_port:25443,email:'',storage:ARGV[1]+'/data'},sites:[{domain:'dns.example.test',upstreams:['http://127.0.0.1:25081'],balance:'round_robin',path:'',strip:false,challenge:'dns-01',advanced_snippet:'header X-Test private-snippet-canary'}]};
 assert(manager.draft_save({config,expected_revision:0}).ok,'save private source alongside form');
 let credential=manager.credential_save({token:'private!token-canary',expected_revision:1});

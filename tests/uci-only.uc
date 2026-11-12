@@ -1,0 +1,52 @@
+'use strict';
+import {mkdir,writefile,readfile,stat} from 'fs';
+import {cursor} from 'uci';
+let modules=ARGV[0],base=ARGV[1];mkdir(base,0700);
+let root=base+'/current',confdir=root+'/config';mkdir(root,0700);mkdir(confdir,0700);
+writefile(confdir+'/caddy',"config manager 'config'\n option schema '3'\n");
+// Obsolete files must never be imported, changed or used as configuration.
+for(let dir in ['credentials','basic-profiles','config-versions'])mkdir(root+'/'+dir,0700);
+for(let file in ['draft.json','notifications.json','credentials/1.json','basic-profiles/basic-1-1.json','config-versions/1.json'])writefile(root+'/'+file,'obsolete-format-canary');
+let makeStore=loadfile(modules+'/uci-store.uc')(),store=makeStore({root,confdir,savedir:root+'/session'});
+assert(store.read().config==null,'old JSON ignored');
+let create=loadfile(modules+'/config.uc')(),manager=create({root,store,offline:true,command:'/bin/true',disable_certificates:true});
+let config={version:2,settings:{http_port:38680,https_port:38643,email:'',storage:root+'/data'},sites:[{domain:'fixture.example.test',upstreams:['http://127.0.0.1:80'],balance:'round_robin',path:'',strip:false,challenge:'http-01',auth:{mode:'none'}}]};
+let saved=manager.draft_save({config,expected_revision:0});assert(saved.ok,'save current model');
+let token=manager.credential_save({token:'testTokenCanary',expected_revision:saved.draft_revision});assert(token.ok,'token saves to UCI');
+let hash='$2a$04$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+let basic=manager.basic_profile_save({scope:'global',users:[{username:'fixture',hash}],expected_revision:token.draft_revision});assert(basic.ok,'Basic hash saves to UCI');
+assert(manager.apply({expected_revision:basic.draft_revision}).ok,'apply current model');
+assert(store.secret('credential',store.read().config.settings.cloudflare_credential).token=='testTokenCanary','token resolves from UCI');
+assert(store.secret('basic',store.read().config.auth.basic.profile)[0].hash==hash,'Basic resolves from UCI');
+for(let file in ['draft.json','notifications.json','credentials/1.json','basic-profiles/basic-1-1.json','config-versions/1.json'])assert(readfile(root+'/'+file)=='obsolete-format-canary','legacy file never touched');
+let committed=readfile(confdir+'/caddy'),revision=manager.draft_get().draft_revision;
+let legacy={version:1,settings:config.settings,sites:[{domain:'old.example.test',backend:'http://127.0.0.1:80',challenge:'http-01'}]};
+assert(!manager.draft_save({config:legacy,expected_revision:revision}).ok,'v1 model rejected instead of converted');
+assert(readfile(confdir+'/caddy')==committed,'legacy request cannot change current UCI');
+let other=makeStore({root,confdir,savedir:root+'/other'}),next=other.read().config;next.sites[0].upstreams=['http://127.0.0.1:81'];other.write({config:next});
+assert(store.read().config.sites[0].upstreams[0]=='http://127.0.0.1:80' && other.hasChanges(),'native session isolation');
+let c=cursor(confdir,root+'/other');c.load('caddy');assert(c.revert('caddy') && other.read().config.sites[0].upstreams[0]=='http://127.0.0.1:80','native revert');
+assert(create({root,confdir,store_module:modules+'/uci-store.uc'}).recover({load:false}).ok,'default UCI store supports boot recovery');
+for(let schema in ['legacy','2']){
+ let oldRoot=base+'/old-'+schema,oldConf=oldRoot+'/config';mkdir(oldRoot,0700);mkdir(oldConf,0700);
+ let text="config manager 'config'\n option schema '"+schema+"'\n option revision '1'\n";writefile(oldConf+'/caddy',text);
+ let rejected=false;try{makeStore({root:oldRoot,confdir:oldConf}).read();}catch(e){rejected=true;}
+ assert(rejected,'old schema rejected without migration');assert(readfile(oldConf+'/caddy')==text,'old UCI never rewritten');
+ assert(stat(oldRoot+'/uci-inline-backup')==null,'no migration backup created');
+}
+let bad=makeStore({root,confdir,savedir:root+'/old-session'});c=cursor(confdir,root+'/old-session');c.set('caddy','config','revision','1');c.save('caddy');
+let rejected=false;try{bad.read();}catch(e){rejected=true;}assert(rejected,'old snapshot session rejected without import');
+let notify=loadfile(modules+'/notifications.uc')()({root,store});
+assert(!notify.status().webhook.enabled,'obsolete notifications JSON ignored');
+assert(notify.save({enabled:false,url:'https://notify.example.test',method:'PUT',body_mode:'custom',body:'{{summary}}',headers:{'X-Test':'fixture'}}).ok,'notification settings save to UCI');
+assert(store.notifications().method=='PUT' && store.notifications().body=='{{summary}}','method/body persist in UCI');
+let clean=base+'/fresh',cleanConf=clean+'/config';mkdir(clean,0700);mkdir(cleanConf,0700);
+writefile(cleanConf+'/caddy',"config manager 'config'\n option schema '3'\n");
+let fresh=create({root:clean,confdir:cleanConf,store_module:modules+'/uci-store.uc',offline:true,command:'/bin/true',disable_certificates:true});
+let empty={version:2,settings:{http_port:38680,https_port:38643,email:'',storage:clean+'/data'},sites:[]};
+saved=fresh.draft_save({config:empty,expected_revision:0});assert(saved.ok,'default store is current UCI');
+token=fresh.credential_save({token:'freshCanary',expected_revision:saved.draft_revision});assert(token.ok,'default UCI token');
+basic=fresh.basic_profile_save({scope:'global',users:[{username:'fixture',hash}],expected_revision:token.draft_revision});assert(basic.ok,'default UCI Basic');
+assert(fresh.apply({expected_revision:basic.draft_revision}).ok && fresh.recover({load:false}).ok,'default UCI apply/recovery');
+for(let name in ['credentials','basic-profiles','draft.json','config-versions','uci-inline-backup','uci-migration.lock'])assert(stat(clean+'/'+name)==null,'no obsolete path created');
+print('PASS UCI-only save/token/Basic/apply/revert/session isolation/recovery; old schemas/models/sessions rejected, JSON files ignored\n');

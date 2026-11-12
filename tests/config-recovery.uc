@@ -1,5 +1,6 @@
+import {fixtureFactory} from './fixture-store.uc';
 // Tests cross-process interruption at the real Caddy command boundary.
-let create = loadfile(ARGV[0])();
+let create = fixtureFactory(ARGV[0]);
 let manager = create({root:ARGV[1],admin:'127.0.0.1:22019',bind:'127.0.0.1',internal_tls:true,command:ARGV[2]});
 if (ARGV[3] == 'interrupt') {
 	let state = manager.draft_get();

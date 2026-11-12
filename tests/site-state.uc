@@ -1,5 +1,6 @@
+import {fixtureFactory} from './fixture-store.uc';
 import {readfile} from 'fs';
-let root=ARGV[1],manager=loadfile(ARGV[0])()({root,admin:'127.0.0.1:25019',command:ARGV[2],disable_certificates:true});
+let root=ARGV[1],manager=fixtureFactory(ARGV[0])({root,admin:'127.0.0.1:25019',command:ARGV[2],disable_certificates:true});
 let base={domain:'enabled.example.test',upstreams:['http://127.0.0.1:25081'],balance:'round_robin',path:'',strip:false,challenge:'http-01'};
 let config={version:2,settings:{http_port:25080,https_port:25443,email:'',storage:root+'/data'},sites:[{...base,name:'家庭媒体',enabled:true},{...base,domain:'disabled.example.test',name:'暂停站点',enabled:false,challenge:'dns-01',auth:{mode:'basic',source:'global'},advanced_snippet:'invalid directive'}]};
 let saved=manager.draft_save({config,expected_revision:0});assert(saved.ok,'named enabled and disabled sites can save without disabled auth credentials');

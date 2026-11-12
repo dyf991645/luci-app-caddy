@@ -1,3 +1,4 @@
+import {fixtureFactory} from './fixture-store.uc';
 'use strict';
 import {mkdir,chmod,writefile} from 'fs';
 let root=ARGV[1];mkdir(root,0700);chmod(root,0700);
@@ -9,7 +10,7 @@ let lines=[
  {ts:1700000004,level:'info',logger:'tls.obtain',msg:'certificate obtained successfully'}
 ];
 writefile(root+'/log',join('\n',map(lines,e=>'daemon.err caddy[123]: '+sprintf('%J',e)))+'\nraw PRIVATE_KEY_CANARY\n');
-let api=loadfile(ARGV[0])()({root,logfile:root+'/log'});
+let api=fixtureFactory(ARGV[0])({root,logfile:root+'/log'});
 let result=api.logs({});
 assert(result.ok && length(result.entries)==4,'real structured events have safe event records; unknown records omitted');
 assert(result.entries[0].event=='issuer_error' && result.entries[0].ts==1700000000,'issuer error preserves actual evidence time without provider text');

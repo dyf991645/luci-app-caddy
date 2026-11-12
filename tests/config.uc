@@ -1,8 +1,9 @@
+import {fixtureFactory} from './fixture-store.uc';
 import {writefile} from 'fs';
 // Public manager seam: saving a draft never changes the active revision.
-let create = loadfile(ARGV[0])();
+let create = fixtureFactory(ARGV[0]);
 let manager = create({ root: ARGV[1], admin: '127.0.0.1:22019', bind: '127.0.0.1' });
-let config = { version: 1, settings: { http_port: 22080, https_port: 22443, email: '', storage: ARGV[1] + '/data' }, sites: [{ domain: 'proxy.example.test', backend: 'http://127.0.0.1:22081', challenge: 'http-01' }] };
+let config = { version:2, settings: { http_port: 22080, https_port: 22443, email: '', storage: ARGV[1] + '/data' }, sites: [{ domain: 'proxy.example.test', upstreams:['http://127.0.0.1:22081'],balance:'round_robin',path:'',strip:false, challenge: 'http-01' }] };
 let saved = manager.draft_save({ config, expected_revision: 0 });
 assert(saved.ok, 'valid draft saves');
 let state = manager.draft_get();
@@ -10,7 +11,7 @@ assert(state.draft_revision == 1 && state.active_revision == 0 && state.pending,
 assert(state.draft.sites[0].domain == 'proxy.example.test', 'saved draft is readable');
 print('PASS draft save/read without applying\n');
 assert(!manager.draft_save({config, expected_revision:0}).ok, 'stale browser cannot overwrite draft');
-let invalid = { ...config, sites: [{domain:'evil.test\nadmin :80',backend:'http://127.0.0.1:22081',challenge:'http-01'}] };
+let invalid = { ...config, sites: [{domain:'evil.test\nadmin :80',upstreams:['http://127.0.0.1:22081'],balance:'round_robin',path:'',strip:false,challenge:'http-01'}] };
 assert(!manager.draft_save({config:invalid,expected_revision:1}).ok, 'injected domain is rejected');
 let preview = manager.preview({});
 assert(preview.ok && preview.config.admin.listen == '127.0.0.1:22019', 'preview protects local admin');
@@ -29,7 +30,7 @@ assert(applied.ok && applied.active_revision == 1 && !applied.pending, 'validate
 assert(manager.active_reload().ok, 'active configuration reloads');
 print('PASS validated apply and last-active reload\n');
 // Public fixture uses the real Caddy admin boundary; no mocked load success.
-let second = {...config, sites:[{domain:'second.example.test',backend:'http://127.0.0.1:22081',challenge:'tls-alpn-01'}]};
+let second = {...config, sites:[{domain:'second.example.test',upstreams:['http://127.0.0.1:22081'],balance:'round_robin',path:'',strip:false,challenge:'tls-alpn-01'}]};
 assert(manager.draft_save({config:second,expected_revision:1}).ok, 'new draft saves');
 let unavailable = create({root:ARGV[1],admin:'127.0.0.1:22020',bind:'127.0.0.1',internal_tls:true,command:ARGV[2]});
 let failed = unavailable.apply({expected_revision:2});

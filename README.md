@@ -20,7 +20,7 @@ sha256sum --check SHA256SUMS
 
 ```sh
 umask 077
-tar -C / -czf /tmp/caddy-before-upgrade.tar.gz etc/caddy
+tar -C / -czf /tmp/caddy-before-upgrade.tar.gz etc/caddy etc/config/caddy
 apk add --simulate --allow-untrusted --no-network /tmp/caddy-install/caddy-binary-*.apk /tmp/caddy-install/luci-app-caddy-*.apk
 apk add --allow-untrusted --no-network /tmp/caddy-install/caddy-binary-*.apk /tmp/caddy-install/luci-app-caddy-*.apk
 ```
@@ -41,7 +41,9 @@ r5 的证书清单同时识别普通及 critical SAN 标头，覆盖 Caddy 空 s
 
 单次应用失败先修正草稿或重载旧生效配置，不必降级包。需要整包回退时，保留升级前两个 APK 和对应数据快照，在维护窗口停止 Caddy 和监控，模拟安装旧版本（`apk add --simulate --allow-untrusted --no-network <两个旧APK>`），核对后去掉 `--simulate`。不要卸载清除数据。新版可能迁移状态结构，旧程序不可直接读取已迁移数据：停服后将当前目录另存，再恢复升级前 `/etc/caddy` 及自定义存储快照，检查目录 0700 / 私有文件 0600，重启 rpcd，按升级前状态恢复服务 / 监控 / 开机设置并验证请求。回退会丢失快照后的配置与证书变化，恢复旧证书前确认有效期。
 
-UCI 的 `/etc/config/caddy` 保存私有不可变配置快照的版本引用；秘密和完整源文本保留在 `/etc/caddy/config-versions/` 及原凭据目录，不进入原生变更详情。旧 JSON 保存内容在首次明确保存或应用时保留为 UCI 初始基线；首次保存后，UCI 是唯一可写配置源。还原丢弃当前会话的暂存，不影响其他会话。原生全局应用和回滚通过 `caddy-monitor` 的 `config.change` 触发同步；如果运行加载失败，保留旧生效配置，Caddy 页面仍显示待应用，原生 UCI 已提交不代表服务已成功加载。停止状态下应用只校验和更新下次启动所用文件，不启动服务。运行/开机控制及后台通知的显式操作保持各自独立流程。
+从 r36 起只使用 `/etc/config/caddy` 一个可编辑配置文件，包含站点、端口、Cloudflare Token、Basic 用户名 / bcrypt 哈希、高级片段、手动 Caddyfile 和 Webhook。字段直接存储，不再通过 `caddy_secrets` 或编号引用。文件权限 0600；原生 UCI 变更详情可显示这些直接值。密码仍先哈希，RPC 不回显 Token/哈希。应用成功前，正在运行的服务继续使用最近成功应用的 `active.json`；验证/加载失败仍保留旧配置和旧认证。原生全局应用和回滚通过 `caddy-monitor` 同步；停止状态应用只更新下次启动配置。
+
+r43 仅支持当前 schema3 单文件 UCI 配置及 version2 请求模型，不再读取或迁移旧双文件、JSON 草稿和旧凭据目录。遇到旧格式会拒绝，不改写原文件；当前格式升级不改变 `active.json`、服务状态或端口。
 
 备份时也要保存 `/etc/config/caddy`；UCI 会话暂存属于临时状态。
 
@@ -88,3 +90,27 @@ Authelia 需要显式端口的可达 HTTP(S) 后端、`/api/authz/forward-auth` 
 概览与状态栏增加真实进程运行时长和RSS，停止/未知状态不填示例值；显示草稿启用/总数、草稿HTTPS端口，并保留生效版本。概览汇总系统、架构、core APK与软件包来源，草稿Authelia站点数和默认验证方式。TLS页集中显示站点全局引用及解析后的方式，并就近说明验证条件。
 
 配置页支持复制/下载服务端脱敏JSON预览（caddy-preview.redacted.json）；手动模式仍编辑Caddyfile，导出仅提供保护后的验证摘要，不导出私有源文本。剪贴板不可用时提供只读文本供手工复制。
+
+
+### 中间件
+
+「中间件」页有两个互不关联的列表：全局中间件直接配置片段并排序，默认作用于所有站点；站点中间件独立定义，由各站点选择多个有序引用。全局定义不会出现在站点选择框里。两个列表可使用相同标识，它们仍是不同配置，各执行一次，没有跨列表去重；只禁止单列表重名和单站点重复引用。
+
+执行顺序为全局中间件、站点认证、站点中间件、补充片段及默认反向代理。全局中间件也作用于匹配域名的 HTTP 跳转和 HTTPS 认证失败响应。站点片段受路径和认证约束，响应或重定向可提前结束请求。站点可关闭「使用全局中间件」。每个片段内部使用 Caddy 的标准指令顺序。
+
+```uci
+config global_middleware '_global_security_headers'
+ option snippet 'header X-Content-Type-Options nosniff'
+
+config middleware 'compression'
+ option snippet 'encode gzip'
+
+config site 'media'
+ option domain 'media.example.com'
+ list upstream 'http://192.168.1.10:8080'
+ list middleware 'compression'
+```
+
+全局配置段使用 `_global_` 前缀，页面标识不显示这个前缀；全局执行顺序为它们在 UCI 文件中的顺序。站点只引用 `config middleware`，不引用全局段。站点设置 `option use_global_middleware '0'` 可关闭全局继承。以上只展示相关字段，完整字段见 SCHEMA.md。
+
+全局定义可独立修改、删除；站点定义仍被引用时禁止删除。仅支持当前两个独立列表，不再转换 r39 的旧全局选择。升级不改线上配置。保存/应用仍使用同一个 `/etc/config/caddy` 和 LuCI 原生变更机制；Caddyfile 模式下表单中间件只读、不参与生效配置。

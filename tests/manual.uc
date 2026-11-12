@@ -1,5 +1,6 @@
+import {fixtureFactory} from './fixture-store.uc';
 import {writefile,readfile} from 'fs';
-let create=loadfile(ARGV[0])();
+let create=fixtureFactory(ARGV[0]);
 let root=ARGV[1];
 let manager=create({root,admin:'127.0.0.1:24019',bind:'127.0.0.1',internal_tls:true,command:ARGV[2]});
 let form={version:1,mode:'manual',manual_caddyfile:'http://127.0.0.1:24080 {\n bind 127.0.0.1\n respond "manual private sentinel"\n}\n',settings:{http_port:24080,https_port:24443,email:'',storage:root+'/data'},sites:[{domain:'form.example.test',backend:'http://127.0.0.1:24081',challenge:'http-01'}]};

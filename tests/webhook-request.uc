@@ -14,7 +14,7 @@ for(let spec in [
  {method:'OPTIONS',body_mode:'none',body:''}
 ]) {
  let root=base+'/'+spec.method;mkdir(root,0700);mkdir(root+'/config',0700);
- writefile(root+'/config/caddy',"config manager 'config'\n");
+ writefile(root+'/config/caddy',"config manager 'config'\n option schema '3'\n");
  let create=loadfile(modules+'/uci-store.uc')(),store=create({root,confdir:root+'/config',savedir:root+'/session'});
  store.initialize();
  let m=loadfile(modules+'/notifications.uc')()({root,store,now:10,certificate_module:fixture,webhook_command:modules+'/webhook-command'});

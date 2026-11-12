@@ -1,4 +1,5 @@
-let manager=loadfile(ARGV[0])()({root:ARGV[1],admin:'127.0.0.1:28019',bind:'127.0.0.1',internal_tls:true,command:ARGV[2]});
+import {fixtureFactory} from './fixture-store.uc';
+let manager=fixtureFactory(ARGV[0])({root:ARGV[1],admin:'127.0.0.1:28019',bind:'127.0.0.1',internal_tls:true,command:ARGV[2]});
 let current=manager.draft_edit(),config=current.draft;
 if(ARGV[3]=='changed') config.auth.authelia.uri='/changed';
 else config.auth.authelia.backend='http://127.0.0.1:28083';

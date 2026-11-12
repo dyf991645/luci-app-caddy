@@ -5,9 +5,12 @@ Constructor root/command/binary/logfile overrides are local fixture seams only;
 RPC accepts no executable, file path, URL or host override.
 
 Read ACL methods `logs({level,kind})` and `diagnostics()` cannot invoke service
-operations. `backend_probe({confirm:true})` requires write ACL and an explicit
-button click. It selects only up to eight validated URLs from the saved form
-draft; manual source targets are unsupported. The fixed helper execs BusyBox nc
+operations. `backend_probe({confirm:true,offset:0})` requires write ACL and an explicit
+button click. The page automatically traverses every unique validated URL from the saved form
+configuration in batches of eight, appending results as each batch completes.
+Each request returns total, next_offset and complete; offsets must be nonnegative
+integers and cannot supply arbitrary targets. Later failures retain earlier results
+and permit a fresh run. Manual source targets are unsupported. The fixed helper execs BusyBox nc
 (no HTTP/credentials), with a 2500ms ucode deadline per target. One exclusive
 probe lock bounds concurrent work. TCP acceptance does not establish HTTP
 health, TLS trust, authentication, or public ACME reachability. Service actions

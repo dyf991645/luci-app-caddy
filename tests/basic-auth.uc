@@ -1,5 +1,6 @@
+import {fixtureFactory} from './fixture-store.uc';
 import {writefile,readfile,unlink} from 'fs';
-let manager=loadfile(ARGV[0])()({root:ARGV[1],admin:'127.0.0.1:27019',bind:'127.0.0.1',internal_tls:true,command:ARGV[2]});
+let manager=fixtureFactory(ARGV[0])({root:ARGV[1],admin:'127.0.0.1:27019',bind:'127.0.0.1',internal_tls:true,command:ARGV[2]});
 let config={version:2,settings:{http_port:27080,https_port:27443,email:'',storage:ARGV[1]+'/data'},sites:[
  {domain:'global.example.test',upstreams:['http://127.0.0.1:27081'],balance:'round_robin',path:'/private/*',strip:true,challenge:'http-01',auth:{mode:'basic',source:'global'}},
  {domain:'second.example.test',upstreams:['http://127.0.0.1:27081'],balance:'round_robin',path:'',strip:false,challenge:'http-01',auth:{mode:'basic',source:'global'}},

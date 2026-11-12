@@ -21,6 +21,5 @@ curl -fsS http://127.0.0.1:25019/config/ > "$root/admin-private.json"
 ucode -e 'import {readfile} from "fs"; let c=json(readfile(ARGV[0])); assert(c.apps.tls.automation.policies[0].issuers[0].challenges.dns.provider.api_token=="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","running process sees replacement token");' "$root/admin-private.json"
 chmod 600 "$root/admin-private.json"
 if grep -q 'ticket05!invalid-replacement-canary' "$root/caddy.log"; then echo 'FAIL token leaked to daemon log'; exit 1; fi
-find "$root/credentials" -type f | while read -r path; do [ "$(stat -c '%a' "$path")" = 600 ]; done
-[ "$(stat -c '%a' "$root/credentials")" = 700 ]
+[ "$(stat -c '%a' "$root/fixture-store.json")" = 600 ]
 echo 'PASS same Caddy PID, replacement in real admin config, root-only credentials, no rejected-token log leak'

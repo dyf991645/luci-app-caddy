@@ -5,7 +5,7 @@
 'require caddy.layout as layout';
 var diagnostics=rpc.declare({object:'luci.caddy',method:'diagnostics',expect:{'':{}}});
 var logs=rpc.declare({object:'luci.caddy',method:'logs',params:['level','kind'],expect:{'':{}}});
-var probe=rpc.declare({object:'luci.caddy',method:'backend_probe',params:['confirm'],expect:{'':{}}});
+var probe=rpc.declare({object:'luci.caddy',method:'backend_probe',params:['confirm','offset'],expect:{'':{}}});
 return view.extend({
  load:function(){return diagnostics().then(function(info){return logs('all','runtime').then(function(runtime){return logs('all','access').then(function(access){return [info,runtime,access];});});});},
  render:function(initial){
@@ -54,14 +54,26 @@ return view.extend({
   var refresh=E('button',{'class':'button cbi-button','click':function(){return working(function(){return Promise.all([diagnostics(),runtime.refresh().then(access.refresh)]).then(function(data){showDiagnostic(data[0]);});});}},_('Refresh'));
   var probeButton=E('button',{'class':'button cbi-button','disabled':(!L.hasViewPermission() || source=='manual') || null,'click':function(){
    if(!L.hasViewPermission() || source=='manual')return Promise.resolve();
-   return working(function(){return probe(true).then(function(data){
-    if(!data.ok){probeResult.replaceChildren(E('p',{'class':'alert-message warning'},data.error || _('Backend probe failed')));return;}
-    var backends=data.backends || [];
+   return working(async function(){
+    var offset=0,checked=0;
     probeResult.replaceChildren();
-    if(!backends.length)probeResult.appendChild(E('p',{'class':'muted'},_('No configured backends to check.')));
-    backends.forEach(function(b){probeResult.appendChild(row(b.url,b.state=='tcp_reachable'?_('TCP reachable'):_('Unreachable or timed out')));});
-    if(data.complete===false)probeResult.appendChild(E('p',{'class':'hint'},_('Only the first 8 backends are shown.')));
-   });});
+    try {
+     while(true){
+      var data=await probe(true,offset);
+      if(!data.ok)throw new Error(data.error || _('Backend probe failed'));
+      var backends=data.backends || [];
+      backends.forEach(function(b){probeResult.appendChild(row(b.url,b.state=='tcp_reachable'?_('TCP reachable'):_('Unreachable or timed out')));});
+      checked+=backends.length;
+      feedback.textContent=_('Checked backends')+': '+checked+' / '+data.total;
+      if(data.complete!==false){
+       if(!checked)probeResult.appendChild(E('p',{'class':'muted'},_('No configured backends to check.')));
+       break;
+      }
+      if(!backends.length || !Number.isInteger(data.next_offset) || data.next_offset!==offset+backends.length)throw new Error(_('Backend probe failed'));
+      offset=data.next_offset;
+     }
+    }catch(e){probeResult.appendChild(E('p',{'class':'alert-message warning'},e.message || _('Backend probe failed')));}
+   });
   }},_('Check backends'));
   probeResult.appendChild(E('p',{'class':'muted'},source=='manual'?_('Backend checks are unavailable in Caddyfile mode.'):_('Not checked yet. Click Check backends to test TCP connectivity.')));
   showDiagnostic(initial[0]);

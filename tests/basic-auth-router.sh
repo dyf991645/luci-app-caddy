@@ -16,6 +16,6 @@ sleep 1
 ucode "$base/basic-auth.uc" "$base/config.uc" "$root" "$base/basic-auth-command"
 if grep -R 'basic-password-canary-' "$root" >/dev/null; then echo 'FAIL plaintext password persisted or logged'; exit 1; fi
 [ ! -f "$root/password.hash" ]
-find "$root/basic-profiles" -type f | while read -r file; do [ "$(stat -c %a "$file")" = 600 ]; done
+[ "$(stat -c %a "$root/fixture-store.json")" = 600 ]
 netstat -lnt | awk '$4 ~ /:(27019|27080|27443|27081)$/ {if ($4 !~ /^127\.0\.0\.1:/) bad=1; found++} END {exit bad || found != 4}'
 echo 'PASS no plaintext in files/logs, private profiles and loopback listeners'

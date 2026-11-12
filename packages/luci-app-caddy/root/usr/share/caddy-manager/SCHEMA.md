@@ -44,12 +44,8 @@ removes its prefix while preserving the request query. Matching happens inside
 the domain's subroute; future authentication must run inside that matching
 handler before rewrite/proxy, keeping the404 fallback outside authentication.
 
-Version1 drafts using `backend` deliberately migrate to version2 with a
-single-element `upstreams`, `round_robin`, empty path and `strip:false` when
-read, saved or previewed. Reads do not rewrite files or change revisions. The
-next save persists version2; existing active.json and active metadata remain
-startup authority until a successful apply. Existing version1 public callers
-remain accepted through migration. Revisions and journal recovery are unchanged.
+Only version2 request models and schema3 single-file UCI configuration are supported.
+Older formats are rejected without conversion or mutation.
 Global port fields are JSON integers. `http-01` and `tls-alpn-01` are supported.
 All public object keys remain allowlisted; unknown fields fail validation.
 Authentication is documented in [AUTH-SCHEMA.md](AUTH-SCHEMA.md). Additional
@@ -89,19 +85,26 @@ webhooks when saved. Native commit/revert/rollback controls the field source.
 The config.change trigger validates/synchronizes committed fields, then applies
 the desired runtime and boot state. Invalid configuration keeps last-active Caddy.
 
-`/etc/config/caddy_secrets` (0600, no public UCI ACL) contains typed `credential`,
-`basic`, `source`, and `webhook` sections with token, username/hash lists,
-Caddyfile/snippet content, and URL/header lists. These immutable private UCI
-versions are referenced by the public fields, so native changes never include
-sensitive values and rollback retains the exact prior credentials. Private
-versions abandoned by cancellation are retained; no garbage collection runs.
+UCI storage schema 3 uses only `/etc/config/caddy` (0600). The logical RPC
+schema remains version 2 for existing views. Token/profile identifiers in RPC
+are derived content fingerprints, not saved UCI references. Direct UCI fields:
 
-Post-install migration imports legacy draft/snapshot JSON, referenced credentials,
-Basic accounts and notification settings, and converts saved rpcd session
-revision deltas into field deltas. It backs up the old UCI baseline, preserves
-legacy files for recovery, resumes unconverted sessions, and never loads Caddy
-or changes runtime/boot state. JSON is no longer an editable configuration source;
-isolated test fixtures can still supply the legacy file adapter.
+- `config.cloudflare_token`, `config.manual_caddyfile`.
+- `auth` or site `list basic_username` and matching ordered `list basic_hash`.
+- Site `advanced_snippet`.
+- Notifications `url`, `body`, `method`, `body_mode`, plus paired
+  `list header_name` / `list header_value`.
+
+UCI changes contain the direct values. Plaintext passwords are hashed before
+storage. RPC responses still redact tokens/hashes. The last successful generated
+`active.json` retains its own credential bytes, so failed applies and restarts
+continue using that configuration without resolving newer draft credentials.
+
+Only `/etc/config/caddy` is read for editable settings. Old JSON drafts,
+snapshots, credential/profile directories, split `caddy_secrets` packages and
+r39 shared middleware references are not read or imported. Installation validates
+the current UCI format without migration, backup creation or config rewriting.
+The default manager store is native UCI; tests explicitly inject isolated stores.
 `active.json` remains the procd startup authority.
 `active-state.json` records the last committed public model/revision.
 `candidate.json` and `transaction.json` are private, mode0600, inside the
@@ -127,21 +130,19 @@ Settings additionally accept `default_challenge` (`http-01`, `dns-01`,
 reference). Site `challenge` accepts `global`, `http-01`, `dns-01` or
 `tls-alpn-01`. `global` is a persistent reference to the current draft's
 `settings.default_challenge`, falling back to `http-01` when unset. Explicit
-site methods remain independent, including existing and migrated version1
-sites; they are never converted into references. Leading `*.` wildcard sites
+site methods remain independent, including sites with explicit methods; they are never converted into references. Leading `*.` wildcard sites
 must resolve to DNS-01; specific domains support all three effective methods.
 Validation, generated issuer selectors and private DNS credential resolution
 use the same effective method.
 
 `credential_status()` is read-only and returns `configured`, `draft_revision`
 and `active_revision` for credential references, never token bytes.
-`credential_save({token,expected_revision})` is write-ACL only. It creates a
-root-only immutable `credential` section in `caddy_secrets` (0600), updates the public draft reference and advances the draft revision.
-It does not replace the active secret or the running process environment.
-Stale concurrent edits fail. Retired versions remain private so an active or
-interrupted transaction retains its exact original credential. Removing a draft
-reference never deletes the active version. There is no public token readback,
-bulk credential export or deletion RPC.
+`credential_save({token,expected_revision})` is write-ACL only. It stages the
+`cloudflare_token` option in the current native UCI session and returns an opaque
+content fingerprint. Native revert discards the token edit; successful Apply
+commits it. Other sessions retain their own staged values. Active runtime
+credentials remain in last-successful `active.json` until Apply succeeds.
+There is no token readback through the application RPC.
 
 `tls_save({default_challenge,expected_revision})` is a scoped write RPC. Like
 credential staging, it edits the private full draft internally and returns only
@@ -280,3 +281,21 @@ certificate; root/deeper/unrelated domains retain their site-specific policy.
 Exact routing, authentication and unknown-host 404 remain unchanged. Matching
 sites' challenge selectors take effect again when the shared wildcard is removed.
 No existing stored certificates are removed. Caddyfile mode remains authoritative.
+
+### Site section identifiers
+
+Site sections use the first domain label (for example, `media.example.com` becomes `media`, and `aria2-pro.example.com` becomes `aria2_pro`). Identifiers use lowercase ASCII letters, digits and underscores. Numeric prefixes receive `site_`; wildcard labels use `wildcard`. Reserved names and collisions receive numbered suffixes starting at `_2`, allocated in site order. Saving also renames existing sections and removes the legacy `option name`; renaming preserves other options, including authentication and routing snippets. The form displays the domain and has no separate site-name field. Merely upgrading the package does not rewrite existing configuration.
+
+### Independent middleware lists (r40)
+
+`global_middlewares` and `middlewares` are independent ordered arrays of `{id, snippet}`. The first directly defines the global execution chain; the second is a catalog of definitions available for individual site selection. Global definitions are never selectable by site references. Each list allows up to 128 items and unique IDs starting with a lowercase ASCII letter, followed by lowercase letters, digits or underscores (up to 64 characters); manager/auth/service/notifications IDs are reserved. The same ID is allowed across lists, with independent source values and execution. HTTP-only Caddyfile source restrictions match site supplemental snippets; empty content is rejected.
+
+`site.middlewares` is the ordered site catalog reference list. Missing or duplicate references are rejected, including references in disabled sites. `site.use_global_middlewares` defaults to true and may disable the whole global chain. No cross-list deduplication occurs. Global definitions may be edited/deleted independently of site catalog references. Site definitions cannot be removed while referenced. Nested references are not supported.
+
+UCI uses `config global_middleware '_global_ID'` and `config middleware 'ID'`, both storing `option snippet`. The `_global_` namespace keeps identical logical IDs independent in one UCI package. Global execution order is section order, retained on save; the UI hides the namespace prefix. A site uses `list middleware 'ID'` to reference only the site catalog, and `option use_global_middleware '0'` to opt out. Empty lists are omitted. Site section IDs colliding with a catalog ID are safely renamed with a numeric suffix. Save, commit, revert and session isolation apply to both catalogs together in the caddy package.
+
+On HTTP matched hosts global handlers precede the existing HTTPS redirect. On HTTPS hosts globals precede path matching and authentication; site middlewares execute inside the matched path/authentication scope, followed by the supplemental snippet and generated rewrite/proxy. Responding handlers can terminate execution. Every snippet uses the usual internal Caddy directive order. Adapted route groups are namespaced by scope and ID to prevent independent adaptations suppressing one another. Cache keys also include global/site scope.
+
+Read-only RPC drafts and previews omit sources from both catalogs. Authorized editing uses draft_edit; frontends retain private sources across redacted save responses. Manual Caddyfile mode preserves both lists but ignores them for active configuration.
+
+Only independent global_middleware definitions and site-selectable middleware definitions are supported. Old manager-level middleware references are rejected; no old JSON or UCI definitions are converted.

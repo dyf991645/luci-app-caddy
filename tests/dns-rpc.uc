@@ -1,5 +1,5 @@
 let plugin=loadfile(ARGV[0])()['luci.caddy'];
-let config={version:1,settings:{http_port:25080,https_port:25443,email:'',storage:'/tmp/luci-caddy-ticket05/rpc-data'},sites:[{domain:'dns.example.test',backend:'http://127.0.0.1:25081',challenge:'dns-01'}]};
+let config={version:2,settings:{http_port:25080,https_port:25443,email:'',storage:'/tmp/luci-caddy-ticket05/rpc-data'},sites:[{domain:'dns.example.test',upstreams:['http://127.0.0.1:25081'],balance:'round_robin',path:'',strip:false,challenge:'dns-01'}]};
 assert(plugin.draft_save.call({args:{config,expected_revision:0}}).ok,'RPC saves DNS draft');
 let token='rpc!private-canary';
 let saved=plugin.credential_save.call({args:{token,expected_revision:1}});

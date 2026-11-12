@@ -16,7 +16,7 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
  Object.assign(config,fixture.config || {});
  let state={ok:true,basic_profiles:fixture.basic_profiles || {},draft:config,draft_revision:4,active_revision:3,pending:true,affected_domains:affected};
  const ui={changes:{init(){changeRefreshes++;return Promise.resolve();}},showModal(title,body){modal=E('modal',{title},body);},hideModal(){modal=null;},addNotification(...args){notifications.push(args);}};
- const rpc={declare({method}){return async (...args)=>{calls.push({method,args});if(fixture.wait?.method===method)await fixture.wait.promise;if(fixture.fail===method)return {ok:false,error:'Revision conflict'};if(method==='status')return {installed:true,running:false,enabled:false};if(method==='credential_status')return {ok:true,configured:!!fixture.credential};if(method==='certificates')return fixture.certificates||{ok:true,complete:true,certificates:[]};if(method==='notification_status')return fixture.notification||{ok:true,webhook:{enabled:false,configured:false},alerts:[],deliveries:[]};if(method==='notification_save')return {ok:true,webhook:{enabled:args[0],configured:!!args[1]},alerts:[],deliveries:[]};if(method==='config_preview')return {ok:true,config:fixture.preview || {}};if(method==='config_apply'){state={...state,active_revision:state.draft_revision,pending:false,affected_domains:[]};return state;}if(method==='basic_profile_save'||method==='draft_save')state={...state,draft:args[method==='basic_profile_save'?1:0]};if(['tls_save','credential_save','draft_save','basic_profile_save'].includes(method))state={...state,draft_revision:state.draft_revision+1,affected_domains:['latest.example.test']};return state;};}};
+ const rpc={declare({method}){return async (...args)=>{calls.push({method,args});if(fixture.wait?.method===method)await fixture.wait.promise;if(fixture.fail===method)return {ok:false,error:'Revision conflict'};if(method==='status')return {installed:true,running:false,enabled:false};if(method==='credential_status')return {ok:true,configured:!!fixture.credential};if(method==='certificates')return fixture.certificates||{ok:true,complete:true,certificates:[]};if(method==='notification_status')return fixture.notification||{ok:true,webhook:{enabled:false,configured:false},alerts:[],deliveries:[]};if(method==='notification_save')return {ok:true,webhook:{enabled:args[0],configured:!!args[1]},alerts:[],deliveries:[]};if(method==='config_preview')return {ok:true,config:fixture.preview || {}};if(method==='config_apply'){state={...state,active_revision:state.draft_revision,pending:false,affected_domains:[]};return state;}if(method==='basic_profile_save'||method==='draft_save')state={...state,draft:args[method==='basic_profile_save'?1:0]};if(['tls_save','credential_save','draft_save','basic_profile_save'].includes(method))state={...state,draft_revision:state.draft_revision+1,affected_domains:['latest.example.test']};if(fixture.redactSources && ['draft_save','config_apply'].includes(method)){const publicState=JSON.parse(JSON.stringify(state));for(const m of [...(publicState.draft.middlewares || []),...(publicState.draft.global_middlewares || [])])delete m.snippet;for(const site of publicState.draft.sites)delete site.advanced_snippet;delete publicState.draft.manual_caddyfile;return publicState;}return state;};}};
  let rootMap,activeMap;
  const form={JSONMap:class {
   constructor(data){this.buffer=data;this.children=[];rootMap=this;this.data={get:(_,sid,key)=>key==null?this.buffer[sid]:this.buffer[sid]?.[key],set:(_,sid,key,v)=>{this.buffer[sid][key]=v;},sections:()=>this.buffer.sites.map((s,i)=>({...s,'.name':String(i)}))};this.buffer.sites.forEach((s,i)=>this.buffer[String(i)]=s);}
@@ -24,7 +24,7 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
   parse(){return Promise.resolve();} render(){return fixture.route==='settings'?Promise.all(this.children.map(s=>s.render())).then(nodes=>E('form',{},nodes)):Promise.resolve(E('form'));} load(){return Promise.resolve();}reset(){return Promise.resolve();}
  }};
 
- const values={URL:class extends URL {static createObjectURL(){return 'blob:fixture';}static revokeObjectURL(){}},backendList:{create(value){return {render(){return E('input',{value});}};}},navigator:{clipboard:{writeText:async text=>{clipboard.push(text);}}},dom:{findClassInstance:node=>node.instance},poll:{add(){}},E,_:s=>s,ui,rpc,view:{extend:x=>x},form,L:{hasViewPermission:()=>!fixture.readonly,url:x=>x,resource:x=>x,env:{dispatchpath:['admin','services','caddy',fixture.route || 'configuration']}},window:{addEventListener(){}},document:{createTextNode:s=>({textContent:s}),addEventListener(){},querySelector(){return null;},body:{appendChild(node){downloads.push(node);}},head:{appendChild(){}}},location:{href:''},baseclass:{extend:x=>x}};
+ const values={middlewareList:{create(value,catalog,options){var node=E('input',{'aria-label':'Middleware order',value:value || []});node.events.change=function(){options?.onChange?.(node.value);};return {render(){return node;},getValue(){return node.value;},setDisabled(value){node.disabled=value;}};}},URL:class extends URL {static createObjectURL(){return 'blob:fixture';}static revokeObjectURL(){}},backendList:{create(value){return {render(){return E('input',{value});}};}},navigator:{clipboard:{writeText:async text=>{clipboard.push(text);}}},dom:{findClassInstance:node=>node.instance},poll:{add(){}},E,_:s=>s,ui,rpc,view:{extend:x=>x},form,L:{hasViewPermission:()=>!fixture.readonly,url:x=>x,resource:x=>x,env:{dispatchpath:['admin','services','caddy',fixture.route || 'configuration']}},window:{addEventListener(){}},document:{createTextNode:s=>({textContent:s}),addEventListener(){},querySelector(){return null;},body:{appendChild(node){downloads.push(node);}},head:{appendChild(){}}},location:{href:''},baseclass:{extend:x=>x}};
  const helper=new URL('caddy/apply.js',resources);
  if(existsSync(helper))values.caddyApply=evaluate(helper);values.applyFlow=values.caddyApply;
  values.layout=evaluate(new URL('caddy/layout.js',resources));
@@ -40,7 +40,7 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
    const body=[];
    for(const o of section.children){
     o.active=()=>!o.dependencies.length||o.dependencies.some(dep=>Object.entries(dep).every(([key,val])=>section.children.find(other=>other.option===key)?.input?.value===val));
-    if(o.option==='upstreams'){o.input=o.renderWidget('0',0,rootMap.data.get('json','0',o.option));body.push(o.input);}else if(o.renderWidget)body.push(o.renderWidget());else {o.input=E('input',{'aria-label':o.title,value:o.cfgvalue?o.cfgvalue('0'):rootMap.data.get('json','0',o.option)??o.default??''});body.push(o.input);}
+    if(['upstreams','middlewares'].includes(o.option)){o.input=o.renderWidget('0',0,rootMap.data.get('json','0',o.option));body.push(o.input);}else if(o.renderWidget)body.push(o.renderWidget());else {o.input=E('input',{'aria-label':o.title,value:o.cfgvalue?o.cfgvalue('0'):rootMap.data.get('json','0',o.option)??o.default??''});body.push(o.input);}
    }
    ui.showModal('Edit site',body);
    return {validate(name,value){return section.children.find(o=>o.option===name).validate('0',value);},field(name){return section.children.find(o=>o.option===name).input;},visible(name){return section.children.find(o=>o.option===name).active();},button(label){return all(modal).find(n=>n.tag==='button'&&n.textContent===label);},inputs(){return all(modal).filter(n=>n.tag==='input');},save(){return grid.handleModalSave(activeMap);},cancel(){grid.handleModalCancel(activeMap);}};
@@ -163,9 +163,9 @@ test('global service controls remain usable in manual mode without making the co
  const h=harness('configuration',[],{route:'settings',config:{mode:'manual'}});await h.render();const run=h.nodes.find(n=>n.attrs['aria-label']==='Run Caddy');expect(run.disabled).toBe(false);run.checked=true;run.events.change();expect(h.nodes.filter(n=>n.tag==='button'&&n.textContent==='Save').some(n=>!n.disabled)).toBe(true);expect(h.calls.filter(c=>c.method==='action')).toHaveLength(0);
 });
 
-test('site name and disabled state persist while keeping existing settings',async()=>{
- const h=harness('configuration',[]);await h.render();const editor=await h.openSite();editor.field('name').value='家庭媒体';editor.field('enabled').value='0';await editor.save();
- const saved=h.calls.find(c=>c.method==='draft_save').args[0].sites[0];expect(saved.name).toBe('家庭媒体');expect(saved.enabled).toBe(false);expect(saved.upstreams).toEqual(['http://localhost:8080']);
+test('domain-only form omits site name and preserves disabled state and settings',async()=>{
+ const h=harness('configuration',[]);await h.render();const editor=await h.openSite();expect(()=>editor.field('name')).toThrow();editor.field('enabled').value='0';await editor.save();
+ const saved=h.calls.find(c=>c.method==='draft_save').args[0].sites[0];expect(saved.name).toBeUndefined();expect(saved.enabled).toBe(false);expect(saved.upstreams).toEqual(['http://localhost:8080']);
 });
 
 
@@ -329,4 +329,41 @@ test('proxy list shows the effective wildcard DNS verification for covered sites
  expect(h.siteCell('challenge')).toBe('Shared wildcard · DNS-01');
  h.editGlobal('0','domain','deep.app.example.test');expect(h.siteCell('challenge')).toBe('HTTP-01');
  h.editGlobal('0','domain','example.test');expect(h.siteCell('challenge')).toBe('HTTP-01');
+});
+
+test('site editor persists ordered middlewares and global opt-out without dropping other settings',async()=>{
+ const h=harness('configuration',[],{config:{middlewares:[{id:'headers',snippet:'header X-Test yes'},{id:'dav',snippet:'rewrite /dav /index.html'}]}});await h.render();const editor=await h.openSite();
+ editor.field('middlewares').value=['dav','headers'];editor.field('use_global_middlewares').value='0';await editor.save();
+ const site=h.calls.find(c=>c.method==='draft_save').args[0].sites[0];expect(site.middlewares).toEqual(['dav','headers']);expect(site.use_global_middlewares).toBe(false);expect(site.upstreams).toEqual(['http://localhost:8080']);
+});
+test('middleware definition modal stages native draft and preserves current sites; cancel writes nothing',async()=>{
+ const h=harness('middlewares',[]);await h.render();h.button('Add middleware').click();h.modalField('caddy-middleware-id').value='headers';h.modalField('caddy-middleware-snippet').value='header X-Test yes';await h.modalButton('Save').click();
+ const saved=h.calls.find(c=>c.method==='draft_save').args;expect(saved[0].middlewares).toEqual([{id:'headers',snippet:'header X-Test yes'}]);expect(saved[0].sites[0].domain).toBe('app.example.test');expect(saved[1]).toBe(4);expect(h.changeRefreshes).toBeGreaterThan(0);
+ h.button('Add middleware').click();h.modalButton('Cancel').click();expect(h.calls.filter(c=>c.method==='draft_save')).toHaveLength(1);
+});
+test('middleware modal keeps edits and shows server errors for retry',async()=>{
+ const h=harness('middlewares',[],{fail:'draft_save'});await h.render();h.button('Add middleware').click();h.modalField('caddy-middleware-id').value='headers';h.modalField('caddy-middleware-snippet').value='header X-Test yes';await h.modalButton('Save').click();expect(h.modal).not.toBeNull();expect(h.modalField('caddy-middleware-snippet').value).toBe('header X-Test yes');expect(h.modalButton('Save').disabled).toBe(false);expect(JSON.stringify(h.modal)).toContain('Revision conflict');
+});
+test('only site references block deletion; global and local lists allow independent same identifiers',async()=>{
+ const h=harness('middlewares',[],{config:{global_middlewares:[{id:'headers',snippet:'header X-Global yes'}],middlewares:[{id:'headers',snippet:'header X-Local yes'}],sites:[{domain:'app.example.test',middlewares:['headers']}]}});await h.render();
+ const deletes=h.pageNodes().filter(n=>n.tag==='button'&&n.textContent==='Delete');expect(deletes[0].disabled).toBe(false);expect(deletes[1].disabled).toBe(true);h.button('1').click();expect(JSON.stringify(h.modal)).toContain('app.example.test');h.modalButton('Close').click();
+ deletes[0].attrs.click();await h.button('Save').click();const saved=h.calls.find(c=>c.method==='draft_save').args[0];expect(saved.global_middlewares).toEqual([]);expect(saved.middlewares[0].snippet).toBe('header X-Local yes');
+});
+test('global middleware order saves independently and Save & Apply reloads the saved revision',async()=>{
+ const h=harness('middlewares',[],{config:{global_middlewares:[{id:'first',snippet:'header X-First yes'},{id:'second',snippet:'header X-Second yes'}],middlewares:[{id:'local',snippet:'header X-Local yes'}]}});await h.render();
+ h.pageNodes().find(n=>n.attrs['aria-label']==='Move down first').attrs.click();const operation=h.button('Save & Apply').click();await tick();h.modalButton('Apply').click();await operation;
+ const saved=h.calls.find(c=>c.method==='draft_save').args[0];expect(saved.global_middlewares.map(m=>m.id)).toEqual(['second','first']);expect(saved.middlewares.map(m=>m.id)).toEqual(['local']);expect(h.calls.find(c=>c.method==='config_apply').args).toEqual([5]);
+});
+test('global definition creation does not populate the selectable site catalog',async()=>{
+ const h=harness('middlewares',[]);await h.render();h.button('Add global middleware').click();h.modalField('caddy-middleware-id').value='headers';h.modalField('caddy-middleware-snippet').value='header X-Global yes';await h.modalButton('Save').click();
+ const saved=h.calls.find(c=>c.method==='draft_save').args[0];expect(saved.global_middlewares).toEqual([{id:'headers',snippet:'header X-Global yes'}]);expect(saved.middlewares).toBeUndefined();
+ h.button('Add middleware').click();h.modalField('caddy-middleware-id').value='headers';h.modalField('caddy-middleware-snippet').value='header X-Local yes';await h.modalButton('Save').click();expect(h.calls.filter(c=>c.method==='draft_save').at(-1).args[0].middlewares[0].snippet).toBe('header X-Local yes');
+});
+test('middleware configuration is read-only in manual mode and for read-only users',async()=>{
+ for(const fixture of [{config:{mode:'manual'}},{readonly:true}]){const h=harness('middlewares',[],fixture);await h.render();expect(h.button('Add middleware').disabled).toBe(true);expect(h.button('Save').disabled).toBe(true);h.button('Add middleware').click();expect(h.modal).toBeNull();expect(h.calls.filter(c=>c.method==='draft_save')).toHaveLength(0);}
+});
+
+test('redacted save responses preserve private middleware sources across repeated definition and site saves',async()=>{
+ const h=harness('middlewares',[],{redactSources:true,config:{middlewares:[{id:'headers',snippet:'header X-Test private-canary'}]}});await h.render();h.button('Edit').click();expect(h.modalField('caddy-middleware-snippet').value).toBe('header X-Test private-canary');await h.modalButton('Save').click();h.button('Edit').click();expect(h.modalField('caddy-middleware-snippet').value).toBe('header X-Test private-canary');h.modalButton('Cancel').click();
+ const proxy=harness('configuration',[],{redactSources:true,config:{middlewares:[{id:'headers',snippet:'header X-Test private-canary'}]}});await proxy.render();await (await proxy.openSite()).save();await (await proxy.openSite()).save();const saves=proxy.calls.filter(c=>c.method==='draft_save');expect(saves).toHaveLength(2);expect(saves[1].args[0].middlewares[0].snippet).toBe('header X-Test private-canary');
 });
