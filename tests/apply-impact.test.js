@@ -31,7 +31,7 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
  values.service=evaluate(new URL('caddy/service.js',resources));
  function evaluate(file){return new Function(...Object.keys(values),readFileSync(file,'utf8'))(...Object.values(values));}
  const view=evaluate(new URL(`view/caddy/${page}.js`,resources));
- return {editGlobal(section,key,value){rootMap.data.set('json',section,key,value);all(pageRoot).find(n=>n.tag==='form').events.input();},async openSite(){
+ return {siteCell(option){return rootMap.children[0].children.find(o=>o.option===option).textvalue('0');},editGlobal(section,key,value){rootMap.data.set('json',section,key,value);all(pageRoot).find(n=>n.tag==='form').events.input();},async openSite(){
    const grid=rootMap.children[0];
    activeMap={section:'0',data:rootMap.data,parent:rootMap,readonly:false,checkDepends(){},render:()=>Promise.resolve(E('form')),parse:async()=>{for(const o of section.children){if(o.input&&o.active()){const previous=o.cfgvalue?o.cfgvalue('0'):rootMap.data.get('json','0',o.option);if(o.forcewrite||JSON.stringify(previous)!==JSON.stringify(o.input.value)){if(o.write)o.write('0',o.input.value);else rootMap.data.set('json','0',o.option,o.input.value);}}}}};
    const section={...grid,map:activeMap,children:[],tabs:[]};
@@ -226,7 +226,7 @@ test('TLS default verification has no per-site controls or pending label',async(
  expect(h.pageNodes().some(n=>n.textContent==='Pending application')).toBe(false);
  expect(h.pageNodes().some(n=>n.attrs?.['aria-label']==='app.example.test Certificate verification')).toBe(false);
  const radio=h.nodes.find(n=>n.attrs.name==='default-challenge'&&n.attrs.value==='dns-01');radio.events.change();await h.button('Save').click();
- expect(h.calls.filter(c=>c.method==='tls_save')).toEqual([{method:'tls_save',args:['dns-01',4,'',true]}]);
+ expect(h.calls.filter(c=>c.method==='tls_save')).toEqual([{method:'tls_save',args:['dns-01',4,'',true,[],true]}]);
 });
 test('TLS webhook sends custom method/body and hides body controls for GET and HEAD',async()=>{
  const h=harness('tls',[],{notification:{ok:true,webhook:{enabled:true,configured:true,method:'PATCH',body_mode:'custom',body_configured:true}}});await h.render();h.button('Configure').click();
@@ -265,7 +265,7 @@ test('failed shared service save retains edits for retry and makes no runtime ca
 });
 test('TLS page saves and clears the ACME email with the scoped TLS RPC',async()=>{
  const h=harness('tls',[],{config:{settings:{http_port:10080,https_port:10443,email:'old@example.test',storage:'/etc/caddy/data'}}});await h.render();const email=h.pageNodes().find(n=>n.attrs?.id==='caddy-acme-email');expect(email.value).toBe('old@example.test');
- email.value='';email.events.input();await h.button('Save').click();expect(h.calls.find(c=>c.method==='tls_save').args).toEqual(['http-01',4,'',true]);expect(h.calls.some(c=>c.method==='draft_save')).toBe(false);
+ email.value='';email.events.input();await h.button('Save').click();expect(h.calls.find(c=>c.method==='tls_save').args).toEqual(['http-01',4,'',true,[],true]);expect(h.calls.some(c=>c.method==='draft_save')).toBe(false);
 });
 
 test('service edits use shared Save & Apply after staging and do not save form fields',async()=>{
@@ -310,4 +310,23 @@ test('configuration controls disable during save and recover afterward',async()=
  const manual=h.pageNodes().find(n=>n.tag==='textarea');manual.value='edited';manual.events.input();const operation=h.button('Save').click();
  const select=h.pageNodes().find(n=>n.tag==='select');expect(select.disabled).toBe(true);for(const label of ['Refresh preview','Copy preview','Download preview'])expect(h.button(label).disabled).toBe(true);
  release();await operation;expect(select.disabled).toBe(false);expect(manual.disabled).toBe(false);for(const label of ['Refresh preview','Copy preview','Download preview'])expect(h.button(label).disabled).toBe(false);
+});
+
+test('TLS wildcard certificates load, save and clear in the same scoped transaction',async()=>{
+ const h=harness('tls',[],{config:{settings:{http_port:18080,https_port:18443,email:'',storage:'/etc/caddy/data',wildcard_domains:['*.example.test']}}});await h.render();
+ const input=h.nodes.find(n=>n.attrs.id==='caddy-wildcard-domains');expect(input.value).toBe('*.example.test');
+ input.value='*.example.test\n*.other.test';input.events.input();await h.button('Save').click();
+ expect(h.calls.find(c=>c.method==='tls_save').args).toEqual(['http-01',4,'',true,['*.example.test','*.other.test'],true]);
+ input.value='';input.events.input();await h.button('Save').click();expect(h.calls.filter(c=>c.method==='tls_save').at(-1).args[4]).toEqual([]);
+ expect(h.calls.some(c=>c.method==='config_apply')).toBe(false);
+});
+test('TLS wildcard certificates are read-only in manual mode and without permission',async()=>{
+ for(const fixture of [{readonly:true},{config:{mode:'manual'}}]){const h=harness('tls',[],fixture);await h.render();expect(h.nodes.find(n=>n.attrs.id==='caddy-wildcard-domains').disabled).toBe(true);}
+});
+
+test('proxy list shows the effective wildcard DNS verification for covered sites only',async()=>{
+ const h=harness('configuration',[],{config:{settings:{http_port:18080,https_port:18443,email:'',storage:'/etc/caddy/data',wildcard_domains:['*.example.test']}}});await h.render();
+ expect(h.siteCell('challenge')).toBe('Shared wildcard · DNS-01');
+ h.editGlobal('0','domain','deep.app.example.test');expect(h.siteCell('challenge')).toBe('HTTP-01');
+ h.editGlobal('0','domain','example.test');expect(h.siteCell('challenge')).toBe('HTTP-01');
 });

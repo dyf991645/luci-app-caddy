@@ -7,7 +7,7 @@
 
 var getDraft=rpc.declare({object:'luci.caddy',method:'draft_get',expect:{'':{}}});
 var getCredentials=rpc.declare({object:'luci.caddy',method:'credential_status',expect:{'':{}}});
-var saveDefault=rpc.declare({object:'luci.caddy',method:'tls_save',params:['default_challenge','expected_revision','email','update_email'],expect:{'':{}}});
+var saveDefault=rpc.declare({object:'luci.caddy',method:'tls_save',params:['default_challenge','expected_revision','email','update_email','wildcard_domains','update_wildcard_domains'],expect:{'':{}}});
 var saveCredential=rpc.declare({object:'luci.caddy',method:'credential_save',params:['token','expected_revision'],expect:{'':{}}});
 var apply=rpc.declare({object:'luci.caddy',method:'config_apply',params:['expected_revision'],expect:{'':{}}});
 var getCertificates=rpc.declare({object:'luci.caddy',method:'certificates',expect:{'':{}}});
@@ -25,6 +25,7 @@ return view.extend({
   var busy=false,dirty=false,permission=L.hasViewPermission(),readonly=!permission || current.draft?.mode=='manual';
   var method=current.draft?.settings.default_challenge || 'http-01';
   var email=E('input',{id:'caddy-acme-email',type:'email',autocomplete:'email',value:current.draft?.settings.email || '',disabled:readonly || null});
+  var wildcards=E('textarea',{id:'caddy-wildcard-domains',rows:2,placeholder:'*.home.wirerope.fun',disabled:readonly || null},(current.draft?.settings.wildcard_domains || []).join('\n'));
   var token=E('input',{id:'caddy-cf-token',type:'password',autocomplete:'new-password','class':'cbi-input-text',disabled:readonly || null,placeholder:_('Leave blank to keep the saved token')});
   var credentialStatus=E('span',{'class':'muted tls-field-status'});
   var methodHelp=E('p',{'class':'hint'});
@@ -42,18 +43,19 @@ return view.extend({
    credentialStatus.textContent=credentials.configured?_('Configured'):_('Not configured');
    save.disabled=readonly || busy || !dirty || !current.draft;
    activate.disabled=readonly || busy || (!dirty && !current.pending) || !current.draft;
-   token.disabled=email.disabled=readonly || busy;
+   token.disabled=email.disabled=wildcards.disabled=readonly || busy;
    radios.forEach(function(input){input.disabled=readonly || busy;input.checked=input.value===method;});
   }
   function refreshDraft(){return Promise.all([getDraft(),getCredentials()]).then(function(data){current=data[0];credentials=data[1];update();});}
   function perform(wantApply){
    busy=true;update();
-   return (dirty?saveDefault(method,current.draft_revision,email.value,true).then(checked).then(function(saved){current=saved;}):Promise.resolve())
+   return (dirty?saveDefault(method,current.draft_revision,email.value,true,wildcards.value.split(/\s+/).filter(Boolean),true).then(checked).then(function(saved){current=saved;}):Promise.resolve())
     .then(function(){if(!token.value)return;var value=token.value;return saveCredential(value,current.draft_revision).then(checked).then(function(saved){token.value='';current=saved;});})
     .then(function(){dirty=false;return wantApply?caddyApply.confirmImpact(current).then(function(){return apply(current.draft_revision);}).then(checked).then(function(saved){current=saved;}):null;})
     .catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');})
     .finally(function(){return refreshDraft().finally(function(){busy=false;update();caddyApply.refreshChanges();});});
   }
+  wildcards.addEventListener('input',function(){dirty=true;update();});
   email.addEventListener('input',function(){dirty=true;update();});
   token.addEventListener('input',function(){dirty=true;update();});
   window.addEventListener('beforeunload',function(event){if(dirty){event.preventDefault();event.returnValue='';}});
@@ -157,6 +159,9 @@ return view.extend({
    layout.panel(_('Default verification method'),'',[
     choices,methodHelp,
     E('div',{'class':'tls-form-row tls-acme-row'},[E('label',{for:'caddy-acme-email'},_('ACME contact email (optional)')),E('div',{},[email,E('p',{'class':'hint'},_('Used when registering an ACME certificate account. May be left blank; this does not configure notification delivery.'))])])
+   ]),
+   layout.panel(_('Wildcard certificates'),'', [
+    E('div',{'class':'tls-form-row'},[E('label',{for:'caddy-wildcard-domains'},_('Wildcard domains')),E('div',{},[wildcards,E('p',{'class':'hint'},_('One per line. Uses DNS-01. Matching sites share the certificate; leave blank for individual certificates.'))])])
    ]),
    layout.panel(_('Cloudflare DNS credentials'),'',[
     E('div',{'class':'tls-form-row tls-credential-row'},[

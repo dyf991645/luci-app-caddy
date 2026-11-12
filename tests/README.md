@@ -381,3 +381,19 @@ including both TLS aliases. Cookie/HTML files are mode0600 and removed, and the
 session is destroyed. It does not access passwords, apply configuration, invoke
 service actions or operate a browser. Passing public static-resource hashes or
 unauthenticated HTTP403 is insufficient to establish menu registration.
+
+## Shared wildcard certificates (r35)
+
+Copy `wildcard-certificates.uc`, `wildcard-certificates-router.sh`, production
+`config.uc` and `uci-store.uc` into an isolated directory on the authorized router.
+Run `sh wildcard-certificates-router.sh DIRECTORY`. This fixture uses the already
+validated temporary official-latest executable at
+`/tmp/luci-caddy-environment/latest-smoke-r34/caddy`; adjust that path to a reviewed
+binary if running elsewhere. Requires ucode/UCI, curl, OpenSSL, local uhttpd on 80.
+
+The fixture validates production DNS-01 JSON with a fake token without loading it,
+and runs internal TLS only on loopback 38519/38580/38543. It verifies native UCI
+staging/commit/revert, invalid/stale edit rejection, empty-list restoration, one-label
+coverage, exact Host routing, identical wildcard SAN certificates for two sites,
+proxy 200, unknown-host 404 and redirect 308. It never requests a public certificate,
+changes installed services, configures trust, or modifies firewall/DNS.

@@ -70,6 +70,7 @@ return function(options) {
  function decode(c) {
   if(c.get('caddy','config','configured')!='1')return null;
   let value={version:integer(c.get('caddy','config','version')||'2'),settings:fields(c,'config',globals,['access_log'],['http_port','https_port','cloudflare_credential']),sites:[]};
+  let wildcard=c.get('caddy','config','wildcard_domain');if(wildcard!=null)value.settings.wildcard_domains=type(wildcard)=='array'?wildcard:[wildcard];
   let mode=c.get('caddy','config','mode');if(mode!=null)value.mode=mode;
   let source=c.get('caddy','config','source');if(source!=null)value.manual_caddyfile=secret('source',source);
   if(c.get('caddy','auth')) {
@@ -99,6 +100,8 @@ return function(options) {
   let used={},old=[];c.foreach('caddy','site',s=>push(old,s['.name']));
   c.set('caddy','config','manager');c.delete('caddy','config','revision');
   set('config','schema',2);set('config','configured',value!=null);
+  let wildcards=value?.settings?.wildcard_domains || [];
+  if(length(wildcards)) {if(sprintf('%J',c.get('caddy','config','wildcard_domain'))!=sprintf('%J',wildcards))c.set('caddy','config','wildcard_domain',wildcards);} else c.delete('caddy','config','wildcard_domain');
   put('config',globals,value?.settings);set('config','version',value?.version);set('config','mode',value?.mode);
   function source(id,text) {
    if(text==null){c.delete('caddy',id,'source');return;}

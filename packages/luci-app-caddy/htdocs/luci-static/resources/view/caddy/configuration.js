@@ -92,7 +92,7 @@ return view.extend({
 		option.write = function(sid,value) {map.data.set('json',sid,'strip',value==='1');};
 		option = section.option(form.ListValue,'challenge',_('Certificate verification'));
 		option.value('global',_('Global default')); option.value('dns-01','DNS-01'); option.value('http-01','HTTP-01'); option.default='global'; option.value('tls-alpn-01','TLS-ALPN-01');
-		option.textvalue=function(sid){var selected=this.map.data.get('json',sid,'challenge') || 'global';return selected=='global'?_('Global default')+' · '+(config.settings.default_challenge || 'http-01').toUpperCase():selected.toUpperCase();};
+		option.textvalue=function(sid){var domain=this.map.data.get('json',sid,'domain') || '';if((config.settings.wildcard_domains || []).some(function(wildcard){return domain===wildcard || (domain.endsWith(wildcard.slice(1)) && domain.slice(0,-wildcard.length+1).indexOf('.')<0);}))return _('Shared wildcard')+' · DNS-01';var selected=this.map.data.get('json',sid,'challenge') || 'global';return selected=='global'?_('Global default')+' · '+(config.settings.default_challenge || 'http-01').toUpperCase():selected.toUpperCase();};
 		option = section.option(form.ListValue,'authMode',_('Access authentication'));option.value('none',_('No additional authentication'));option.value('basic','Basic Auth');option.value('authelia','Authelia');
 		option.textvalue=function(sid){var mode=this.map.data.get('json',sid,'auth')?.mode;return mode=='basic'?'Basic Auth':mode=='authelia'?'Authelia':'—';};
 		option.forcewrite=true;

@@ -115,7 +115,7 @@ return function(options) {
 			}
 		}
 		let g = config?.settings;
-		if (!known_keys(config,['version','settings','sites','mode','manual_caddyfile','auth']) || !known_keys(g,['http_port','https_port','email','storage','default_challenge','cloudflare_credential','access_log'])) return 'Unsupported configuration field';
+		if (!known_keys(config,['version','settings','sites','mode','manual_caddyfile','auth']) || !known_keys(g,['http_port','https_port','email','storage','default_challenge','cloudflare_credential','access_log','wildcard_domains'])) return 'Unsupported configuration field';
 		if (config.version != 2 || type(config.sites) != 'array')
 			return 'Configure a site list using the supported schema';
 		if(config.auth != null && !known_keys(config.auth,['basic','authelia'])) return 'Unsupported global authentication field';
@@ -172,6 +172,16 @@ return function(options) {
 			if (type(s.strip) != 'bool' || (s.strip && (s.path == '' || substr(s.path,-2) != '/*'))) return 'Prefix removal requires a path ending in /*';
 			if (index(['global', 'http-01', 'dns-01', 'tls-alpn-01'], s.challenge) < 0) return 'Unsupported verification method';
 		}
+		if(g.wildcard_domains!=null) {
+			if(type(g.wildcard_domains)!='array')return 'Wildcard certificates must be a domain list';
+			let seen={};
+			for(let domain in g.wildcard_domains) {
+				if(type(domain)!='string' || length(domain)>253 || !match(domain,/^\*\.[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/))return 'Enter a valid wildcard certificate domain';
+				for(let label in split(substr(domain,2),'.'))if(length(label)>63)return 'Domain labels must not exceed 63 characters';
+				if(seen[domain])return 'Duplicate wildcard certificate domain';
+				seen[domain]=true;
+			}
+		}
 		if(g.access_log!=null && type(g.access_log)!='bool') return 'Access logging must be enabled or disabled';
 		if (g.default_challenge != null && index(['http-01','dns-01','tls-alpn-01'],g.default_challenge) < 0) return 'Unsupported default verification method';
 		if (g.cloudflare_credential != null && (type(g.cloudflare_credential) != 'int' || g.cloudflare_credential < 1)) return 'Invalid credential revision';
@@ -185,9 +195,14 @@ return function(options) {
 	}
 	function generate(config, private_config) {
 		let g=config.settings, routes=[], redirects=[], policies=[];
-		for (let s in config.sites) {
-			if(s.enabled===false) continue;
-			let challenge=effective_challenge(s,g);
+		function covered(domain) {
+			for(let wildcard in g.wildcard_domains || []) {
+				let suffix=substr(wildcard,1);
+				if(domain==wildcard || (substr(domain,-length(suffix))==suffix && index(substr(domain,0,length(domain)-length(suffix)),'.')<0))return true;
+			}
+			return false;
+		}
+		function certificate_policy(domain,challenge) {
 			let issuer={module:'acme',email:g.email,challenges:{http:{disabled:challenge!='http-01'},'tls-alpn':{disabled:challenge!='tls-alpn-01'}}};
 			if (challenge == 'dns-01') {
 				let credential = private_config ? (options?.store ? options.store.secret('credential',g.cloudflare_credential) : read('credentials/' + g.cloudflare_credential + '.json',null)) : null;
@@ -195,7 +210,12 @@ return function(options) {
 				issuer.challenges.dns = {provider:{name:'cloudflare',api_token:credential ? credential.token : '[REDACTED: Cloudflare credential]'}};
 			}
 			if (options?.internal_tls) issuer={module:'internal'};
-			push(policies,{subjects:[s.domain],issuers:[issuer]});
+			push(policies,{subjects:[domain],issuers:[issuer]});
+		}
+		for(let wildcard in g.wildcard_domains || [])certificate_policy(wildcard,'dns-01');
+		for (let s in config.sites) {
+			if(s.enabled===false) continue;
+			if(!covered(s.domain))certificate_policy(s.domain,effective_challenge(s,g));
 			push(redirects,{match:[{host:[s.domain]}],handle:[{handler:'static_response',status_code:308,headers:{Location:['https://{http.request.host}'+(g.https_port==443?'':':'+g.https_port)+'{http.request.uri}']}}]});
 			let proxy={handler:'reverse_proxy',upstreams:map(s.upstreams,function(url) {return {dial:replace(url,/^https?:\/\//,'')};}),load_balancing:{selection_policy:{policy:s.balance}}};
 			if (substr(s.upstreams[0],0,8)=='https://') proxy.transport={protocol:'http',tls:{}};
@@ -213,6 +233,7 @@ return function(options) {
 		}
 		push(routes,{handle:[{handler:'static_response',status_code:404}]});
 		let generated={admin:{listen:admin,config:{persist:false}},storage:{module:'file_system',root:g.storage},apps:{http:{http_port:g.http_port,https_port:g.https_port,servers:{redirect:{listen:[(options?.bind||'')+':'+g.http_port],routes:redirects},proxy:{automatic_https:options?.disable_certificates ? {disable_redirects:true,disable_certificates:true} : {disable_redirects:true},listen:[(options?.bind||'')+':'+g.https_port],routes,tls_connection_policies:[{}]}}},tls:{automation:{policies}}}};
+		if(!options?.disable_certificates && length(g.wildcard_domains || []))generated.apps.tls.certificates={automate:g.wildcard_domains};
 		if(g.access_log)for(let name,server in generated.apps.http.servers)server.logs={};
 		if (options?.internal_tls) generated.apps.pki={certificate_authorities:{local:{install_trust:false}}};
 		return generated;
@@ -367,6 +388,7 @@ return function(options) {
 				}
 				current.draft.settings.default_challenge = request.default_challenge;
 				if(request.email!=null)current.draft.settings.email=request.email;
+				if(request.wildcard_domains!=null)current.draft.settings.wildcard_domains=request.wildcard_domains;
 				let error=check(current.draft);
 				if (error) return {ok:false,error};
 				write('draft.json',{revision:current.draft_revision+1,config:current.draft});

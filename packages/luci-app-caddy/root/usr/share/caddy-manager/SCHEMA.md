@@ -264,3 +264,19 @@ service-only save stages only desired service options and never rewrites form
 configuration. Unchanged upstream lists and site order are not rewritten during
 encoding: native del/add_list/reorder deltas occur only for actual changes.
 Previously staged native deltas remain intact until the user applies or reverts.
+
+## Shared wildcard certificates
+
+`settings.wildcard_domains` is an optional array of unique lowercase leading-wildcard
+DNS names, e.g. `["*.home.example.com"]`. Stored as native UCI `list wildcard_domain`
+on the `config` section. Missing/empty means individual certificate automation.
+`tls_save` accepts an optional `wildcard_domains` array; the RPC adapter uses
+`update_wildcard_domains:true` to explicitly write/clear it without changing older
+clients' settings. Stale revisions and invalid lists reject the whole TLS edit.
+
+Wildcard subjects are explicitly automated with Cloudflare DNS-01 independently
+of `default_challenge`. Exactly one-label covered sites share the policy and
+certificate; root/deeper/unrelated domains retain their site-specific policy.
+Exact routing, authentication and unknown-host 404 remain unchanged. Matching
+sites' challenge selectors take effect again when the shared wildcard is removed.
+No existing stored certificates are removed. Caddyfile mode remains authoritative.

@@ -1326,3 +1326,15 @@ msgstr "运行与访问日志"
 
 msgid "Runtime logs"
 msgstr "运行日志"
+
+msgid "Wildcard certificates"
+msgstr "泛域名证书"
+
+msgid "Wildcard domains"
+msgstr "泛域名"
+
+msgid "One per line. Uses DNS-01. Matching sites share the certificate; leave blank for individual certificates."
+msgstr "每行一个，使用 DNS-01。匹配的站点共用证书；留空则按具体域名申请。"
+
+msgid "Shared wildcard"
+msgstr "共用泛域名证书"

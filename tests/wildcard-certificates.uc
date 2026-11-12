@@ -1,0 +1,42 @@
+// Isolated native UCI + manager boundary. Never load public ACME configuration.
+import { cursor } from 'uci';
+import { mkdir,writefile,readfile } from 'fs';
+let root=ARGV[0],modules=ARGV[1],confdir=root+'/config';mkdir(confdir,0700);
+writefile(confdir+'/caddy',"config manager 'config'\n option schema '2'\n");
+let store=loadfile(modules+'/uci-store.uc')()({root,confdir,savedir:root+'/session'});
+let make=loadfile(modules+'/config.uc')(),manager=make({root,store,admin:'127.0.0.1:38519',bind:'127.0.0.1'});
+let cfg={version:2,settings:{http_port:38580,https_port:38543,email:'',storage:root+'/data',default_challenge:'http-01'},sites:[]};
+for(let domain in ['one.example.test','two.example.test','example.test','deep.one.example.test'])push(cfg.sites,{domain,upstreams:['http://127.0.0.1:80'],balance:'round_robin',path:'',strip:false,challenge:'global'});
+let state=manager.draft_save({config:cfg,expected_revision:0});assert(state.ok,'baseline stages');
+state=manager.tls_save({expected_revision:state.draft_revision,default_challenge:'http-01',wildcard_domains:['*.example.test']});assert(state.ok,'wildcard uses DNS independently of global method');
+assert(state.draft.settings.wildcard_domains[0]=='*.example.test','UCI round trip preserves wildcard');
+let c=cursor(confdir,root+'/session');assert(c.get('caddy','config','wildcard_domain')[0]=='*.example.test','native UCI list');
+assert(index(sprintf('%J',c.changes('caddy')),'wildcard_domain')>=0,'native pending changes contain wildcard domain');
+let preview=manager.preview({});assert(preview.ok,'production config generates');
+let tls=preview.config.apps.tls;assert(tls.certificates.automate[0]=='*.example.test','explicit wildcard automation');
+assert(length(tls.automation.policies)==3,'covered one-label names share policy; root and deeper names keep their own');
+assert(tls.automation.policies[0].subjects[0]=='*.example.test' && tls.automation.policies[0].issuers[0].challenges.dns.provider.name=='cloudflare','wildcard policy always DNS-01');
+assert(tls.automation.policies[1].subjects[0]=='example.test' && tls.automation.policies[2].subjects[0]=='deep.one.example.test','coverage excludes root and deeper names');
+assert(length(preview.config.apps.http.servers.proxy.routes)==5,'explicit host routing unchanged');
+tls.automation.policies[0].issuers[0].challenges.dns.provider.api_token='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+writefile(root+'/production-validation.json',sprintf('%J',preview.config));
+for(let bad in ['*.example.test', ['example.test'],['*.*.example.test'],['*.example.test','*.example.test'],['*.UPPER.test'],['*.bad..test']]) {
+ let rejected=manager.tls_save({expected_revision:state.draft_revision,default_challenge:'http-01',wildcard_domains:bad});assert(!rejected.ok,'invalid wildcards reject atomically');assert(manager.draft_get().draft_revision==state.draft_revision,'invalid edit preserves revision');
+}
+assert(!manager.tls_save({expected_revision:state.draft_revision-1,default_challenge:'http-01',wildcard_domains:[]}).ok,'stale save rejected');
+assert(store.commit(),'native UCI apply commits wildcard list');
+let other=loadfile(modules+'/uci-store.uc')()({root,confdir,savedir:root+'/other'});
+assert(other.read().config.settings.wildcard_domains[0]=='*.example.test','other session sees committed wildcard');
+let internal=make({root,store,admin:'127.0.0.1:38519',bind:'127.0.0.1',internal_tls:true});
+writefile(root+'/internal.json',sprintf('%J',internal.preview({}).config));
+state=manager.tls_save({expected_revision:state.draft_revision,default_challenge:'http-01',wildcard_domains:[]});assert(state.ok,'clearing restores individual certificates');
+preview=manager.preview({});assert(!preview.config.apps.tls.certificates && length(preview.config.apps.tls.automation.policies)==4,'individual automation restored');
+c=cursor(confdir,root+'/session');assert(c.load('caddy'),'load native stage');assert(c.revert('caddy'),'native revert');assert(manager.draft_get().draft.settings.wildcard_domains[0]=='*.example.test','revert restores committed wildcard');
+let current=manager.draft_get();assert(!manager.apply({expected_revision:current.draft_revision}).ok,'missing credential cannot apply wildcard');
+current=manager.credential_save({expected_revision:current.draft_revision,token:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'});assert(current.ok,'private credential stages');
+let offline=make({root,store,admin:'127.0.0.1:38519',bind:'127.0.0.1',offline:true,command:root+'/validate-command'});
+assert(offline.apply({expected_revision:current.draft_revision}).ok,'private production generation validates and commits offline');
+let active=json(readfile(root+'/active.json'));assert(active.apps.tls.automation.policies[0].issuers[0].challenges.dns.provider.api_token=='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','private generation resolves UCI credential');
+assert(index(sprintf('%J',manager.preview({}).config),'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')<0,'public preview protects token');
+let disabled=make({root,store,disable_certificates:true});assert(!disabled.preview({}).config.apps.tls.certificates,'test disable certificates seam cannot start wildcard automation');
+print('PASS wildcard validation, one-label coverage, DNS policy, exact routes, UCI staging/commit/revert, stale-write protection and clearing\n');
