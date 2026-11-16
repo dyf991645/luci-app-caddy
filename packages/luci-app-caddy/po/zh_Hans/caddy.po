@@ -784,6 +784,9 @@ msgstr "global 或站点域名"
 msgid "Add site"
 msgstr "添加站点"
 
+msgid "Drag the handle to reorder sites. Save to keep the order."
+msgstr "拖动手柄调整站点顺序，保存后保留排序。"
+
 msgid "Background monitoring runs independently of LuCI and the Caddy service, including complete Caddyfile mode."
 msgstr "后台监控独立于 LuCI 和 Caddy 服务运行，完整 Caddyfile 模式下也可用。"
 

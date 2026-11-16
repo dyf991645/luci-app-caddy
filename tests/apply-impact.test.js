@@ -8,7 +8,7 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
  function E(tag,attrs={},children=[]) {
   const node={tag,attrs,children:[],value:attrs.value || (tag==='textarea'&&typeof children==='string'?children:''),disabled:attrs.disabled!=null,textContent:typeof children==='string'?children:'',events:{},
    addEventListener(name,fn){this.events[name]=fn;},appendChild(n){this.children.push(n);Object.defineProperty(n,'parentNode',{value:this,writable:true,configurable:true});},replaceChildren(...n){this.children=n;},
-   querySelectorAll(selector){return all(this).filter(n=>selector.split(',').includes(n.tag));},remove(){if(this.parentNode)this.parentNode.children=this.parentNode.children.filter(n=>n!==this);},classList:{add(){}},click(){return this.attrs.click?.();}};
+   querySelector(){return null;},querySelectorAll(selector){return all(this).filter(n=>selector.split(',').includes(n.tag));},remove(){if(this.parentNode)this.parentNode.children=this.parentNode.children.filter(n=>n!==this);},classList:{add(){}},click(){return this.attrs.click?.();}};
   node.children=Array.isArray(children)?children:[children];node.children.forEach(n=>{if(n&&typeof n==='object')Object.defineProperty(n,'parentNode',{value:node,writable:true,configurable:true});}); nodes.push(node);return node;
  }
  function all(n){return typeof n==='object' && n ? [n,...(n.children || []).flatMap(all)]:[];}
@@ -17,10 +17,28 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
  let state={ok:true,basic_profiles:fixture.basic_profiles || {},draft:config,draft_revision:4,active_revision:3,pending:true,affected_domains:affected};
  const ui={changes:{init(){changeRefreshes++;return Promise.resolve();}},showModal(title,body){modal=E('modal',{title},body);},hideModal(){modal=null;},addNotification(...args){notifications.push(args);}};
  const rpc={declare({method}){return async (...args)=>{calls.push({method,args});if(fixture.wait?.method===method)await fixture.wait.promise;if(fixture.fail===method)return {ok:false,error:'Revision conflict'};if(method==='status')return {installed:true,running:false,enabled:false};if(method==='credential_status')return {ok:true,configured:!!fixture.credential};if(method==='certificates')return fixture.certificates||{ok:true,complete:true,certificates:[]};if(method==='notification_status')return fixture.notification||{ok:true,webhook:{enabled:false,configured:false},alerts:[],deliveries:[]};if(method==='notification_save')return {ok:true,webhook:{enabled:args[0],configured:!!args[1]},alerts:[],deliveries:[]};if(method==='config_preview')return {ok:true,config:fixture.preview || {}};if(method==='config_apply'){state={...state,active_revision:state.draft_revision,pending:false,affected_domains:[]};return state;}if(method==='basic_profile_save'||method==='draft_save')state={...state,draft:args[method==='basic_profile_save'?1:0]};if(['tls_save','credential_save','draft_save','basic_profile_save'].includes(method))state={...state,draft_revision:state.draft_revision+1,affected_domains:['latest.example.test']};if(fixture.redactSources && ['draft_save','config_apply'].includes(method)){const publicState=JSON.parse(JSON.stringify(state));for(const m of [...(publicState.draft.middlewares || []),...(publicState.draft.global_middlewares || [])])delete m.snippet;for(const site of publicState.draft.sites)delete site.advanced_snippet;delete publicState.draft.manual_caddyfile;return publicState;}return state;};}};
- let rootMap,activeMap;
+ let rootMap,activeMap,selectedSid;
  const form={JSONMap:class {
-  constructor(data){this.buffer=data;this.children=[];rootMap=this;this.data={get:(_,sid,key)=>key==null?this.buffer[sid]:this.buffer[sid]?.[key],set:(_,sid,key,v)=>{this.buffer[sid][key]=v;},sections:()=>this.buffer.sites.map((s,i)=>({...s,'.name':String(i)}))};this.buffer.sites.forEach((s,i)=>this.buffer[String(i)]=s);}
-  section(type,name,sectionType,title){const m=this;const s={map:m,title,children:[],tabs:[],render(){return Promise.resolve(E('div',{},[this.title?E('h3',{},this.title):'',...this.children.map(o=>E('label',{},o.title))]));},option(type,option,title){const o={map:this.map,section:this,option,title,choices:[],dependencies:[],cbid(sid){return sid+'.'+this.option;},getValidator(sid){return this.validate.bind(this,sid);},value(v){this.choices.push(v);},depends(key,value){this.dependencies.push(typeof key==='object'?key:{[key]:value});}};this.children.push(o);return o;},tab(name){this.tabs[name]={children:[]};},taboption(tab,...args){const o=this.option(...args);this.tabs[tab].children.push(o);return o;},getActiveModalMap(){return {instance:activeMap,parentNode:modal};},handleModalCancel(){modal=null;},handleAdd(){},handleRemove(){}};this.children.push(s);return s;}
+  constructor(data){
+   this.buffer=data;this.children=[];rootMap=this;
+   this.data={get:(_,sid,key)=>key==null?this.buffer[sid]:this.buffer[sid]?.[key],set:(_,sid,key,v)=>{this.buffer[sid][key]=v;},sections:()=>this.buffer.sites.map((s,i)=>({...s,'.name':String(i)}))};
+   if(!fixture.nativeIds)this.buffer.sites.forEach((s,i)=>this.buffer[String(i)]=s);
+   else {
+    this.buffer={};let index=0;
+    for(const [type,value] of Object.entries(data))for(const item of Array.isArray(value)?value:[value]){
+     const sid=Array.isArray(value)?type+index:type;
+     this.buffer[sid]={...item,'.name':sid,'.type':type,'.index':index++};
+    }
+    this.data.sections=(_,type)=>Object.values(this.buffer).filter(s=>!type||s['.type']===type).sort((a,b)=>a['.index']-b['.index']);
+   }
+   this.data.add=(_,type,name)=>{
+    const sections=this.data.sections('json',type),sid=name??type+sections.length;
+    const index=Math.max(0,...Object.values(this.buffer).map(s=>s['.index']||0))+1;
+    if(!this.buffer[sid])this.buffer[sid]={'.name':sid,'.type':type,'.index':index};return sid;
+   };
+   this.data.remove=(_,sid)=>{delete this.buffer[sid];};
+  }
+  section(type,name,sectionType,title){const m=this;const s={map:m,title,sectiontype:name,children:[],tabs:[],render(){return Promise.resolve(E('div',{},[this.title?E('h3',{},this.title):'',...this.children.map(o=>E('label',{},o.title))]));},option(type,option,title){const o={map:this.map,section:this,option,title,choices:[],dependencies:[],cbid(sid){return sid+'.'+this.option;},getValidator(sid){return this.validate.bind(this,sid);},value(v){this.choices.push(v);},depends(key,value){this.dependencies.push(typeof key==='object'?key:{[key]:value});}};this.children.push(o);return o;},tab(name){this.tabs[name]={children:[]};},taboption(tab,...args){const o=this.option(...args);this.tabs[tab].children.push(o);return o;},getActiveModalMap(){return modal?{instance:activeMap,parentNode:modal}:null;},handleModalCancel(modalMap,ev,isSaving){if(m.addedSection!=null&&!isSaving)m.data.remove('json',m.addedSection);delete m.addedSection;modal=null;},handleAdd(ev,name){const sid=m.data.add('json',this.sectiontype,name);m.addedSection=sid;return this.renderMoreOptionsModal(sid);},renderMoreOptionsModal(sid){selectedSid=sid;return Promise.resolve();},handleRemove(){}};this.children.push(s);return s;}
   parse(){return Promise.resolve();} render(){return fixture.route==='settings'?Promise.all(this.children.map(s=>s.render())).then(nodes=>E('form',{},nodes)):Promise.resolve(E('form'));} load(){return Promise.resolve();}reset(){return Promise.resolve();}
  }};
 
@@ -31,19 +49,19 @@ function harness(page, affected=['basic.example.test','authelia.example.test'], 
  values.service=evaluate(new URL('caddy/service.js',resources));
  function evaluate(file){return new Function(...Object.keys(values),readFileSync(file,'utf8'))(...Object.values(values));}
  const view=evaluate(new URL(`view/caddy/${page}.js`,resources));
- return {siteCell(option){return rootMap.children[0].children.find(o=>o.option===option).textvalue('0');},editGlobal(section,key,value){rootMap.data.set('json',section,key,value);all(pageRoot).find(n=>n.tag==='form').events.input();},async openSite(){
+ return {siteCell(option){return rootMap.children[0].children.find(o=>o.option===option).textvalue('0');},editGlobal(section,key,value){rootMap.data.set('json',section,key,value);all(pageRoot).find(n=>n.tag==='form').events.input();},async addSite(){await rootMap.children[0].handleAdd();return this.openSite(selectedSid);},sites(){return rootMap.data.sections('json','sites');},get sortable(){return rootMap.children[0].sortable;},moveSite(sid,targetSid,after=false){return rootMap.data.move('json',sid,targetSid,after);},removeSite(sid){rootMap.data.remove('json',sid);},async openSite(sid=fixture.nativeIds?rootMap.data.sections('json','sites')[0]['.name']:'0'){
    const grid=rootMap.children[0];
-   activeMap={section:'0',data:rootMap.data,parent:rootMap,readonly:false,checkDepends(){},render:()=>Promise.resolve(E('form')),parse:async()=>{for(const o of section.children){if(o.input&&o.active()){const previous=o.cfgvalue?o.cfgvalue('0'):rootMap.data.get('json','0',o.option);if(o.forcewrite||JSON.stringify(previous)!==JSON.stringify(o.input.value)){if(o.write)o.write('0',o.input.value);else rootMap.data.set('json','0',o.option,o.input.value);}}}}};
+   activeMap={section:sid,data:rootMap.data,parent:rootMap,readonly:false,checkDepends(){},render:()=>Promise.resolve(E('form')),parse:async()=>{for(const o of section.children){if(o.input&&o.active()){const previous=o.cfgvalue?o.cfgvalue(sid):rootMap.data.get('json',sid,o.option);if(o.forcewrite||JSON.stringify(previous)!==JSON.stringify(o.input.value)){if(o.write)o.write(sid,o.input.value);else rootMap.data.set('json',sid,o.option,o.input.value);}}}}};
    const section={...grid,map:activeMap,children:[],tabs:[]};
    section.children=grid.children.map(o=>({...o,map:activeMap,section}));
-   grid.addModalOptions(section,'0');
+   grid.addModalOptions(section,sid);
    const body=[];
    for(const o of section.children){
     o.active=()=>!o.dependencies.length||o.dependencies.some(dep=>Object.entries(dep).every(([key,val])=>section.children.find(other=>other.option===key)?.input?.value===val));
-    if(['upstreams','middlewares'].includes(o.option)){o.input=o.renderWidget('0',0,rootMap.data.get('json','0',o.option));body.push(o.input);}else if(o.renderWidget)body.push(o.renderWidget());else {o.input=E('input',{'aria-label':o.title,value:o.cfgvalue?o.cfgvalue('0'):rootMap.data.get('json','0',o.option)??o.default??''});body.push(o.input);}
+    if(['upstreams','middlewares'].includes(o.option)){o.input=o.renderWidget(sid,0,rootMap.data.get('json',sid,o.option));body.push(o.input);}else if(o.renderWidget)body.push(o.renderWidget());else {o.input=E('input',{'aria-label':o.title,value:o.cfgvalue?o.cfgvalue(sid):rootMap.data.get('json',sid,o.option)??o.default??''});body.push(o.input);}
    }
-   ui.showModal('Edit site',body);
-   return {validate(name,value){return section.children.find(o=>o.option===name).validate('0',value);},field(name){return section.children.find(o=>o.option===name).input;},visible(name){return section.children.find(o=>o.option===name).active();},button(label){return all(modal).find(n=>n.tag==='button'&&n.textContent===label);},inputs(){return all(modal).filter(n=>n.tag==='input');},save(){return grid.handleModalSave(activeMap);},cancel(){grid.handleModalCancel(activeMap);}};
+   ui.showModal(typeof grid.modaltitle==='function'?grid.modaltitle(sid):grid.modaltitle,body);
+   return {validate(name,value){return section.children.find(o=>o.option===name).validate(sid,value);},field(name){return section.children.find(o=>o.option===name).input;},visible(name){return section.children.find(o=>o.option===name).active();},button(label){return all(modal).find(n=>n.tag==='button'&&n.textContent===label);},inputs(){return all(modal).filter(n=>n.tag==='input');},save(){return grid.handleModalSave(activeMap);},cancel(){grid.handleModalCancel(activeMap);}};
   },async render(){pageRoot=await view.render(page==='tls'?[state,{ok:true,configured:!!fixture.credential},fixture.certificates||{ok:true,complete:true,certificates:[]},fixture.notification||{ok:true,webhook:{enabled:false,configured:false},alerts:[],deliveries:[]}]:page==='overview'?[{installed:true,running:false,enabled:false},state]:state);},button(label){return nodes.find(n=>n.tag==='button'&&n.textContent===label);},get modal(){return modal;},modalButton(label){return all(modal).find(n=>n.tag==='button'&&n.textContent===label);},nodes,calls,notifications,clipboard,downloads,pageNodes:()=>all(pageRoot),modalField:id=>all(modal).find(n=>n.attrs?.id===id),get changeRefreshes(){return changeRefreshes;}};
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
@@ -366,4 +384,55 @@ test('middleware configuration is read-only in manual mode and for read-only use
 test('redacted save responses preserve private middleware sources across repeated definition and site saves',async()=>{
  const h=harness('middlewares',[],{redactSources:true,config:{middlewares:[{id:'headers',snippet:'header X-Test private-canary'}]}});await h.render();h.button('Edit').click();expect(h.modalField('caddy-middleware-snippet').value).toBe('header X-Test private-canary');await h.modalButton('Save').click();h.button('Edit').click();expect(h.modalField('caddy-middleware-snippet').value).toBe('header X-Test private-canary');h.modalButton('Cancel').click();
  const proxy=harness('configuration',[],{redactSources:true,config:{middlewares:[{id:'headers',snippet:'header X-Test private-canary'}]}});await proxy.render();await (await proxy.openSite()).save();await (await proxy.openSite()).save();const saves=proxy.calls.filter(c=>c.method==='draft_save');expect(saves).toHaveLength(2);expect(saves[1].args[0].middlewares[0].snippet).toBe('header X-Test private-canary');
+});
+
+// Native JSONMap initializes IDs with a global count (authelia, settings, then
+// sites2, sites3, ...), but add() uses the count of sites. Keep that mismatch
+// in this host adapter so the view must supply an unused name to GridSection.
+for(const count of [0,1,2,4])test(`adding and cancelling repeatedly preserves ${count} existing sites`,async()=>{
+ const sites=Array.from({length:count},(_,i)=>({domain:`app${i}.example.test`,upstreams:[`http://localhost:${8080+i}`],auth:{mode:'basic',source:'independent',profile:`p${i}`}}));
+ const h=harness('configuration',[],{nativeIds:true,config:{sites}});await h.render();
+ for(let i=0;i<3;i++){
+  const editor=await h.addSite();expect(editor.field('domain').value).toBe('');expect(h.modal.attrs.title).toBe('Add site');expect(editor.field('upstreams').value).toEqual(['http://127.0.0.1:8080']);expect(editor.field('authMode').value).toBe('none');
+  expect(h.sites()).toHaveLength(count+1);editor.cancel();expect(h.sites().map(s=>s.domain)).toEqual(sites.map(s=>s.domain));
+ }
+ expect(h.calls.filter(c=>c.method==='draft_save')).toHaveLength(0);
+});
+test('adding after deleting a middle site saves a separate site and preserves existing sites',async()=>{
+ const sites=Array.from({length:4},(_,i)=>({domain:`app${i}.example.test`,upstreams:[`http://localhost:${8080+i}`]}));
+ const h=harness('configuration',[],{nativeIds:true,config:{sites}});await h.render();h.removeSite(h.sites()[2]['.name']);
+ const editor=await h.addSite();editor.field('domain').value='new.example.test';await editor.save();
+ const saved=h.calls.find(c=>c.method==='draft_save').args[0].sites;
+ expect(saved.map(s=>s.domain)).toEqual(['app0.example.test','app1.example.test','app3.example.test','new.example.test']);expect(saved[3].upstreams).toEqual(['http://127.0.0.1:8080']);
+ const existing=await h.openSite();expect(h.modal.attrs.title).toBe('Edit site');expect(existing.field('domain').value).toBe('app0.example.test');
+});
+
+function orderedSites(){return Array.from({length:4},(_,i)=>({domain:`app${i}.example.test`,upstreams:[`http://localhost:${8080+i}`],auth:{mode:'basic',source:'independent',profile:`p${i}`}}));}
+test('site drag moves before and after targets, stages edits and saves order with each site intact',async()=>{
+ const sites=orderedSites(),h=harness('configuration',[],{nativeIds:true,config:{sites}});await h.render();expect(h.sortable).toBe(true);
+ const ids=h.sites().map(s=>s['.name']);expect(h.button('Save').disabled).toBe(true);
+ expect(h.moveSite(ids[3],ids[0])).toBe(true);expect(h.sites().map(s=>s.domain)).toEqual(['app3.example.test','app0.example.test','app1.example.test','app2.example.test']);
+ expect(h.moveSite(ids[0],ids[2],true)).toBe(true);expect(h.sites().map(s=>s.domain)).toEqual(['app3.example.test','app1.example.test','app2.example.test','app0.example.test']);
+ expect(h.moveSite(ids[2],ids[3],true)).toBe(true);expect(h.sites().map(s=>s.domain)).toEqual(['app3.example.test','app2.example.test','app1.example.test','app0.example.test']);
+ expect(h.button('Save').disabled).toBe(false);expect(h.calls.filter(c=>c.method==='draft_save')).toHaveLength(0);
+ await h.button('Save').click();const saved=h.calls.find(c=>c.method==='draft_save').args[0];
+ expect(saved.sites.map(s=>s.domain)).toEqual([...sites].reverse().map(s=>s.domain));
+ expect(saved.sites.map(s=>s.upstreams)).toEqual([...sites].reverse().map(s=>s.upstreams));expect(saved.sites.map(s=>s.auth)).toEqual([...sites].reverse().map(s=>s.auth));
+ const reloaded=harness('configuration',[],{nativeIds:true,config:saved});await reloaded.render();expect(reloaded.sites().map(s=>s.domain)).toEqual(saved.sites.map(s=>s.domain));
+ const added=await h.addSite();added.cancel();expect(h.sites().map(s=>s.domain)).toEqual(saved.sites.map(s=>s.domain));
+});
+test('invalid and unchanged site moves do not mark the draft dirty',async()=>{
+ const h=harness('configuration',[],{nativeIds:true,config:{sites:orderedSites()}});await h.render();const ids=h.sites().map(s=>s['.name']);
+ for(const args of [[ids[0],ids[0]],[ids[0],ids[1]],[ids[1],ids[0],true],['missing',ids[0]],[ids[0],'settings'],['settings',ids[0]]])expect(h.moveSite(...args)).toBe(false);
+ expect(h.button('Save').disabled).toBe(true);expect(h.sites().map(s=>s.domain)).toEqual(orderedSites().map(s=>s.domain));
+});
+test('manual and readonly pages prevent site reordering',async()=>{
+ for(const fixture of [{readonly:true},{config:{mode:'manual'}}]){
+  const h=harness('configuration',[],{...fixture,nativeIds:true,config:{sites:orderedSites(),...fixture.config}});await h.render();expect(h.sortable).toBe(false);const ids=h.sites().map(s=>s['.name']);expect(h.moveSite(ids[3],ids[0])).toBe(false);expect(h.sites().map(s=>s.domain)).toEqual(orderedSites().map(s=>s.domain));
+ }
+});
+test('site reordering is blocked during save and recovers afterward',async()=>{
+ let release;const promise=new Promise(resolve=>{release=resolve;});
+ const h=harness('configuration',[],{nativeIds:true,config:{sites:orderedSites()},wait:{method:'draft_save',promise}});await h.render();const ids=h.sites().map(s=>s['.name']);
+ h.moveSite(ids[3],ids[0]);const saving=h.button('Save').click();await tick();expect(h.moveSite(ids[2],ids[0])).toBe(false);release();await saving;expect(h.moveSite(ids[2],ids[0])).toBe(true);
 });

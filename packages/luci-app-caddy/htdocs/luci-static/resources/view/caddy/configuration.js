@@ -34,8 +34,9 @@ return view.extend({
 		map.readonly = !L.hasViewPermission();
 		var section = map.section(form.GridSection,'sites',_('Sites'));
 		section.anonymous = true; section.addremove = true;
+		section.sortable = !map.readonly && mode!='manual';
 		section.addbtntitle = _('Add site');
-		section.modaltitle = _('Edit site');
+		section.modaltitle = function(sid) {return this.map.addedSection===sid ? _('Add site') : _('Edit site');};
 		section.nodescriptions = true;
 		section.addModalOptions = function(modalSection, sid) {
 			var modalMap=modalSection.map;
@@ -139,6 +140,20 @@ return view.extend({
 		var accountDirty = false;
 		var dirty = false, busy = false, sequence = 0;
 		var siteSection=map.children[0];
+		// JSONMap's default move() delegates to UCI. Reorder this editor's
+		// JSON sections instead; values() serializes them in .index order.
+		map.data.move=function(configName,sid,targetSid,after) {
+			if(busy || map.readonly || mode=='manual' || sid===targetSid)return false;
+			var sections=map.data.sections('json');
+			var from=sections.findIndex(function(s){return s['.name']===sid && s['.type']==='sites';});
+			var target=sections.findIndex(function(s){return s['.name']===targetSid && s['.type']==='sites';});
+			if(from<0 || target<0)return false;
+			var to=target+(after?1:0)-(from<target?1:0);
+			if(from===to)return false;
+			sections.splice(to,0,sections.splice(from,1)[0]);
+			sections.forEach(function(s,index){s['.index']=index;});
+			dirty=true;update();return true;
+		};
 		map.children = page == 'configuration' ? [siteSection] : page == 'settings' ? map.children.slice(1) : [];
 		var renderSiteModal=siteSection.renderMoreOptionsModal;
 		siteSection.renderMoreOptionsModal=function() {if(accountDirty){ui.addNotification(null,E('p',{},_('Save account edits before editing a site.')),'warning');return Promise.resolve();}return Promise.resolve(renderSiteModal.apply(this,arguments)).then(function() {
@@ -182,6 +197,14 @@ return view.extend({
 				return map.load().then(function(){return map.reset();}).catch(function(error){ui.addNotification(null,E('p',{},error.message),'error');}).then(function(){return siteSection.handleModalCancel(modalMap,ev,true);});
 			}).catch(function(error) {dirty=true;ui.addNotification(null,E('p',{},error.message),'error');})
 			.finally(function(){controls.forEach(function(entry){entry[0].disabled=entry[1];});busy=false;update();caddyApply.refreshChanges();});
+		};
+		var addSite=siteSection.handleAdd;
+		siteSection.handleAdd=function(ev) {
+			// JSONMap initializes IDs using all sections, but add() counts only
+			// sites. Supply an unused ID so adding cannot select an existing site.
+			var index=0;
+			while(map.data.get('json','sites'+index))index++;
+			return addSite.call(this,ev,'sites'+index);
 		};
 		['handleAdd','handleRemove'].forEach(function(name) {var original=siteSection[name];siteSection[name]=function() {dirty=true;update();return Promise.resolve(original.apply(this,arguments)).then(function(result){update();return result;});};});
 		var status = E('p',{'role':'status','aria-live':'polite'});
@@ -317,6 +340,7 @@ return view.extend({
 					layout.panel(_('Site list'), _('Configure a domain, backends and certificate verification for each site.'), [
 						E('div',{'class':'toolbar'}, [E('input',{'type':'search','placeholder':_('Search name, domain or backend'),'aria-label':_('Search name, domain or backend'),'input':function(event){searchQuery=event.target.value.toLowerCase();filterSites();}}),E('select',{'aria-label':_('Filter site status'),'change':function(event){statusFilter=event.target.value;filterSites();}},[E('option',{'value':'all'},_('All sites')),E('option',{'value':'enabled'},_('Enabled')),E('option',{'value':'disabled'},_('Disabled'))]),siteCount]),
 						E('div',{'class':'site-table'},[node]),
+						E('p',{'class':'hint','hidden':!siteSection.sortable},_('Drag the handle to reorder sites. Save to keep the order.')),
 						E('p',{'class':'readonly-note'},_('Certificates are issued and renewed automatically by Caddy. WebSocket upgrades are supported.'))
 					])];
 			}
